@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Primitive Definition
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(data) {
+      return isSignedIn() && data.ownerId == request.auth.uid;
+    }
+
+    // --- Entity Validations ---
+
+    function isValidProperty(data) {
+      return data.keys().hasAll(['id', 'ownerId', 'title', 'address', 'rentAmount', 'status', 'imageUrl', 'createdAt', 'updatedAt'])
+        && data.keys().size() == 9
+        && data.id is string && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && data.title is string && data.title.size() <= 200
+        && data.address is string && data.address.size() <= 500
+        && data.rentAmount is number && data.rentAmount >= 0
+        && data.status in ['available', 'rented']
+        && data.imageUrl is string && data.imageUrl.size() <= 1000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTenant(data) {
+      return data.keys().hasAll(['id', 'ownerId', 'name', 'email', 'phone', 'cpf', 'createdAt', 'updatedAt'])
+        && data.keys().size() == 8
+        && data.id is string && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && data.name is string && data.name.size() <= 100
+        && data.email is string && data.email.size() <= 100
+        && data.phone is string && data.phone.size() <= 30
+        && data.cpf is string && data.cpf.size() <= 20
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidContract(data) {
+      return data.keys().hasAll(['id', 'ownerId', 'propertyId', 'tenantId', 'startDate', 'endDate', 'rentAmount', 'dayOfPayment', 'createdAt', 'updatedAt'])
+        && data.keys().size() == 10
+        && data.id is string && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && data.propertyId is string && isValidId(data.propertyId)
+        && data.tenantId is string && isValidId(data.tenantId)
+        && data.startDate is string && data.startDate.size() == 10
+        && data.endDate is string && data.endDate.size() == 10
+        && data.rentAmount is number && data.rentAmount >= 0
+        && data.dayOfPayment is number && data.dayOfPayment >= 1 && data.dayOfPayment <= 31
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPayment(data) {
+      return data.keys().hasAll(['id', 'ownerId', 'contractId', 'dueDate', 'amount', 'status', 'createdAt', 'updatedAt'])
+        && (data.keys().size() >= 8 && data.keys().size() <= 10)
+        && data.id is string && isValidId(data.id)
+        && data.ownerId == request.auth.uid
+        && data.contractId is string && isValidId(data.contractId)
+        && data.dueDate is string && data.dueDate.size() == 10
+        && data.amount is number && data.amount >= 0
+        && data.status in ['paid', 'pending', 'overdue']
+        && (!('paymentDate' in data) || data.paymentDate is timestamp)
+        && (!('boletoLink' in data) || (data.boletoLink is string && data.boletoLink.size() <= 1000))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collections ---
+
+    match /properties/{propertyId} {
+      allow read: if isOwner(existing());
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(propertyId) && isValidProperty(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(existing()) && isValidProperty(incoming()) 
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().ownerId == existing().ownerId;
+      allow delete: if isOwner(existing());
+    }
+
+    match /tenants/{tenantId} {
+      allow read: if isOwner(existing());
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(tenantId) && isValidTenant(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(existing()) && isValidTenant(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().ownerId == existing().ownerId;
+      allow delete: if isOwner(existing());
+    }
+
+    match /contracts/{contractId} {
+      allow read: if isOwner(existing());
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(contractId) && isValidContract(incoming()) 
+        && incoming().createdAt == request.time
+        && get(/databases/$(database)/documents/properties/$(incoming().propertyId)).data.ownerId == request.auth.uid
+        && get(/databases/$(database)/documents/tenants/$(incoming().tenantId)).data.ownerId == request.auth.uid;
+      allow update: if isOwner(existing()) && isValidContract(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().ownerId == existing().ownerId;
+      allow delete: if isOwner(existing());
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isOwner(existing());
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(paymentId) && isValidPayment(incoming()) 
+        && incoming().createdAt == request.time
+        && get(/databases/$(database)/documents/contracts/$(incoming().contractId)).data.ownerId == request.auth.uid;
+      allow update: if isOwner(existing()) && isValidPayment(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().ownerId == existing().ownerId
+        && (existing().status != 'paid' || incoming().status == 'paid'); // Basic terminal state logic
+      allow delete: if isOwner(existing());
+    }
+  }
+}

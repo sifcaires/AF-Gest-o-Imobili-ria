@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Building2, 
   Users, 
@@ -15,7 +15,10 @@ import {
   MoreVertical,
   CheckCircle2,
   AlertCircle,
-  FileDown
+  FileDown,
+  LogIn,
+  LogOut,
+  Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
@@ -67,14 +70,30 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
+  DropdownMenuGroup,
   DropdownMenuItem, 
   DropdownMenuLabel, 
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
 
 import { Property, Tenant, Contract, Payment } from './types';
 import { mockProperties, mockTenants, mockContracts, mockPayments } from './mockData';
+import { useFirebase } from './components/FirebaseProvider';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  serverTimestamp,
+  doc,
+  writeBatch
+} from 'firebase/firestore';
+import { db } from './lib/firebase';
+
+import { boletoService } from './services/boletoService';
 
 type View = 'dashboard' | 'properties' | 'tenants' | 'contracts' | 'payments';
 
@@ -88,16 +107,126 @@ const chartData = [
 ];
 
 export default function App() {
+  const { user, loading: authLoading, signIn, logout } = useFirebase();
   const [activeView, setActiveView] = useState<View>('dashboard');
-  const [properties] = useState<Property[]>(mockProperties);
-  const [tenants] = useState<Tenant[]>(mockTenants);
-  const [contracts] = useState<Contract[]>(mockContracts);
-  const [payments] = useState<Payment[]>(mockPayments);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const qProperties = query(collection(db, 'properties'), where('ownerId', '==', user.uid));
+      const qTenants = query(collection(db, 'tenants'), where('ownerId', '==', user.uid));
+      const qContracts = query(collection(db, 'contracts'), where('ownerId', '==', user.uid));
+      const qPayments = query(collection(db, 'payments'), where('ownerId', '==', user.uid));
+
+      const [sProp, sTen, sCon, sPay] = await Promise.all([
+        getDocs(qProperties),
+        getDocs(qTenants),
+        getDocs(qContracts),
+        getDocs(qPayments)
+      ]);
+
+      setProperties(sProp.docs.map(d => ({ id: d.id, ...d.data() } as Property)));
+      setTenants(sTen.docs.map(d => ({ id: d.id, ...d.data() } as Tenant)));
+      setContracts(sCon.docs.map(d => ({ id: d.id, ...d.data() } as Contract)));
+      setPayments(sPay.docs.map(d => ({ id: d.id, ...d.data() } as Payment)));
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao carregar dados do Firebase');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
-    toast.success('Bem-vindo ao AlugaFácil');
-  }, []);
+    if (user) {
+      fetchData();
+      toast.success('Sessão ativa: ' + user.displayName);
+    }
+  }, [user, fetchData]);
+
+  const seedData = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const batch = writeBatch(db);
+      
+      // We map and add ownerId to mock data
+      mockProperties.forEach(p => {
+        const ref = doc(collection(db, 'properties'), p.id);
+        batch.set(ref, { ...p, ownerId: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      });
+      
+      mockTenants.forEach(t => {
+        const ref = doc(collection(db, 'tenants'), t.id);
+        batch.set(ref, { ...t, ownerId: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      });
+
+      mockContracts.forEach(c => {
+        const ref = doc(collection(db, 'contracts'), c.id);
+        batch.set(ref, { ...c, ownerId: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      });
+
+      mockPayments.forEach(p => {
+        const ref = doc(collection(db, 'payments'), p.id);
+        batch.set(ref, { ...p, ownerId: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      });
+
+      await batch.commit();
+      toast.success('Dados de demonstração populados com sucesso!');
+      fetchData();
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao popular banco de dados');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#020617]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
+          <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Carregando Sistema...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen w-full bg-[#020617] items-center justify-center p-4">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#020617] z-0"></div>
+        <Card className="w-full max-w-md frosted border-white/10 relative z-10 p-8 text-center space-y-8 shadow-2xl">
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-indigo-500 font-bold text-white shadow-2xl shadow-indigo-500/20 text-2xl">
+              AF
+            </div>
+            <h1 className="text-4xl font-bold text-white serif italic">AlugaFácil</h1>
+            <p className="text-slate-400 font-medium">Gestão inteligente para seus imóveis e locações.</p>
+          </div>
+          
+          <div className="space-y-4">
+            <Button 
+              onClick={signIn}
+              className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl flex items-center justify-center gap-3 shadow-xl transition-all"
+            >
+              <LogIn className="h-5 w-5" />
+              Entrar com Google
+            </Button>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Acesso restrito para administradores</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   const totalMonthlyIncome = properties
     .filter(p => p.status === 'rented')
@@ -126,7 +255,7 @@ export default function App() {
       case 'contracts':
         return <ContractsView contracts={contracts} properties={properties} tenants={tenants} />;
       case 'payments':
-        return <PaymentsView payments={payments} contracts={contracts} tenants={tenants} />;
+        return <PaymentsView payments={payments} contracts={contracts} tenants={tenants} properties={properties} />;
       default:
         return <DashboardView stats={{ income: 0, propertiesCount: 0, tenantsCount: 0, pendingPayments: 0, overduePayments: 0 }} recentPayments={[]} />;
     }
@@ -210,12 +339,12 @@ export default function App() {
           </SidebarContent>
           <SidebarFooter className="p-4 border-t border-white/10">
             <div className="flex items-center gap-3 px-2 py-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group">
-              <Avatar className="h-9 w-9 border border-white/10">
-                <AvatarImage src="" />
-                <AvatarFallback className="bg-white/10 text-white font-semibold text-xs">SC</AvatarFallback>
+              <Avatar className="h-9 w-9 border border-white/10 text-slate-100">
+                <AvatarImage src={user?.photoURL || ''} />
+                <AvatarFallback className="bg-white/10 text-white font-semibold text-xs">{user?.displayName?.substring(0, 2).toUpperCase() || 'AF'}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-semibold text-white truncate">Silas Caires</span>
+                <span className="text-sm font-semibold text-white truncate max-w-[120px]">{user?.displayName}</span>
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Admin</span>
               </div>
               <DropdownMenu>
@@ -227,12 +356,20 @@ export default function App() {
                   }
                 />
                 <DropdownMenuContent align="end" className="w-48 frosted text-white border-white/10">
-                  <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer">Configurações</DropdownMenuItem>
-                  <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer">Suporte</DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem className="text-red-400 hover:bg-red-400/10 focus:bg-red-400/10 cursor-pointer">Sair</DropdownMenuItem>
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-white/10" />
+                    <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer">Configurações</DropdownMenuItem>
+                    <DropdownMenuItem onClick={seedData} className="hover:bg-indigo-500/10 focus:bg-indigo-500/10 cursor-pointer flex items-center gap-2">
+                      <Database className="h-4 w-4 text-indigo-400" />
+                      Gerar Mock Data
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-white/10" />
+                    <DropdownMenuItem onClick={logout} className="text-red-400 hover:bg-red-400/10 focus:bg-red-400/10 cursor-pointer flex items-center gap-2">
+                      <LogOut className="h-4 w-4" />
+                      Sair
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -700,14 +837,37 @@ function ContractsView({ contracts, properties, tenants }: { contracts: Contract
   );
 }
 
-function PaymentsView({ payments, contracts, tenants }: { payments: Payment[], contracts: Contract[], tenants: Tenant[] }) {
-  const [selectedBoleto, setSelectedBoleto] = useState<Payment | null>(null);
+function PaymentsView({ payments, contracts, tenants, properties }: { payments: Payment[], contracts: Contract[], tenants: Tenant[], properties: Property[] }) {
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
   const getTenantName = (contractId: string) => {
     const contract = contracts.find(c => c.id === contractId);
     if (!contract) return 'N/A';
     const tenant = tenants.find(t => t.id === contract.tenantId);
     return tenant?.name || 'N/A';
+  };
+
+  const handleGenerateBoleto = async (payment: Payment) => {
+    setIsGenerating(payment.id);
+    try {
+      const contract = contracts.find(c => c.id === payment.contractId);
+      const tenant = tenants.find(t => t.id === contract?.tenantId);
+      const property = properties.find(p => p.id === contract?.propertyId);
+
+      if (!contract || !tenant || !property) {
+        toast.error('Dados incompletos para gerar o boleto');
+        return;
+      }
+
+      await boletoService.generateForPayment(payment, tenant, property);
+      toast.success('Boleto gerado com sucesso!');
+    } catch (error) {
+      console.error(error);
+      toast.error('Falha ao gerar boleto');
+    } finally {
+      setIsGenerating(null);
+    }
   };
 
   return (
@@ -759,12 +919,12 @@ function PaymentsView({ payments, contracts, tenants }: { payments: Payment[], c
                 </TableCell>
                 <TableCell className="text-right px-10">
                   <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
-                    <Dialog open={!!selectedBoleto && selectedBoleto.id === payment.id} onOpenChange={(open) => !open && setSelectedBoleto(null)}>
+                    <Dialog open={!!selectedPayment && selectedPayment.id === payment.id} onOpenChange={(open) => !open && setSelectedPayment(null)}>
                       <DialogTrigger
                         render={
                           <Button 
                             className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase tracking-widest gap-3 shadow-xl shadow-indigo-500/25 transition-all"
-                            onClick={() => setSelectedBoleto(payment)}
+                            onClick={() => setSelectedPayment(payment)}
                           >
                             <FileDown className="h-4 w-4" />
                             Boleto
@@ -778,7 +938,7 @@ function PaymentsView({ payments, contracts, tenants }: { payments: Payment[], c
                              <CreditCard className="h-10 w-10 text-white" />
                           </div>
                           <div className="text-center relative z-10">
-                            <h3 className="text-3xl font-bold serif italic">Fatura Gerada</h3>
+                            <h3 className="text-3xl font-bold serif italic">Opções de Cobrança</h3>
                             <p className="text-indigo-100 text-xs font-bold uppercase tracking-widest opacity-80 mt-2">Referente: {new Date(payment.dueDate).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
                           </div>
                         </div>
@@ -795,17 +955,20 @@ function PaymentsView({ payments, contracts, tenants }: { payments: Payment[], c
                                </p>
                             </div>
                           </div>
-                          <div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-3">Linha Digitável</span>
-                            <div className="bg-white/5 p-6 rounded-2xl font-mono text-[11px] text-slate-300 break-all border border-dashed border-white/20 text-center select-all cursor-pointer hover:bg-white/10 transition-all leading-relaxed shadow-inner">
-                              34191.09008 63561.952010 34020.910007 9 93840000000000
-                            </div>
-                          </div>
                           <div className="flex flex-col gap-4 pt-6">
-                            <Button className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl transition-all transform hover:-translate-y-1 uppercase tracking-widest text-[10px]">
-                              Download Guia de Pagamento
+                            <Button 
+                              className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl transition-all transform hover:-translate-y-1 uppercase tracking-widest text-[10px]"
+                              onClick={() => handleGenerateBoleto(payment)}
+                              disabled={isGenerating === payment.id}
+                            >
+                              {isGenerating === payment.id ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                              ) : (
+                                <FileText className="h-4 w-4 mr-2" />
+                              )}
+                              Baixar PDF do Boleto
                             </Button>
-                            <Button variant="ghost" className="w-full text-slate-400 font-bold text-[10px] uppercase tracking-widest h-12 hover:bg-white/5 hover:text-white" onClick={() => setSelectedBoleto(null)}>
+                            <Button variant="ghost" className="w-full text-slate-400 font-bold text-[10px] uppercase tracking-widest h-12 hover:bg-white/5 hover:text-white" onClick={() => setSelectedPayment(null)}>
                               Voltar ao Financeiro
                             </Button>
                           </div>

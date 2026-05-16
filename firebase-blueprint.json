@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "Property": {
+      "title": "Property",
+      "description": "Real estate property for rent",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "address": { "type": "string" },
+        "rentAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["available", "rented"] },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "title", "address", "rentAmount", "status", "imageUrl"]
+    },
+    "Tenant": {
+      "title": "Tenant",
+      "description": "Person renting a property",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "cpf": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "name", "email", "phone", "cpf"]
+    },
+    "Contract": {
+      "title": "Contract",
+      "description": "Rental contract between owner and tenant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "rentAmount": { "type": "number" },
+        "dayOfPayment": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "propertyId", "tenantId", "startDate", "endDate", "rentAmount", "dayOfPayment"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Record of a rent payment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "contractId": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["paid", "pending", "overdue"] },
+        "paymentDate": { "type": "string", "format": "date-time" },
+        "boletoLink": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "contractId", "dueDate", "amount", "status"]
+    }
+  },
+  "firestore": {
+    "properties/{propertyId}": {
+      "schema": "Property",
+      "description": "Collection of all properties"
+    },
+    "tenants/{tenantId}": {
+      "schema": "Tenant",
+      "description": "Collection of all tenants"
+    },
+    "contracts/{contractId}": {
+      "schema": "Contract",
+      "description": "Collection of all contracts"
+    },
+    "payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Collection of all payments"
+    }
+  }
+}
