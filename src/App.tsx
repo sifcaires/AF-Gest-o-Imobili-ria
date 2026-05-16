@@ -7,6 +7,7 @@ import {
   LayoutDashboard, 
   Plus,
   Search,
+  Home,
   DollarSign,
   TrendingUp,
   Clock,
