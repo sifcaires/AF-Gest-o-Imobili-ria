@@ -18,7 +18,8 @@ import {
   FileDown,
   LogIn,
   LogOut,
-  Database
+  Database,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
@@ -83,6 +84,7 @@ import { Property, Tenant, Contract, Payment } from './types';
 import { PropertyForm } from './components/PropertyForm';
 import { TenantForm } from './components/TenantForm';
 import { ContractForm } from './components/ContractForm';
+import { PaymentForm } from './components/PaymentForm';
 import { mockProperties, mockTenants, mockContracts, mockPayments } from './mockData';
 import { useFirebase } from './components/FirebaseProvider';
 import { 
@@ -123,6 +125,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isRegistryOpen, setIsRegistryOpen] = useState(false);
   const [activeForm, setActiveForm] = useState<'none' | 'property' | 'tenant' | 'contract' | 'payment'>('none');
+  const [editingItem, setEditingItem] = useState<any | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -168,6 +171,120 @@ export default function App() {
       fetchData();
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, `properties/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProperty = async (id: string, data: Partial<Property>) => {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'properties', id), {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Imóvel atualizado!');
+      setEditingItem(null);
+      setIsRegistryOpen(false);
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `properties/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteTenant = async (id: string) => {
+    if (!confirm('Deseja realmente excluir este inquilino?')) return;
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, 'tenants', id));
+      toast.success('Inquilino removido!');
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `tenants/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateTenant = async (id: string, data: Partial<Tenant>) => {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'tenants', id), {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Cadastro de inquilino atualizado!');
+      setEditingItem(null);
+      setIsRegistryOpen(false);
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `tenants/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteContract = async (id: string) => {
+    if (!confirm('Deseja realmente encerrar/excluir este contrato?')) return;
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, 'contracts', id));
+      toast.success('Contrato encerrado!');
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `contracts/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateContract = async (id: string, data: Partial<Contract>) => {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'contracts', id), {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Contrato atualizado!');
+      setEditingItem(null);
+      setIsRegistryOpen(false);
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `contracts/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deletePayment = async (id: string) => {
+    if (!confirm('Deseja excluir este registro de recibo?')) return;
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, 'payments', id));
+      toast.success('Registro excluído!');
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `payments/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updatePayment = async (id: string, data: Partial<Payment>) => {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'payments', id), {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Pagamento atualizado!');
+      setEditingItem(null);
+      setIsRegistryOpen(false);
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `payments/${id}`);
     } finally {
       setLoading(false);
     }
@@ -240,6 +357,27 @@ export default function App() {
       fetchData();
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'contracts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddPayment = async (data: Omit<Payment, 'id'>) => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      await addDoc(collection(db, 'payments'), {
+        ...data,
+        ownerId: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Recibo/Pagamento registrado com sucesso!');
+      setIsRegistryOpen(false);
+      setActiveForm('none');
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'payments');
     } finally {
       setLoading(false);
     }
@@ -351,13 +489,52 @@ export default function App() {
           recentPayments={payments.slice(0, 5)}
         />;
       case 'properties':
-        return <PropertiesView properties={properties} setSearchTerm={setSearchTerm} searchTerm={searchTerm} />;
+        return <PropertiesView 
+          properties={properties} 
+          setSearchTerm={setSearchTerm} 
+          searchTerm={searchTerm} 
+          onEdit={(prop) => {
+            setEditingItem(prop);
+            setActiveForm('property');
+            setIsRegistryOpen(true);
+          }}
+          onDelete={deleteProperty}
+        />;
       case 'tenants':
-        return <TenantsView tenants={tenants} />;
+        return <TenantsView 
+          tenants={tenants} 
+          onEdit={(tenant) => {
+            setEditingItem(tenant);
+            setActiveForm('tenant');
+            setIsRegistryOpen(true);
+          }}
+          onDelete={deleteTenant}
+        />;
       case 'contracts':
-        return <ContractsView contracts={contracts} properties={properties} tenants={tenants} />;
+        return <ContractsView 
+          contracts={contracts} 
+          properties={properties} 
+          tenants={tenants} 
+          onEdit={(contract) => {
+            setEditingItem(contract);
+            setActiveForm('contract');
+            setIsRegistryOpen(true);
+          }}
+          onDelete={deleteContract}
+        />;
       case 'payments':
-        return <PaymentsView payments={payments} contracts={contracts} tenants={tenants} properties={properties} />;
+        return <PaymentsView 
+          payments={payments} 
+          contracts={contracts} 
+          tenants={tenants} 
+          properties={properties} 
+          onEdit={(payment) => {
+            setEditingItem(payment);
+            setActiveForm('payment');
+            setIsRegistryOpen(true);
+          }}
+          onDelete={deletePayment}
+        />;
       default:
         return <DashboardView stats={{ income: 0, propertiesCount: 0, tenantsCount: 0, pendingPayments: 0, overduePayments: 0 }} recentPayments={[]} />;
     }
@@ -493,7 +670,10 @@ export default function App() {
             <div className="flex items-center gap-4">
               <Dialog open={isRegistryOpen} onOpenChange={(open) => {
                 setIsRegistryOpen(open);
-                if (!open) setActiveForm('none');
+                if (!open) {
+                  setActiveForm('none');
+                  setEditingItem(null);
+                }
               }}>
                 <DialogTrigger
                   render={
@@ -507,14 +687,15 @@ export default function App() {
                   <DialogHeader className="p-4 border-b border-white/5">
                     <DialogTitle className="serif italic text-2xl text-white">
                       {activeForm === 'none' ? 'Novo Cadastro' : 
-                       activeForm === 'property' ? 'Cadastrar Imóvel' : 
-                       activeForm === 'tenant' ? 'Cadastrar Inquilino' :
-                       activeForm === 'contract' ? 'Cadastrar Contrato' :
+                       activeForm === 'property' ? (editingItem ? 'Editar Imóvel' : 'Cadastrar Imóvel') : 
+                       activeForm === 'tenant' ? (editingItem ? 'Editar Inquilino' : 'Cadastrar Inquilino') :
+                       activeForm === 'contract' ? (editingItem ? 'Editar Contrato' : 'Cadastrar Contrato') :
+                       activeForm === 'payment' ? (editingItem ? 'Editar Recibo' : 'Novo Recibo') :
                        'Novo Registro'}
                     </DialogTitle>
                     <DialogDescription className="text-slate-400">
                       {activeForm === 'none' ? 'Selecione o tipo de registro que deseja criar no AlugaFácil.' : 
-                       'Preencha os dados abaixo para salvar o novo registro.'}
+                       editingItem ? 'Atualize os dados do registro selecionado.' : 'Preencha os dados abaixo para salvar o novo registro.'}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -563,22 +744,34 @@ export default function App() {
                         </Button>
                       </div>
                     ) : activeForm === 'property' ? (
-                      <PropertyForm onSubmit={handleAddProperty} isLoading={loading} />
+                      <PropertyForm 
+                        initialData={editingItem} 
+                        onSubmit={editingItem ? (data) => updateProperty(editingItem.id, data) : handleAddProperty} 
+                        isLoading={loading} 
+                      />
                     ) : activeForm === 'tenant' ? (
-                      <TenantForm onSubmit={handleAddTenant} isLoading={loading} />
+                      <TenantForm 
+                        initialData={editingItem} 
+                        onSubmit={editingItem ? (data) => updateTenant(editingItem.id, data) : handleAddTenant} 
+                        isLoading={loading} 
+                      />
                     ) : activeForm === 'contract' ? (
                       <ContractForm 
+                        initialData={editingItem} 
                         properties={properties} 
                         tenants={tenants} 
-                        onSubmit={handleAddContract} 
+                        onSubmit={editingItem ? (data) => updateContract(editingItem.id, data) : handleAddContract} 
                         isLoading={loading} 
                       />
                     ) : (
-                      <div className="py-10 text-center space-y-4">
-                        <AlertCircle className="h-12 w-12 text-slate-500 mx-auto" />
-                        <p className="text-slate-400">Este formulário será implementado em breve.</p>
-                        <Button variant="ghost" onClick={() => setActiveForm('none')} className="text-indigo-400 font-bold uppercase tracking-widest text-xs">Voltar</Button>
-                      </div>
+                      <PaymentForm
+                        initialData={editingItem} 
+                        contracts={contracts}
+                        tenants={tenants}
+                        properties={properties}
+                        onSubmit={editingItem ? (data) => updatePayment(editingItem.id, data) : handleAddPayment}
+                        isLoading={loading}
+                      />
                     )}
                   </div>
                 </DialogContent>
@@ -787,7 +980,13 @@ function StatCard({ title, value, subValue, icon, color, trend }: { title: strin
   );
 }
 
-function PropertiesView({ properties, searchTerm, setSearchTerm }: { properties: Property[], searchTerm: string, setSearchTerm: (s: string) => void }) {
+function PropertiesView({ properties, searchTerm, setSearchTerm, onEdit, onDelete }: { 
+  properties: Property[], 
+  searchTerm: string, 
+  setSearchTerm: (s: string) => void,
+  onEdit: (p: Property) => void,
+  onDelete: (id: string) => void
+}) {
   const filteredProperties = properties.filter(p => 
     p.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.address.toLowerCase().includes(searchTerm.toLowerCase())
@@ -820,7 +1019,15 @@ function PropertiesView({ properties, searchTerm, setSearchTerm }: { properties:
                 alt={property.title} 
                 className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100" 
               />
-              <div className="absolute top-6 right-6">
+              <div className="absolute top-6 right-6 flex gap-2">
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  onClick={() => onDelete(property.id)}
+                  className="bg-rose-500/80 backdrop-blur-sm text-white hover:bg-rose-600 border-none h-8 w-8 rounded-lg shadow-lg"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
                 <Badge className={
                   property.status === 'available' ? 'bg-emerald-500/80 text-white border-none font-bold uppercase tracking-widest text-[10px] px-3 py-1 shadow-lg' : 'bg-slate-900/80 text-white border-none font-bold uppercase tracking-widest text-[10px] px-3 py-1 shadow-lg'
                 }>
@@ -845,7 +1052,10 @@ function PropertiesView({ properties, searchTerm, setSearchTerm }: { properties:
                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.rentAmount)}
                 </span>
               </div>
-              <Button className="h-10 px-6 rounded-full font-bold text-xs uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-lg hover:shadow-indigo-500/25">
+              <Button 
+                onClick={() => onEdit(property)}
+                className="h-10 px-6 rounded-full font-bold text-xs uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-lg hover:shadow-indigo-500/25"
+              >
                 Gerenciar
               </Button>
             </CardFooter>
@@ -856,7 +1066,11 @@ function PropertiesView({ properties, searchTerm, setSearchTerm }: { properties:
   );
 }
 
-function TenantsView({ tenants }: { tenants: Tenant[] }) {
+function TenantsView({ tenants, onEdit, onDelete }: { 
+  tenants: Tenant[],
+  onEdit: (t: Tenant) => void,
+  onDelete: (id: string) => void
+}) {
   return (
     <div className="space-y-10">
        <div className="border-b pb-8 border-white/10">
@@ -871,7 +1085,7 @@ function TenantsView({ tenants }: { tenants: Tenant[] }) {
               <TableHead className="text-[10px] font-bold uppercase tracking-widest py-8 px-10 text-slate-400">Locatário</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest py-8 text-slate-400">Documento</TableHead>
               <TableHead className="text-[10px) font-bold uppercase tracking-widest py-8 text-slate-400">Contato</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest py-8 text-right px-10 text-slate-400">Relatórios</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest py-8 text-right px-10 text-slate-400">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -892,11 +1106,19 @@ function TenantsView({ tenants }: { tenants: Tenant[] }) {
                 <TableCell className="text-sm font-bold text-slate-300 tracking-tight">{tenant.phone}</TableCell>
                 <TableCell className="text-right px-10">
                   <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
-                    <Button variant="outline" className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-indigo-500/20 hover:text-white hover:border-indigo-500/50 text-slate-400 transition-colors">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => onEdit(tenant)}
+                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-indigo-500/20 hover:text-white hover:border-indigo-500/50 text-slate-400 transition-colors"
+                    >
                       <FileText className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-slate-500 transition-colors">
-                      <MoreVertical className="h-4 w-4" />
+                    <Button 
+                      variant="outline" 
+                      onClick={() => onDelete(tenant.id)}
+                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
@@ -909,12 +1131,20 @@ function TenantsView({ tenants }: { tenants: Tenant[] }) {
   );
 }
 
-function ContractsView({ contracts, properties, tenants }: { contracts: Contract[], properties: Property[], tenants: Tenant[] }) {
+function ContractsView({ contracts, properties, tenants, onEdit, onDelete }: { 
+  contracts: Contract[], 
+  properties: Property[], 
+  tenants: Tenant[],
+  onEdit: (c: Contract) => void,
+  onDelete: (id: string) => void
+}) {
   return (
     <div className="space-y-10">
-       <div className="border-b pb-8 border-white/10">
-        <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Contratos de Locação</h2>
-        <p className="text-slate-400 font-medium mt-1">Arquitetura jurídica das relações comerciais.</p>
+       <div className="border-b pb-8 border-white/10 flex justify-between items-end">
+        <div>
+          <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Contratos de Locação</h2>
+          <p className="text-slate-400 font-medium mt-1">Arquitetura jurídica das relações comerciais.</p>
+        </div>
       </div>
 
       <div className="grid gap-10">
@@ -971,10 +1201,19 @@ function ContractsView({ contracts, properties, tenants }: { contracts: Contract
                 </CardContent>
                 <CardFooter className="p-8 px-10 bg-white/5 rounded-b-[35px] border-t border-white/5 flex justify-between items-center">
                   <div className="flex gap-4">
-                    <Button variant="ghost" className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 hover:bg-white/10 px-6 py-4 rounded-xl border border-transparent hover:border-white/10 transition-all">Visualizar PDF</Button>
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => onDelete(contract.id)}
+                      className="text-[10px] font-bold uppercase tracking-widest text-rose-400 hover:bg-rose-500/10 px-6 py-4 rounded-xl transition-all"
+                    >
+                      Excluir
+                    </Button>
                     <Button variant="ghost" className="text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:bg-white/10 px-6 py-4 rounded-xl transition-all">Termos Aditivos</Button>
                   </div>
-                  <Button className="h-12 px-8 rounded-2xl font-bold text-xs uppercase tracking-widest bg-indigo-600 border-none hover:bg-indigo-700 transform hover:-translate-y-1 transition-all shadow-xl shadow-indigo-500/25 text-white">
+                  <Button 
+                    onClick={() => onEdit(contract)}
+                    className="h-12 px-8 rounded-2xl font-bold text-xs uppercase tracking-widest bg-indigo-600 border-none hover:bg-indigo-700 transform hover:-translate-y-1 transition-all shadow-xl shadow-indigo-500/25 text-white"
+                  >
                     Ajustar Termos
                   </Button>
                 </CardFooter>
@@ -987,7 +1226,14 @@ function ContractsView({ contracts, properties, tenants }: { contracts: Contract
   );
 }
 
-function PaymentsView({ payments, contracts, tenants, properties }: { payments: Payment[], contracts: Contract[], tenants: Tenant[], properties: Property[] }) {
+function PaymentsView({ payments, contracts, tenants, properties, onEdit, onDelete }: { 
+  payments: Payment[], 
+  contracts: Contract[], 
+  tenants: Tenant[], 
+  properties: Property[],
+  onEdit: (p: Payment) => void,
+  onDelete: (id: string) => void
+}) {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
@@ -1069,6 +1315,13 @@ function PaymentsView({ payments, contracts, tenants, properties }: { payments: 
                 </TableCell>
                 <TableCell className="text-right px-10">
                   <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => onEdit(payment)}
+                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-slate-400 transition-colors"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                    </Button>
                     <Dialog open={!!selectedPayment && selectedPayment.id === payment.id} onOpenChange={(open) => !open && setSelectedPayment(null)}>
                       <DialogTrigger
                         render={
@@ -1125,12 +1378,13 @@ function PaymentsView({ payments, contracts, tenants, properties }: { payments: 
                         </div>
                       </DialogContent>
                     </Dialog>
-                    {payment.status === 'pending' && (
-                      <Button variant="outline" className="h-11 px-6 rounded-xl border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 text-[10px] font-bold uppercase tracking-widest flex gap-3 bg-white/5 transition-all">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Validar Recebimento
-                      </Button>
-                    )}
+                    <Button 
+                      variant="outline" 
+                      onClick={() => onDelete(payment.id)}
+                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>

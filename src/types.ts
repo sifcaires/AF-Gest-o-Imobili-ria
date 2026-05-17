@@ -14,6 +14,10 @@ export interface Tenant {
   email: string;
   phone: string;
   cpf: string;
+  rg?: string;
+  birthDate?: string;
+  profession?: string;
+  monthlyIncome?: number;
 }
 
 export interface Contract {

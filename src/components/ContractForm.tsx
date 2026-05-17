@@ -13,17 +13,18 @@ interface ContractFormProps {
   tenants: Tenant[];
   onSubmit: (data: Omit<Contract, 'id'>) => Promise<void>;
   isLoading?: boolean;
+  initialData?: Partial<Contract>;
 }
 
-export function ContractForm({ properties, tenants, onSubmit, isLoading }: ContractFormProps) {
+export function ContractForm({ properties, tenants, onSubmit, isLoading, initialData }: ContractFormProps) {
   const [formData, setFormData] = useState({
-    propertyId: '',
-    tenantId: '',
-    startDate: '',
-    endDate: '',
-    rentAmount: 0,
-    dayOfPayment: 1,
-    documentUrl: '',
+    propertyId: initialData?.propertyId || '',
+    tenantId: initialData?.tenantId || '',
+    startDate: initialData?.startDate || '',
+    endDate: initialData?.endDate || '',
+    rentAmount: initialData?.rentAmount || 0,
+    dayOfPayment: initialData?.dayOfPayment || 1,
+    documentUrl: initialData?.documentUrl || '',
   });
 
   const [file, setFile] = useState<File | null>(null);

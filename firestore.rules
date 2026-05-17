@@ -31,7 +31,7 @@ service cloud.firestore {
 
     function isValidProperty(data) {
       return data.keys().hasAll(['ownerId', 'title', 'description', 'address', 'rentAmount', 'status', 'imageUrl', 'createdAt', 'updatedAt'])
-        && (data.keys().size() >= 9 && data.keys().size() <= 10)
+        && (data.keys().size() >= 9 && data.keys().size() <= 12)
         && (!('id' in data) || (data.id is string && isValidId(data.id)))
         && data.ownerId == request.auth.uid
         && data.title is string && data.title.size() <= 200
@@ -46,20 +46,24 @@ service cloud.firestore {
 
     function isValidTenant(data) {
       return data.keys().hasAll(['ownerId', 'name', 'email', 'phone', 'cpf', 'createdAt', 'updatedAt'])
-        && (data.keys().size() >= 7 && data.keys().size() <= 8)
+        && (data.keys().size() >= 7 && data.keys().size() <= 15)
         && (!('id' in data) || (data.id is string && isValidId(data.id)))
         && data.ownerId == request.auth.uid
         && data.name is string && data.name.size() <= 100
         && data.email is string && data.email.size() <= 100
         && data.phone is string && data.phone.size() <= 30
         && data.cpf is string && data.cpf.size() <= 20
+        && (!('rg' in data) || (data.rg is string && data.rg.size() <= 30))
+        && (!('birthDate' in data) || (data.birthDate is string && data.birthDate.size() <= 10))
+        && (!('profession' in data) || (data.profession is string && data.profession.size() <= 100))
+        && (!('monthlyIncome' in data) || (data.monthlyIncome is number && data.monthlyIncome >= 0))
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
 
     function isValidContract(data) {
       return data.keys().hasAll(['ownerId', 'propertyId', 'tenantId', 'startDate', 'endDate', 'rentAmount', 'dayOfPayment', 'createdAt', 'updatedAt'])
-        && (data.keys().size() >= 9 && data.keys().size() <= 10)
+        && (data.keys().size() >= 9 && data.keys().size() <= 15)
         && (!('id' in data) || (data.id is string && isValidId(data.id)))
         && data.ownerId == request.auth.uid
         && data.propertyId is string && isValidId(data.propertyId)
@@ -68,13 +72,14 @@ service cloud.firestore {
         && data.endDate is string && data.endDate.size() <= 10
         && data.rentAmount is number && data.rentAmount >= 0
         && data.dayOfPayment is number && data.dayOfPayment >= 1 && data.dayOfPayment <= 31
+        && (!('documentUrl' in data) || (data.documentUrl is string && data.documentUrl.size() <= 1000))
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
 
     function isValidPayment(data) {
       return data.keys().hasAll(['ownerId', 'contractId', 'dueDate', 'amount', 'status', 'createdAt', 'updatedAt'])
-        && (data.keys().size() >= 7 && data.keys().size() <= 10)
+        && (data.keys().size() >= 7 && data.keys().size() <= 15)
         && (!('id' in data) || (data.id is string && isValidId(data.id)))
         && data.ownerId == request.auth.uid
         && data.contractId is string && isValidId(data.contractId)
@@ -92,9 +97,9 @@ service cloud.firestore {
     match /properties/{propertyId} {
       allow read: if isOwner(existing());
       allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(propertyId) && isValidProperty(incoming()) && (incoming().createdAt == request.time || incoming().createdAt == existing().createdAt);
+      allow create: if isSignedIn() && isValidId(propertyId) && isValidProperty(incoming()) && incoming().createdAt == request.time;
       allow update: if isOwner(existing()) && isValidProperty(incoming()) 
-        && (incoming().createdAt == existing().createdAt || incoming().ownerId == request.auth.uid)
+        && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && incoming().ownerId == existing().ownerId;
       allow delete: if isOwner(existing());
@@ -103,9 +108,9 @@ service cloud.firestore {
     match /tenants/{tenantId} {
       allow read: if isOwner(existing());
       allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(tenantId) && isValidTenant(incoming()) && (incoming().createdAt == request.time || incoming().createdAt == existing().createdAt);
+      allow create: if isSignedIn() && isValidId(tenantId) && isValidTenant(incoming()) && incoming().createdAt == request.time;
       allow update: if isOwner(existing()) && isValidTenant(incoming())
-        && (incoming().createdAt == existing().createdAt || incoming().ownerId == request.auth.uid)
+        && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && incoming().ownerId == existing().ownerId;
       allow delete: if isOwner(existing());
@@ -115,7 +120,7 @@ service cloud.firestore {
       allow read: if isOwner(existing());
       allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
       allow create: if isSignedIn() && isValidId(contractId) && isValidContract(incoming()) 
-        && (incoming().createdAt == request.time || incoming().createdAt == existing().createdAt);
+        && incoming().createdAt == request.time;
       allow update: if isOwner(existing()) && isValidContract(incoming())
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
@@ -127,12 +132,11 @@ service cloud.firestore {
       allow read: if isOwner(existing());
       allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
       allow create: if isSignedIn() && isValidId(paymentId) && isValidPayment(incoming()) 
-        && (incoming().createdAt == request.time || incoming().createdAt == existing().createdAt);
+        && incoming().createdAt == request.time;
       allow update: if isOwner(existing()) && isValidPayment(incoming())
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
-        && incoming().ownerId == existing().ownerId
-        && (existing().status != 'paid' || incoming().status == 'paid'); // Basic terminal state logic
+        && incoming().ownerId == existing().ownerId;
       allow delete: if isOwner(existing());
     }
   }

@@ -29,6 +29,10 @@
         "email": { "type": "string", "format": "email" },
         "phone": { "type": "string" },
         "cpf": { "type": "string" },
+        "rg": { "type": "string" },
+        "birthDate": { "type": "string", "format": "date" },
+        "profession": { "type": "string" },
+        "monthlyIncome": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
