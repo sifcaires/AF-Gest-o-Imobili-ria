@@ -25,5 +25,17 @@ Sistema moderno para gestão de imóveis, inquilinos, contratos e pagamentos.
 
 3. O comando de build será `npm run build` e o diretório de saída será `dist`.
 
-## Autenticação
-O sistema utiliza o Google Auth. Certifique-se de adicionar o domínio da sua aplicação Vercel na lista de domínios autorizados no Console do Firebase (Autenticação > Configurações > Domínios Autorizados).
+## ⚠️ Solução de Erros Comuns
+
+### auth/configuration-not-found
+Este erro ocorre quando o provedor Google não está ativado no Firebase.
+1. Vá para o [Console do Firebase](https://console.firebase.google.com/).
+2. Selecione seu projeto (ex: `gen-lang-client-0661787852`).
+3. Vá em **Authentication** > **Sign-in method**.
+4. Clique em **Adicionar novo provedor** e selecione **Google**.
+5. Ative e salve as configurações.
+
+### Domínio não autorizado
+Se o login funcionar no ambiente de desenvolvimento mas falhar na Vercel:
+1. No Console do Firebase, vá em **Authentication** > **Settings** > **Authorized domains**.
+2. Adicione o domínio da sua aplicação Vercel (ex: `seu-app.vercel.app`).

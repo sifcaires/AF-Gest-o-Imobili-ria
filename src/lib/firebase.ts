@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import firebaseConfigLocal from '../../firebase-applet-config.json';
@@ -12,8 +12,16 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfigLocal.appId,
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID || (firebaseConfigLocal as any).firestoreDatabaseId);
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+// Verify config for debugging
+if (import.meta.env.DEV) {
+  if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'undefined') {
+    console.error('Firebase Config is missing API Key. Check firebase-applet-config.json or .env variables.');
+  }
+}
+
+export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfigLocal.firestoreDatabaseId || "(default)");
 export const auth = getAuth(app);
 
 export default app;
