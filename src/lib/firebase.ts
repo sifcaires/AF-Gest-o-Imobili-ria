@@ -1,40 +1,39 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-// Configuration priority: Environment Variables (Vercel/Production) > local config file (AI Studio)
-// Using a placeholder if local config is missing during build on other platforms
-let firebaseConfigLocal: any = {};
-try {
-  // @ts-ignore - Local config might be missing in production/Vercel environments
-  const localConfig = await import('../../firebase-applet-config.json');
-  firebaseConfigLocal = localConfig.default || localConfig;
-} catch (e) {
-  // Fallback to empty object if local config is missing
-}
+import firebaseConfigLocal from '../../firebase-applet-config.json';
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfigLocal.apiKey,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigLocal.authDomain,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfigLocal.projectId,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigLocal.storageBucket,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigLocal.messagingSenderId,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfigLocal.appId,
+// Configuration priority: Environment Variables (Vercel/Production) > local config file (AI Studio)
+const getEnvValue = (envKey: string, localValue: any) => {
+  const value = import.meta.env[envKey];
+  // Check for empty strings, 'undefined' string, or null
+  if (value && typeof value === 'string' && value.trim() !== '' && value !== 'undefined' && value !== 'null') {
+    return value;
+  }
+  return localValue;
 };
 
-// Diagnostic logging
-if (import.meta.env.DEV) {
-  console.log('Firebase Configuration Diagnostic:', {
-    activeProjectId: firebaseConfig.projectId,
-    source: import.meta.env.VITE_FIREBASE_PROJECT_ID ? 'Environment Variable (VITE_FIREBASE_PROJECT_ID)' : 'Local config (firebase-applet-config.json)',
-    isAuthDomainMatched: firebaseConfig.authDomain.includes(firebaseConfig.projectId),
-    localProjectId: firebaseConfigLocal.projectId
-  });
+const firebaseConfig = {
+  apiKey: getEnvValue('VITE_FIREBASE_API_KEY', firebaseConfigLocal.apiKey),
+  authDomain: getEnvValue('VITE_FIREBASE_AUTH_DOMAIN', firebaseConfigLocal.authDomain),
+  projectId: getEnvValue('VITE_FIREBASE_PROJECT_ID', firebaseConfigLocal.projectId),
+  storageBucket: getEnvValue('VITE_FIREBASE_STORAGE_BUCKET', firebaseConfigLocal.storageBucket),
+  messagingSenderId: getEnvValue('VITE_FIREBASE_MESSAGING_SENDER_ID', firebaseConfigLocal.messagingSenderId),
+  appId: getEnvValue('VITE_FIREBASE_APP_ID', firebaseConfigLocal.appId),
+};
 
-  if (import.meta.env.VITE_FIREBASE_PROJECT_ID && import.meta.env.VITE_FIREBASE_PROJECT_ID !== firebaseConfigLocal.projectId) {
-    console.warn(`CRITICAL: You are using a custom project ID (${import.meta.env.VITE_FIREBASE_PROJECT_ID}) in your environment variables. 
-    The AI Studio provisioned project is ${firebaseConfigLocal.projectId}. 
-    This mismatch might be why features like Google Auth are failing if not enabled in the custom project.`);
-  }
+// Diagnostic logging - helpful for debugging configuration mismatches
+const isProduction = import.meta.env.PROD;
+const isMismatch = firebaseConfig.projectId !== firebaseConfigLocal.projectId;
+
+console.log(`[Firebase Init] Project ID: ${firebaseConfig.projectId} (${isMismatch ? 'Custom Environment Variable' : 'Default AI Studio Config'})`);
+
+if (!firebaseConfig.apiKey) {
+  console.error('[Firebase Init] CRITICAL: API Key is missing! Auth will fail.');
+}
+
+if (isMismatch) {
+  console.warn(`[Firebase Init] Warning: You are using a custom project (${firebaseConfig.projectId}) instead of the auto-provisioned one (${firebaseConfigLocal.projectId}). Ensure ALL VITE_FIREBASE_* environment variables are set correctly for your project.`);
 }
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
