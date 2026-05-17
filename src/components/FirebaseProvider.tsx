@@ -50,8 +50,11 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         console.error(`ERROR: Google Sign-in is disabled. Enable it here: ${consoleUrl}`);
       } else if (errorCode === 'auth/unauthorized-domain') {
         const consoleUrl = `https://console.firebase.google.com/project/${projectId}/authentication/settings`;
-        setAuthError(`Este domínio (${window.location.hostname}) não está autorizado no Firebase.`);
+        setAuthError(`Domínio não autorizado. Adicione "${window.location.hostname}" em: Console do Firebase > Authentication > Settings > Authorized Domains.`);
         console.error(`ERROR: Unauthorized Domain. Add ${window.location.hostname} here: ${consoleUrl}`);
+      } else if (errorCode === 'auth/invalid-continue-uri') {
+        setAuthError('URL de continuação inválida. Verifique se o VITE_FIREBASE_AUTH_DOMAIN está configurado para o domínio do Firebase (.firebaseapp.com), não para o domínio do app.');
+        console.error('ERROR: Invalid Continue URI. This often happens if the authDomain is set to the app URL instead of the Firebase project domain.');
       } else if (errorCode === 'auth/api-key-not-valid' || errorCode === 'auth/invalid-api-key') {
         setAuthError('Chave da API do Firebase inválida. Verifique se as variáveis de ambiente (VITE_FIREBASE_API_KEY) estão corretas.');
         console.error('ERROR: Invalid Firebase API Key. If you are using a custom project, make sure you copied the correct API Key from the Firebase Console.');

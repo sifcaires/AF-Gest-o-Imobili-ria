@@ -24,6 +24,7 @@ export interface Contract {
   endDate: string;
   rentAmount: number;
   dayOfPayment: number;
+  documentUrl?: string;
 }
 
 export interface Payment {

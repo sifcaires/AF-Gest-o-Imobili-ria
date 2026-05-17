@@ -66,6 +66,7 @@ import {
   DialogTitle, 
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   DropdownMenu, 
@@ -79,6 +80,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { Property, Tenant, Contract, Payment } from './types';
+import { PropertyForm } from './components/PropertyForm';
+import { TenantForm } from './components/TenantForm';
+import { ContractForm } from './components/ContractForm';
 import { mockProperties, mockTenants, mockContracts, mockPayments } from './mockData';
 import { useFirebase } from './components/FirebaseProvider';
 import { 
@@ -87,6 +91,7 @@ import {
   where, 
   getDocs, 
   addDoc, 
+  updateDoc,
   serverTimestamp,
   doc,
   writeBatch,
@@ -116,6 +121,8 @@ export default function App() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isRegistryOpen, setIsRegistryOpen] = useState(false);
+  const [activeForm, setActiveForm] = useState<'none' | 'property' | 'tenant' | 'contract' | 'payment'>('none');
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -166,27 +173,73 @@ export default function App() {
     }
   };
 
-  const addProperty = async () => {
-    // Basic implementation for demo purposes
+  const handleAddProperty = async (data: Omit<Property, 'id'>) => {
     if (!user) return;
     setLoading(true);
     try {
-      const newProp = {
-        title: 'Novo Imóvel Residencial',
-        description: 'Exemplo de descrição para o novo imóvel cadastrado.',
-        address: 'Rua Exemplo, 123 - Centro',
-        rentAmount: 2500,
-        status: 'available' as const,
-        imageUrl: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&q=80&w=800',
+      await addDoc(collection(db, 'properties'), {
+        ...data,
         ownerId: user.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      };
-      await addDoc(collection(db, 'properties'), newProp);
+      });
       toast.success('Imóvel cadastrado com sucesso!');
+      setIsRegistryOpen(false);
+      setActiveForm('none');
       fetchData();
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, 'properties');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddTenant = async (data: Omit<Tenant, 'id'>) => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      await addDoc(collection(db, 'tenants'), {
+        ...data,
+        ownerId: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Inquilino cadastrado com sucesso!');
+      setIsRegistryOpen(false);
+      setActiveForm('none');
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'tenants');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddContract = async (data: Omit<Contract, 'id'>) => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      // 1. Create the contract
+      const contractRef = await addDoc(collection(db, 'contracts'), {
+        ...data,
+        ownerId: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      // 2. Update property status to 'rented'
+      const propertyRef = doc(db, 'properties', data.propertyId);
+      await updateDoc(propertyRef, {
+        status: 'rented',
+        updatedAt: serverTimestamp()
+      });
+
+      toast.success('Contrato gerado com sucesso!');
+      setIsRegistryOpen(false);
+      setActiveForm('none');
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'contracts');
     } finally {
       setLoading(false);
     }
@@ -394,7 +447,7 @@ export default function App() {
               </Avatar>
               <div className="flex flex-col overflow-hidden">
                 <span className="text-sm font-semibold text-white truncate max-w-[120px]">{user?.displayName}</span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Admin</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Administrador</span>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -411,7 +464,7 @@ export default function App() {
                     <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer">Configurações</DropdownMenuItem>
                     <DropdownMenuItem onClick={seedData} className="hover:bg-indigo-500/10 focus:bg-indigo-500/10 cursor-pointer flex items-center gap-2">
                       <Database className="h-4 w-4 text-indigo-400" />
-                      Gerar Mock Data
+                      Gerar Dados de Teste
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-white/10" />
                     <DropdownMenuItem onClick={logout} className="text-red-400 hover:bg-red-400/10 focus:bg-red-400/10 cursor-pointer flex items-center gap-2">
@@ -438,7 +491,10 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <Dialog>
+              <Dialog open={isRegistryOpen} onOpenChange={(open) => {
+                setIsRegistryOpen(open);
+                if (!open) setActiveForm('none');
+              }}>
                 <DialogTrigger
                   render={
                     <Button className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/25 transition-all font-bold px-6 rounded-full text-xs uppercase tracking-wider">
@@ -447,42 +503,83 @@ export default function App() {
                     </Button>
                   }
                 />
-                <DialogContent className="sm:max-w-md frosted border-white/10 text-white">
-                  <DialogHeader>
-                    <DialogTitle className="serif italic text-2xl text-white">Novo Cadastro</DialogTitle>
+                <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-md' : 'sm:max-w-lg'} frosted border-white/10 text-white overflow-hidden`}>
+                  <DialogHeader className="p-4 border-b border-white/5">
+                    <DialogTitle className="serif italic text-2xl text-white">
+                      {activeForm === 'none' ? 'Novo Cadastro' : 
+                       activeForm === 'property' ? 'Cadastrar Imóvel' : 
+                       activeForm === 'tenant' ? 'Cadastrar Inquilino' :
+                       activeForm === 'contract' ? 'Cadastrar Contrato' :
+                       'Novo Registro'}
+                    </DialogTitle>
                     <DialogDescription className="text-slate-400">
-                      Selecione o tipo de registro que deseja criar no AlugaFácil.
+                      {activeForm === 'none' ? 'Selecione o tipo de registro que deseja criar no AlugaFácil.' : 
+                       'Preencha os dados abaixo para salvar o novo registro.'}
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="grid grid-cols-2 gap-4 py-6">
-                    <Button 
-                      variant="outline" 
-                      onClick={addProperty}
-                      className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-indigo-500/20 hover:border-indigo-500/50 text-white transition-all group"
-                    >
-                      <div className="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center group-hover:bg-indigo-500/20">
-                        <Building2 className="h-5 w-5 text-indigo-400" />
+
+                  <div className="p-4">
+                    {activeForm === 'none' ? (
+                      <div className="grid grid-cols-2 gap-4 py-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setActiveForm('property')}
+                          className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-indigo-500/20 hover:border-indigo-500/50 text-white transition-all group"
+                        >
+                          <div className="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center group-hover:bg-indigo-500/20">
+                            <Building2 className="h-5 w-5 text-indigo-400" />
+                          </div>
+                          <span className="font-bold text-xs uppercase tracking-widest">Imóvel</span>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setActiveForm('tenant')}
+                          className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-emerald-500/20 hover:border-emerald-500/50 text-white transition-all group"
+                        >
+                           <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20">
+                            <Users className="h-5 w-5 text-emerald-400" />
+                          </div>
+                          <span className="font-bold text-xs uppercase tracking-widest">Inquilino</span>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setActiveForm('contract')}
+                          className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-purple-500/20 hover:border-purple-500/50 text-white transition-all group"
+                        >
+                           <div className="h-10 w-10 rounded-full bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20">
+                            <FileText className="h-5 w-5 text-purple-400" />
+                          </div>
+                          <span className="font-bold text-xs uppercase tracking-widest">Contrato</span>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setActiveForm('payment')}
+                          className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-orange-500/20 hover:border-orange-500/50 text-white transition-all group"
+                        >
+                           <div className="h-10 w-10 rounded-full bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500/20">
+                            <CreditCard className="h-5 w-5 text-orange-400" />
+                          </div>
+                          <span className="font-bold text-xs uppercase tracking-widest">Recibo</span>
+                        </Button>
                       </div>
-                      <span className="font-bold text-xs uppercase tracking-widest">Imóvel</span>
-                    </Button>
-                    <Button variant="outline" className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-emerald-500/20 hover:border-emerald-500/50 text-white transition-all group">
-                       <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20">
-                        <Users className="h-5 w-5 text-emerald-400" />
+                    ) : activeForm === 'property' ? (
+                      <PropertyForm onSubmit={handleAddProperty} isLoading={loading} />
+                    ) : activeForm === 'tenant' ? (
+                      <TenantForm onSubmit={handleAddTenant} isLoading={loading} />
+                    ) : activeForm === 'contract' ? (
+                      <ContractForm 
+                        properties={properties} 
+                        tenants={tenants} 
+                        onSubmit={handleAddContract} 
+                        isLoading={loading} 
+                      />
+                    ) : (
+                      <div className="py-10 text-center space-y-4">
+                        <AlertCircle className="h-12 w-12 text-slate-500 mx-auto" />
+                        <p className="text-slate-400">Este formulário será implementado em breve.</p>
+                        <Button variant="ghost" onClick={() => setActiveForm('none')} className="text-indigo-400 font-bold uppercase tracking-widest text-xs">Voltar</Button>
                       </div>
-                      <span className="font-bold text-xs uppercase tracking-widest">Inquilino</span>
-                    </Button>
-                    <Button variant="outline" className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-purple-500/20 hover:border-purple-500/50 text-white transition-all group">
-                       <div className="h-10 w-10 rounded-full bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20">
-                        <FileText className="h-5 w-5 text-purple-400" />
-                      </div>
-                      <span className="font-bold text-xs uppercase tracking-widest">Contrato</span>
-                    </Button>
-                    <Button variant="outline" className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-orange-500/20 hover:border-orange-500/50 text-white transition-all group">
-                       <div className="h-10 w-10 rounded-full bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500/20">
-                        <CreditCard className="h-5 w-5 text-orange-400" />
-                      </div>
-                      <span className="font-bold text-xs uppercase tracking-widest">Recibo</span>
-                    </Button>
+                    )}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -644,7 +741,7 @@ function DashboardView({ stats, recentPayments }: { stats: any, recentPayments: 
                       payment.status === 'overdue' ? 'text-rose-400' :
                       'text-amber-400'
                     }`}>
-                      {payment.status}
+                      {payment.status === 'paid' ? 'Pago' : payment.status === 'overdue' ? 'Atrasado' : 'Pendente'}
                     </p>
                   </div>
                 </div>

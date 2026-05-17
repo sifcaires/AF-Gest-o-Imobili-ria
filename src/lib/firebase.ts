@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import firebaseConfigLocal from '../../firebase-applet-config.json';
 
 // Configuration priority: Environment Variables (Vercel/Production) > local config file (AI Studio)
@@ -27,6 +28,7 @@ const isProduction = import.meta.env.PROD;
 const isMismatch = firebaseConfig.projectId !== firebaseConfigLocal.projectId;
 
 console.log(`[Firebase Init] Project ID: ${firebaseConfig.projectId} (${isMismatch ? 'Custom Environment Variable' : 'Default AI Studio Config'})`);
+console.log(`[Firebase Init] Auth Domain: ${firebaseConfig.authDomain}`);
 
 if (!firebaseConfig.apiKey) {
   console.error('[Firebase Init] CRITICAL: API Key is missing! Auth will fail.');
@@ -40,6 +42,7 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfigLocal.firestoreDatabaseId || "(default)");
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 
 // Help system diagnose and fix security rules issues
 export enum OperationType {
