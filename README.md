@@ -1,20 +1,29 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# AlugaFácil - Gestão de Locação Imobiliária
 
-# Run and deploy your AI Studio app
+Sistema moderno para gestão de imóveis, inquilinos, contratos e pagamentos.
 
-This contains everything you need to run your app locally.
+## Tecnologias
+- React + Vite
+- Tailwind CSS
+- Firebase (Auth & Firestore)
+- jsPDF (Geração de Boletos)
 
-View your app in AI Studio: https://ai.studio/apps/020f4a07-62b4-4c07-a38b-8dd4d8bca10d
+## Como implantar na Vercel
 
-## Run Locally
+1. Crie um novo projeto na Vercel e conecte seu repositório.
+2. Configure as seguintes variáveis de ambiente (Environment Variables) no painel da Vercel:
 
-**Prerequisites:**  Node.js
+| Variável | Descrição |
+| --- | --- |
+| `VITE_FIREBASE_API_KEY` | Sua Chave de API do Firebase |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Domínio de Autenticação |
+| `VITE_FIREBASE_PROJECT_ID` | ID do Projeto Firebase |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Bucket de Armazenamento |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | ID do Remetente de Mensagens |
+| `VITE_FIREBASE_APP_ID` | ID do Aplicativo |
+| `VITE_FIREBASE_DATABASE_ID` | ID do Banco de Dados Firestore (geralmente `(default)`) |
 
+3. O comando de build será `npm run build` e o diretório de saída será `dist`.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Autenticação
+O sistema utiliza o Google Auth. Certifique-se de adicionar o domínio da sua aplicação Vercel na lista de domínios autorizados no Console do Firebase (Autenticação > Configurações > Domínios Autorizados).
