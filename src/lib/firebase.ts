@@ -1,9 +1,17 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import firebaseConfigLocal from '../../firebase-applet-config.json';
-
 // Configuration priority: Environment Variables (Vercel/Production) > local config file (AI Studio)
+// Using a placeholder if local config is missing during build on other platforms
+let firebaseConfigLocal: any = {};
+try {
+  // @ts-ignore - Local config might be missing in production/Vercel environments
+  const localConfig = await import('../../firebase-applet-config.json');
+  firebaseConfigLocal = localConfig.default || localConfig;
+} catch (e) {
+  // Fallback to empty object if local config is missing
+}
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfigLocal.apiKey,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigLocal.authDomain,
