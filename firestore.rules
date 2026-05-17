@@ -30,11 +30,12 @@ service cloud.firestore {
     // --- Entity Validations ---
 
     function isValidProperty(data) {
-      return data.keys().hasAll(['id', 'ownerId', 'title', 'address', 'rentAmount', 'status', 'imageUrl', 'createdAt', 'updatedAt'])
-        && data.keys().size() == 9
-        && data.id is string && isValidId(data.id)
+      return data.keys().hasAll(['ownerId', 'title', 'description', 'address', 'rentAmount', 'status', 'imageUrl', 'createdAt', 'updatedAt'])
+        && (data.keys().size() >= 9 && data.keys().size() <= 10)
+        && (!('id' in data) || (data.id is string && isValidId(data.id)))
         && data.ownerId == request.auth.uid
         && data.title is string && data.title.size() <= 200
+        && data.description is string && data.description.size() <= 5000
         && data.address is string && data.address.size() <= 500
         && data.rentAmount is number && data.rentAmount >= 0
         && data.status in ['available', 'rented']
@@ -44,9 +45,9 @@ service cloud.firestore {
     }
 
     function isValidTenant(data) {
-      return data.keys().hasAll(['id', 'ownerId', 'name', 'email', 'phone', 'cpf', 'createdAt', 'updatedAt'])
-        && data.keys().size() == 8
-        && data.id is string && isValidId(data.id)
+      return data.keys().hasAll(['ownerId', 'name', 'email', 'phone', 'cpf', 'createdAt', 'updatedAt'])
+        && (data.keys().size() >= 7 && data.keys().size() <= 8)
+        && (!('id' in data) || (data.id is string && isValidId(data.id)))
         && data.ownerId == request.auth.uid
         && data.name is string && data.name.size() <= 100
         && data.email is string && data.email.size() <= 100
@@ -57,14 +58,14 @@ service cloud.firestore {
     }
 
     function isValidContract(data) {
-      return data.keys().hasAll(['id', 'ownerId', 'propertyId', 'tenantId', 'startDate', 'endDate', 'rentAmount', 'dayOfPayment', 'createdAt', 'updatedAt'])
-        && data.keys().size() == 10
-        && data.id is string && isValidId(data.id)
+      return data.keys().hasAll(['ownerId', 'propertyId', 'tenantId', 'startDate', 'endDate', 'rentAmount', 'dayOfPayment', 'createdAt', 'updatedAt'])
+        && (data.keys().size() >= 9 && data.keys().size() <= 10)
+        && (!('id' in data) || (data.id is string && isValidId(data.id)))
         && data.ownerId == request.auth.uid
         && data.propertyId is string && isValidId(data.propertyId)
         && data.tenantId is string && isValidId(data.tenantId)
-        && data.startDate is string && data.startDate.size() == 10
-        && data.endDate is string && data.endDate.size() == 10
+        && data.startDate is string && data.startDate.size() <= 10
+        && data.endDate is string && data.endDate.size() <= 10
         && data.rentAmount is number && data.rentAmount >= 0
         && data.dayOfPayment is number && data.dayOfPayment >= 1 && data.dayOfPayment <= 31
         && data.createdAt is timestamp
@@ -72,15 +73,15 @@ service cloud.firestore {
     }
 
     function isValidPayment(data) {
-      return data.keys().hasAll(['id', 'ownerId', 'contractId', 'dueDate', 'amount', 'status', 'createdAt', 'updatedAt'])
-        && (data.keys().size() >= 8 && data.keys().size() <= 10)
-        && data.id is string && isValidId(data.id)
+      return data.keys().hasAll(['ownerId', 'contractId', 'dueDate', 'amount', 'status', 'createdAt', 'updatedAt'])
+        && (data.keys().size() >= 7 && data.keys().size() <= 10)
+        && (!('id' in data) || (data.id is string && isValidId(data.id)))
         && data.ownerId == request.auth.uid
         && data.contractId is string && isValidId(data.contractId)
-        && data.dueDate is string && data.dueDate.size() == 10
+        && data.dueDate is string && data.dueDate.size() <= 10
         && data.amount is number && data.amount >= 0
         && data.status in ['paid', 'pending', 'overdue']
-        && (!('paymentDate' in data) || data.paymentDate is timestamp)
+        && (!('paymentDate' in data) || (data.paymentDate is string && data.paymentDate.size() <= 10))
         && (!('boletoLink' in data) || (data.boletoLink is string && data.boletoLink.size() <= 1000))
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;

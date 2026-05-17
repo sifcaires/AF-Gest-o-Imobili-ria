@@ -89,9 +89,10 @@ import {
   addDoc, 
   serverTimestamp,
   doc,
-  writeBatch
+  writeBatch,
+  deleteDoc
 } from 'firebase/firestore';
-import { db } from './lib/firebase';
+import { db, handleFirestoreError, OperationType } from './lib/firebase';
 
 import { boletoService } from './services/boletoService';
 
@@ -107,7 +108,7 @@ const chartData = [
 ];
 
 export default function App() {
-  const { user, loading: authLoading, signIn, logout } = useFirebase();
+  const { user, loading: authLoading, signIn, logout, authError } = useFirebase();
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [properties, setProperties] = useState<Property[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -126,10 +127,10 @@ export default function App() {
       const qPayments = query(collection(db, 'payments'), where('ownerId', '==', user.uid));
 
       const [sProp, sTen, sCon, sPay] = await Promise.all([
-        getDocs(qProperties),
-        getDocs(qTenants),
-        getDocs(qContracts),
-        getDocs(qPayments)
+        getDocs(qProperties).catch(e => handleFirestoreError(e, OperationType.LIST, 'properties')),
+        getDocs(qTenants).catch(e => handleFirestoreError(e, OperationType.LIST, 'tenants')),
+        getDocs(qContracts).catch(e => handleFirestoreError(e, OperationType.LIST, 'contracts')),
+        getDocs(qPayments).catch(e => handleFirestoreError(e, OperationType.LIST, 'payments'))
       ]);
 
       setProperties(sProp.docs.map(d => ({ id: d.id, ...d.data() } as Property)));
@@ -150,6 +151,46 @@ export default function App() {
       toast.success('Sessão ativa: ' + user.displayName);
     }
   }, [user, fetchData]);
+
+  const deleteProperty = async (id: string) => {
+    if (!confirm('Deseja realmente excluir este imóvel?')) return;
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, 'properties', id));
+      toast.success('Imóvel excluído com sucesso!');
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `properties/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addProperty = async () => {
+    // Basic implementation for demo purposes
+    if (!user) return;
+    setLoading(true);
+    try {
+      const newProp = {
+        title: 'Novo Imóvel Residencial',
+        description: 'Exemplo de descrição para o novo imóvel cadastrado.',
+        address: 'Rua Exemplo, 123 - Centro',
+        rentAmount: 2500,
+        status: 'available' as const,
+        imageUrl: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&q=80&w=800',
+        ownerId: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      await addDoc(collection(db, 'properties'), newProp);
+      toast.success('Imóvel cadastrado com sucesso!');
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'properties');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const seedData = async () => {
     if (!user) return;
@@ -178,7 +219,7 @@ export default function App() {
         batch.set(ref, { ...p, ownerId: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       });
 
-      await batch.commit();
+      await batch.commit().catch(e => handleFirestoreError(e, OperationType.WRITE, 'batch-seed'));
       toast.success('Dados de demonstração populados com sucesso!');
       fetchData();
     } catch (e) {
@@ -221,6 +262,14 @@ export default function App() {
               <LogIn className="h-5 w-5" />
               Entrar com Google
             </Button>
+
+            {authError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-400 text-xs font-medium text-left">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
+
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Acesso restrito para administradores</p>
           </div>
         </Card>
@@ -406,7 +455,11 @@ export default function App() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid grid-cols-2 gap-4 py-6">
-                    <Button variant="outline" className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-indigo-500/20 hover:border-indigo-500/50 text-white transition-all group">
+                    <Button 
+                      variant="outline" 
+                      onClick={addProperty}
+                      className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-indigo-500/20 hover:border-indigo-500/50 text-white transition-all group"
+                    >
                       <div className="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center group-hover:bg-indigo-500/20">
                         <Building2 className="h-5 w-5 text-indigo-400" />
                       </div>
