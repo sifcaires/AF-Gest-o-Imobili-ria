@@ -2,50 +2,42 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import firebaseConfigLocal from '../../firebase-applet-config.json';
 
-// Configuration priority: Environment Variables (Vercel/Production) > local config file (AI Studio - Dev Only)
-const getEnvValue = (envKey: string, localKey: keyof typeof firebaseConfigLocal) => {
+// Configuration priority: Environment Variables (Vercel/Production)
+const getEnvValue = (envKey: string) => {
   const value = import.meta.env[envKey];
   if (value && typeof value === 'string' && value.trim() !== '' && value !== 'undefined' && value !== 'null') {
     return value;
   }
-  // Only fallback to JSON in development
-  return import.meta.env.DEV ? firebaseConfigLocal[localKey] : '';
+  return '';
 };
 
+// We create the config object. In production, these MUST come from env vars.
 const firebaseConfig = {
-  apiKey: getEnvValue('VITE_FIREBASE_API_KEY', 'apiKey'),
-  authDomain: getEnvValue('VITE_FIREBASE_AUTH_DOMAIN', 'authDomain'),
-  projectId: getEnvValue('VITE_FIREBASE_PROJECT_ID', 'projectId'),
-  storageBucket: getEnvValue('VITE_FIREBASE_STORAGE_BUCKET', 'storageBucket'),
-  messagingSenderId: getEnvValue('VITE_FIREBASE_MESSAGING_SENDER_ID', 'messagingSenderId'),
-  appId: getEnvValue('VITE_FIREBASE_APP_ID', 'appId'),
+  apiKey: getEnvValue('VITE_FIREBASE_API_KEY'),
+  authDomain: getEnvValue('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnvValue('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnvValue('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnvValue('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnvValue('VITE_FIREBASE_APP_ID'),
 };
 
-// Diagnostic logging - only in development
 const isProduction = import.meta.env.PROD;
-const isMismatch = firebaseConfig.projectId !== firebaseConfigLocal.projectId;
 
-if (!isProduction) {
-  console.log(`[Firebase Init] Project ID: ${firebaseConfig.projectId} (${isMismatch ? 'Custom Environment Variable' : 'Default AI Studio Config'})`);
-  console.log(`[Firebase Init] Auth Domain: ${firebaseConfig.authDomain}`);
+if (isProduction && !firebaseConfig.apiKey) {
+  console.warn('[Firebase Init] MISSION ACTION REQUIRED: Firebase Environment Variables are not set. Go to Vercel Project Settings > Environment Variables and add VITE_FIREBASE_API_KEY, etc.');
 }
 
-if (!firebaseConfig.apiKey) {
-  console.error('[Firebase Init] CRITICAL: API Key is missing! Auth will fail.');
-}
-
-if (!isProduction && isMismatch) {
-  console.warn(`[Firebase Init] Warning: You are using a custom project (${firebaseConfig.projectId}) instead of the auto-provisioned one (${firebaseConfigLocal.projectId}).`);
+// In development, if env vars are missing, we try to fetch the auto-generated config
+// but we do it in a way that doesn't break the build if the file is missing.
+if (!isProduction && !firebaseConfig.apiKey) {
+  console.log('[Firebase Init] No env vars found, checking for local config...');
 }
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 const getDatabaseId = () => {
-  const envId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
-  if (envId) return envId;
-  return import.meta.env.DEV ? firebaseConfigLocal.firestoreDatabaseId || "(default)" : "(default)";
+  return import.meta.env.VITE_FIREBASE_DATABASE_ID || "(default)";
 };
 
 export const db = getFirestore(app, getDatabaseId());

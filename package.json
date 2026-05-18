@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "vercel-build": "echo '{\"apiKey\":\"\",\"authDomain\":\"\",\"projectId\":\"\",\"storageBucket\":\"\",\"messagingSenderId\":\"\",\"appId\":\"\",\"firestoreDatabaseId\":\"\"}' > firebase-applet-config.json && vite build"
+    "vercel-build": "vite build"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
