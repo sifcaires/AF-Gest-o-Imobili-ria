@@ -74,6 +74,24 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "ownerId", "contractId", "dueDate", "amount", "status"]
+    },
+    "Landlord": {
+      "title": "Landlord",
+      "description": "Property owner or manager",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "cpfCnpj": { "type": "string" },
+        "pixKey": { "type": "string" },
+        "address": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "name", "email", "phone", "cpfCnpj"]
     }
   },
   "firestore": {
@@ -92,6 +110,10 @@
     "payments/{paymentId}": {
       "schema": "Payment",
       "description": "Collection of all payments"
+    },
+    "landlords/{landlordId}": {
+      "schema": "Landlord",
+      "description": "Collection of all landlords"
     }
   }
 }

@@ -1,5 +1,18 @@
+export interface Landlord {
+  id: string;
+  ownerId?: string;
+  name: string;
+  email: string;
+  phone: string;
+  cpfCnpj: string;
+  pixKey?: string;
+  address?: string;
+}
+
 export interface Property {
   id: string;
+  ownerId: string; // The user who created it
+  landlordId: string; // The specific owner (landlord)
   title: string;
   description: string;
   address: string;
@@ -10,6 +23,7 @@ export interface Property {
 
 export interface Tenant {
   id: string;
+  ownerId?: string;
   name: string;
   email: string;
   phone: string;
@@ -22,17 +36,20 @@ export interface Tenant {
 
 export interface Contract {
   id: string;
+  ownerId?: string;
   propertyId: string;
   tenantId: string;
   startDate: string;
   endDate: string;
   rentAmount: number;
   dayOfPayment: number;
+  status?: 'active' | 'terminated';
   documentUrl?: string;
 }
 
 export interface Payment {
   id: string;
+  ownerId?: string;
   contractId: string;
   dueDate: string;
   amount: number;

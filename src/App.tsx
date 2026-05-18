@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Building2, 
   Users, 
@@ -20,7 +20,12 @@ import {
   LogOut,
   Database,
   X,
-  Trash2
+  Trash2,
+  UserSquare2,
+  Pencil,
+  User,
+  Camera,
+  ImagePlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
@@ -81,11 +86,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { Property, Tenant, Contract, Payment } from './types';
+import { Property, Tenant, Contract, Payment, Landlord } from './types';
 import { PropertyForm } from './components/PropertyForm';
 import { TenantForm } from './components/TenantForm';
 import { ContractForm } from './components/ContractForm';
 import { PaymentForm } from './components/PaymentForm';
+import { LandlordForm } from './components/LandlordForm';
 import { mockProperties, mockTenants, mockContracts, mockPayments } from './mockData';
 import { useFirebase } from './components/FirebaseProvider';
 import { 
@@ -104,7 +110,7 @@ import { db, handleFirestoreError, OperationType } from './lib/firebase';
 
 import { boletoService } from './services/boletoService';
 
-type View = 'dashboard' | 'properties' | 'tenants' | 'contracts' | 'payments';
+type View = 'dashboard' | 'properties' | 'tenants' | 'contracts' | 'payments' | 'landlords' | 'profile';
 
 const chartData = [
   { name: 'Jan', total: 15000 },
@@ -116,51 +122,72 @@ const chartData = [
 ];
 
 export default function App() {
-  const { user, loading: authLoading, signIn, logout, authError } = useFirebase();
+  const { user, loading: authLoading, signInWithGoogle, signInWithEmail, signUpWithEmail, logout, authError, updateUserProfile, updateEmail } = useFirebase();
   const [activeView, setActiveView] = useState<View>('dashboard');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'admin'>('login');
+  const [authData, setAuthData] = useState({ email: '', password: '', name: '' });
   const [properties, setProperties] = useState<Property[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [landlords, setLandlords] = useState<Landlord[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isRegistryOpen, setIsRegistryOpen] = useState(false);
-  const [activeForm, setActiveForm] = useState<'none' | 'property' | 'tenant' | 'contract' | 'payment'>('none');
+  const [activeForm, setActiveForm] = useState<'none' | 'property' | 'tenant' | 'contract' | 'payment' | 'landlord'>('none');
   const [editingItem, setEditingItem] = useState<any | null>(null);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'property' | 'tenant' | 'contract' | 'payment' } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'property' | 'tenant' | 'contract' | 'payment' | 'landlord' } | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const qProperties = query(collection(db, 'properties'), where('ownerId', '==', user.uid));
-      const qTenants = query(collection(db, 'tenants'), where('ownerId', '==', user.uid));
-      const qContracts = query(collection(db, 'contracts'), where('ownerId', '==', user.uid));
-      const qPayments = query(collection(db, 'payments'), where('ownerId', '==', user.uid));
+      const isAdmin = user.email === 'admin@email.com';
+      
+      const qProperties = isAdmin 
+        ? collection(db, 'properties') 
+        : query(collection(db, 'properties'), where('ownerId', '==', user.uid));
+        
+      const qTenants = isAdmin 
+        ? collection(db, 'tenants') 
+        : query(collection(db, 'tenants'), where('ownerId', '==', user.uid));
+        
+      const qContracts = isAdmin 
+        ? collection(db, 'contracts') 
+        : query(collection(db, 'contracts'), where('ownerId', '==', user.uid));
+        
+      const qPayments = isAdmin 
+        ? collection(db, 'payments') 
+        : query(collection(db, 'payments'), where('ownerId', '==', user.uid));
+        
+      const qLandlords = isAdmin 
+        ? collection(db, 'landlords') 
+        : query(collection(db, 'landlords'), where('ownerId', '==', user.uid));
 
-      const [sProp, sTen, sCon, sPay] = await Promise.all([
+      const [sProp, sTen, sCon, sPay, sLand] = await Promise.all([
         getDocs(qProperties).catch(e => handleFirestoreError(e, OperationType.LIST, 'properties')),
         getDocs(qTenants).catch(e => handleFirestoreError(e, OperationType.LIST, 'tenants')),
         getDocs(qContracts).catch(e => handleFirestoreError(e, OperationType.LIST, 'contracts')),
-        getDocs(qPayments).catch(e => handleFirestoreError(e, OperationType.LIST, 'payments'))
+        getDocs(qPayments).catch(e => handleFirestoreError(e, OperationType.LIST, 'payments')),
+        getDocs(qLandlords).catch(e => handleFirestoreError(e, OperationType.LIST, 'landlords'))
       ]);
 
-      setProperties(sProp.docs.map(d => ({ id: d.id, ...d.data() } as Property)));
-      setTenants(sTen.docs.map(d => ({ id: d.id, ...d.data() } as Tenant)));
-      setContracts(sCon.docs.map(d => ({ id: d.id, ...d.data() } as Contract)));
-      setPayments(sPay.docs.map(d => ({ id: d.id, ...d.data() } as Payment)));
+      setProperties(sProp?.docs?.map(d => ({ id: d.id, ...d.data() } as Property)) || []);
+      setTenants(sTen?.docs?.map(d => ({ id: d.id, ...d.data() } as Tenant)) || []);
+      setContracts(sCon?.docs?.map(d => ({ id: d.id, ...d.data() } as Contract)) || []);
+      setPayments(sPay?.docs?.map(d => ({ id: d.id, ...d.data() } as Payment)) || []);
+      setLandlords(sLand?.docs?.map(d => ({ id: d.id, ...d.data() } as Landlord)) || []);
     } catch (e) {
       console.error(e);
       toast.error('Erro ao carregar dados do Firebase');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     if (user) {
       fetchData();
-      toast.success('Sessão ativa: ' + user.displayName);
     }
   }, [user, fetchData]);
 
@@ -292,6 +319,38 @@ export default function App() {
     }
   };
 
+  const deleteLandlord = async (id: string) => {
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, 'landlords', id));
+      toast.success('Locador removido!');
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `landlords/${id}`);
+    } finally {
+      setLoading(false);
+      setItemToDelete(null);
+    }
+  };
+
+  const updateLandlord = async (id: string, data: Partial<Landlord>) => {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'landlords', id), {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Cadastro de locador atualizado!');
+      setEditingItem(null);
+      setIsRegistryOpen(false);
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `landlords/${id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAddProperty = async (data: Omit<Property, 'id'>) => {
     if (!user) return;
     setLoading(true);
@@ -342,6 +401,7 @@ export default function App() {
       const contractRef = await addDoc(collection(db, 'contracts'), {
         ...data,
         ownerId: user.uid,
+        status: 'active',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -385,26 +445,45 @@ export default function App() {
     }
   };
 
-  const seedData = async () => {
+  const handleAddLandlord = async (data: Omit<Landlord, 'id'>) => {
     if (!user) return;
+    setLoading(true);
+    try {
+      await addDoc(collection(db, 'landlords'), {
+        ...data,
+        ownerId: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Locador cadastrado com sucesso!');
+      setIsRegistryOpen(false);
+      setActiveForm('none');
+      fetchData();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'landlords');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const seedData = async () => {
     setLoading(true);
     try {
       const batch = writeBatch(db);
       
-      // We map and add ownerId to mock data
       mockProperties.forEach(p => {
         const ref = doc(collection(db, 'properties'), p.id);
-        batch.set(ref, { ...p, ownerId: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        batch.set(ref, { ...p, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       });
       
       mockTenants.forEach(t => {
         const ref = doc(collection(db, 'tenants'), t.id);
-        batch.set(ref, { ...t, ownerId: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        batch.set(ref, { ...t, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       });
 
       mockContracts.forEach(c => {
         const ref = doc(collection(db, 'contracts'), c.id);
-        batch.set(ref, { ...c, ownerId: user.uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        batch.set(ref, { ...c, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       });
 
       mockPayments.forEach(p => {
@@ -423,7 +502,7 @@ export default function App() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || (loading && !user)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-[#020617]">
         <div className="flex flex-col items-center gap-4">
@@ -438,23 +517,101 @@ export default function App() {
     return (
       <div className="flex min-h-screen w-full bg-[#020617] items-center justify-center p-4">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#020617] z-0"></div>
-        <Card className="w-full max-w-md frosted border-white/10 relative z-10 p-8 text-center space-y-8 shadow-2xl">
+        <Card className="w-full max-w-md frosted border-white/10 relative z-10 p-8 text-center space-y-6 shadow-2xl">
           <div className="flex flex-col items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-indigo-500 font-bold text-white shadow-2xl shadow-indigo-500/20 text-2xl">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500 font-bold text-white shadow-2xl shadow-indigo-500/20 text-xl">
               AF
             </div>
-            <h1 className="text-4xl font-bold text-white serif italic">AlugaFácil</h1>
-            <p className="text-slate-400 font-medium">Gestão inteligente para seus imóveis e locações.</p>
+            <h1 className="text-3xl font-bold text-white serif italic">Portal do Locador</h1>
+            <p className="text-slate-400 font-medium text-sm">
+              {authMode === 'login' ? 'Entre na sua conta para gerenciar seus imóveis.' : 
+               authMode === 'register' ? 'Comece a gerenciar seus imóveis hoje mesmo.' :
+               'Acesso exclusivo para administradores.'}
+            </p>
           </div>
           
           <div className="space-y-4">
-            <Button 
-              onClick={signIn}
-              className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl flex items-center justify-center gap-3 shadow-xl transition-all"
+            <form 
+              className="space-y-4 text-left" 
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (authMode === 'register') {
+                  signUpWithEmail(authData.email, authData.password, authData.name);
+                } else {
+                  signInWithEmail(authData.email, authData.password);
+                }
+              }}
             >
-              <LogIn className="h-5 w-5" />
-              Entrar com Google
-            </Button>
+              {authMode === 'register' && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Nome Completo</label>
+                  <Input 
+                    placeholder="Seu nome" 
+                    className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
+                    value={authData.name}
+                    onChange={(e) => setAuthData({ ...authData, name: e.target.value })}
+                    required
+                  />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">
+                  {authMode === 'admin' ? 'E-mail Admin' : 'E-mail'}
+                </label>
+                <Input 
+                  type="email"
+                  placeholder={authMode === 'admin' ? 'admin@email.com' : "exemplo@email.com"} 
+                  className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
+                  value={authData.email}
+                  onChange={(e) => setAuthData({ ...authData, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">
+                  {authMode === 'admin' ? 'Senha Admin' : 'Senha'}
+                </label>
+                <Input 
+                  type="password"
+                  placeholder="••••••••" 
+                  className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
+                  value={authData.password}
+                  onChange={(e) => setAuthData({ ...authData, password: e.target.value })}
+                  required
+                />
+              </div>
+              <Button 
+                type="submit"
+                className={`w-full h-12 ${authMode === 'admin' ? 'bg-slate-800 hover:bg-slate-700 font-serif italic' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-xl shadow-xl transition-all`}
+              >
+                {authMode === 'login' ? 'Entrar' : authMode === 'register' ? 'Cadastrar e Acessar' : 'Acessar Painel Master'}
+              </Button>
+            </form>
+
+            <div className="flex flex-col gap-2 pt-2">
+              {authMode === 'login' ? (
+                <>
+                  <p className="text-xs text-slate-400">
+                    Não tem uma conta? {' '}
+                    <button onClick={() => setAuthMode('register')} className="text-indigo-400 font-bold hover:underline">Cadastre-se</button>
+                  </p>
+                  <button onClick={() => setAuthMode('admin')} className="text-[10px] text-slate-500 font-bold uppercase tracking-widest hover:text-indigo-400 transition-colors">Acesso Administrativo</button>
+                </>
+              ) : authMode === 'register' ? (
+                <p className="text-xs text-slate-400">
+                  Já possui uma conta? {' '}
+                  <button onClick={() => setAuthMode('login')} className="text-indigo-400 font-bold hover:underline">Entre aqui</button>
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-slate-400">
+                    Primeiro acesso administrativo? {' '}
+                    <button onClick={() => setAuthMode('register')} className="text-indigo-400 font-bold hover:underline">Cadastre o Admin</button>
+                  </p>
+                  <button onClick={() => setAuthMode('login')} className="text-xs text-indigo-400 font-bold hover:underline">Voltar para login de Locador</button>
+                </div>
+              )}
+            </div>
 
             {authError && (
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-400 text-xs font-medium text-left">
@@ -462,8 +619,6 @@ export default function App() {
                 <span>{authError}</span>
               </div>
             )}
-
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Acesso restrito para administradores</p>
           </div>
         </Card>
       </div>
@@ -481,6 +636,7 @@ export default function App() {
     switch (activeView) {
       case 'dashboard':
         return <DashboardView 
+          userName={user?.displayName || 'Gestor'}
           stats={{
             income: totalMonthlyIncome,
             propertiesCount: properties.length,
@@ -493,6 +649,9 @@ export default function App() {
       case 'properties':
         return <PropertiesView 
           properties={properties} 
+          landlords={landlords}
+          tenants={tenants}
+          contracts={contracts}
           setSearchTerm={setSearchTerm} 
           searchTerm={searchTerm} 
           onEdit={(prop) => {
@@ -537,8 +696,24 @@ export default function App() {
           }}
           onDelete={(id) => setItemToDelete({ id, type: 'payment' })}
         />;
+      case 'landlords':
+        return <LandlordsView 
+          landlords={landlords} 
+          onEdit={(landlord) => {
+            setEditingItem(landlord);
+            setActiveForm('landlord');
+            setIsRegistryOpen(true);
+          }}
+          onDelete={(id) => setItemToDelete({ id, type: 'landlord' })}
+        />;
+      case 'profile':
+        return <ProfileView user={user} />;
       default:
-        return <DashboardView stats={{ income: 0, propertiesCount: 0, tenantsCount: 0, pendingPayments: 0, overduePayments: 0 }} recentPayments={[]} />;
+        return <DashboardView 
+          userName={user?.displayName || 'Gestor'}
+          stats={{ income: 0, propertiesCount: 0, tenantsCount: 0, pendingPayments: 0, overduePayments: 0 }} 
+          recentPayments={[]} 
+        />;
     }
   };
 
@@ -556,8 +731,8 @@ export default function App() {
                 AF
               </div>
               <div>
-                <h1 className="font-bold tracking-tight text-white text-sm">AlugaFácil</h1>
-                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Gestão Imobiliária</p>
+                <h1 className="font-bold tracking-tight text-white text-sm whitespace-nowrap">Portal AF</h1>
+                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{user?.email === 'admin@email.com' ? 'Painel Administrativo' : 'Área do Locador'}</p>
               </div>
             </div>
           </SidebarHeader>
@@ -582,7 +757,7 @@ export default function App() {
                     className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
                   >
                     <Building2 className="mr-3 h-5 w-5" />
-                    <span className="font-medium text-sm">Meus Imóveis</span>
+                    <span className="font-medium text-sm">Imóveis</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
@@ -615,18 +790,38 @@ export default function App() {
                     <span className="font-medium text-sm">Financeiro</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    onClick={() => setActiveView('landlords')} 
+                    isActive={activeView === 'landlords'}
+                    className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
+                  >
+                    <UserSquare2 className="mr-3 h-5 w-5" />
+                    <span className="font-medium text-sm">Locadores</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    onClick={() => setActiveView('profile')} 
+                    isActive={activeView === 'profile'}
+                    className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
+                  >
+                    <User className="mr-3 h-5 w-5" />
+                    <span className="font-medium text-sm">Usuário</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroup>
           </SidebarContent>
           <SidebarFooter className="p-4 border-t border-white/10">
-            <div className="flex items-center gap-3 px-2 py-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group">
+            <div className="flex items-center gap-3 px-2 py-3 rounded-lg hover:bg-white/5 transition-colors group">
               <Avatar className="h-9 w-9 border border-white/10 text-slate-100">
                 <AvatarImage src={user?.photoURL || ''} />
                 <AvatarFallback className="bg-white/10 text-white font-semibold text-xs">{user?.displayName?.substring(0, 2).toUpperCase() || 'AF'}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-semibold text-white truncate max-w-[120px]">{user?.displayName}</span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Administrador</span>
+                <span className="text-sm font-semibold text-white truncate max-w-[120px]">{user?.displayName || (user?.email === 'admin@email.com' ? 'Administrador' : 'Usuário')}</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{user?.email === 'admin@email.com' ? 'Diretor Geral' : 'Locador Master'}</span>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -640,7 +835,12 @@ export default function App() {
                   <DropdownMenuGroup>
                     <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-white/10" />
-                    <DropdownMenuItem className="hover:bg-white/10 focus:bg-white/10 cursor-pointer">Configurações</DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setActiveView('profile')}
+                      className="hover:bg-white/10 focus:bg-white/10 cursor-pointer text-xs font-bold uppercase tracking-widest"
+                    >
+                      Meu Perfil
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={seedData} className="hover:bg-indigo-500/10 focus:bg-indigo-500/10 cursor-pointer flex items-center gap-2">
                       <Database className="h-4 w-4 text-indigo-400" />
                       Gerar Dados de Teste
@@ -744,10 +944,21 @@ export default function App() {
                           </div>
                           <span className="font-bold text-xs uppercase tracking-widest">Recibo</span>
                         </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setActiveForm('landlord')}
+                          className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-blue-500/20 hover:border-blue-500/50 text-white transition-all group"
+                        >
+                           <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20">
+                            <UserSquare2 className="h-5 w-5 text-blue-400" />
+                          </div>
+                          <span className="font-bold text-xs uppercase tracking-widest">Locador</span>
+                        </Button>
                       </div>
                     ) : activeForm === 'property' ? (
                       <PropertyForm 
                         initialData={editingItem} 
+                        landlords={landlords}
                         onSubmit={editingItem ? (data) => updateProperty(editingItem.id, data) : handleAddProperty} 
                         isLoading={loading} 
                       />
@@ -765,13 +976,19 @@ export default function App() {
                         onSubmit={editingItem ? (data) => updateContract(editingItem.id, data) : handleAddContract} 
                         isLoading={loading} 
                       />
-                    ) : (
+                    ) : activeForm === 'payment' ? (
                       <PaymentForm
                         initialData={editingItem} 
                         contracts={contracts}
                         tenants={tenants}
                         properties={properties}
                         onSubmit={editingItem ? (data) => updatePayment(editingItem.id, data) : handleAddPayment}
+                        isLoading={loading}
+                      />
+                    ) : (
+                      <LandlordForm
+                        initialData={editingItem}
+                        onSubmit={editingItem ? (data) => updateLandlord(editingItem.id, data) : handleAddLandlord}
                         isLoading={loading}
                       />
                     )}
@@ -819,6 +1036,7 @@ export default function App() {
                   if (itemToDelete.type === 'tenant') deleteTenant(itemToDelete.id);
                   if (itemToDelete.type === 'contract') deleteContract(itemToDelete.id);
                   if (itemToDelete.type === 'payment') deletePayment(itemToDelete.id);
+                  if (itemToDelete.type === 'landlord') deleteLandlord(itemToDelete.id);
                 }}
                 disabled={loading}
                 className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-widest px-6 shadow-lg shadow-rose-900/20"
@@ -835,13 +1053,15 @@ export default function App() {
   );
 }
 
-function DashboardView({ stats, recentPayments }: { stats: any, recentPayments: Payment[] }) {
+function DashboardView({ userName, stats, recentPayments }: { userName: string, stats: any, recentPayments: Payment[] }) {
   return (
     <div className="space-y-10">
-      <div className="flex items-center justify-between border-b pb-8 border-white/10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b pb-8 border-white/10">
         <div>
-          <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Panorama Operacional</h2>
-          <p className="text-slate-400 font-medium mt-1">Status em tempo real das locações e financeiro.</p>
+          <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Olá, {userName.split(' ')[0]}</h2>
+          <p className="text-slate-400 font-medium mt-1">
+            {userName === 'Administrador' ? 'Visão global de todos os imóveis e locações do sistema.' : 'Este é o seu panorama operacional e financeiro.'}
+          </p>
         </div>
         <div className="flex items-center gap-2 bg-white/5 p-2 rounded-full border border-white/10 backdrop-blur-md px-4">
           <Clock className="h-4 w-4 text-indigo-400" />
@@ -1016,8 +1236,11 @@ function StatCard({ title, value, subValue, icon, color, trend }: { title: strin
   );
 }
 
-function PropertiesView({ properties, searchTerm, setSearchTerm, onEdit, onDelete }: { 
+function PropertiesView({ properties, landlords, tenants, contracts, searchTerm, setSearchTerm, onEdit, onDelete }: { 
   properties: Property[], 
+  landlords: Landlord[],
+  tenants: Tenant[],
+  contracts: Contract[],
   searchTerm: string, 
   setSearchTerm: (s: string) => void,
   onEdit: (p: Property) => void,
@@ -1032,13 +1255,15 @@ function PropertiesView({ properties, searchTerm, setSearchTerm, onEdit, onDelet
     <div className="space-y-10">
        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b pb-8 border-white/10">
         <div>
-          <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Meus Imóveis</h2>
-          <p className="text-slate-400 font-medium mt-1">Exibindo {filteredProperties.length} propriedades no sistema.</p>
+          <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Imóveis</h2>
+          <p className="text-slate-400 font-medium mt-1">
+            Exibindo todos os imóveis registrados na plataforma.
+          </p>
         </div>
         <div className="relative w-full md:w-96 flex">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
           <Input 
-            placeholder="Endereço, tipo ou título..." 
+            placeholder="Pesquisar por título ou endereço..." 
             className="pl-12 h-14 border-white/10 bg-white/5 text-white rounded-2xl shadow-xl shadow-slate-900/40 focus-visible:ring-indigo-500/50 transition-all font-bold placeholder:text-slate-500" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -1047,59 +1272,81 @@ function PropertiesView({ properties, searchTerm, setSearchTerm, onEdit, onDelet
       </div>
 
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-        {filteredProperties.map((property) => (
-          <Card key={property.id} className="overflow-hidden border-white/10 shadow-2xl backdrop-blur-md group hover:shadow-indigo-500/10 hover:border-indigo-500/30 transition-all duration-500 rounded-3xl bg-white/5 flex flex-col h-full border">
-            <div className="relative h-64 w-full overflow-hidden">
-              <img 
-                src={property.imageUrl} 
-                alt={property.title} 
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100" 
-              />
-              <div className="absolute top-6 right-6 flex gap-2 z-20">
+        {filteredProperties.map((property) => {
+          const activeContract = contracts.find(c => c.propertyId === property.id && c.status === 'active');
+          const currentTenant = tenants.find(t => t.id === activeContract?.tenantId);
+
+          return (
+            <Card key={property.id} className="overflow-hidden border-white/10 shadow-2xl backdrop-blur-md group hover:shadow-indigo-500/10 hover:border-indigo-500/30 transition-all duration-500 rounded-3xl bg-white/5 flex flex-col h-full border">
+              <div className="relative h-64 w-full overflow-hidden">
+                <img 
+                  src={property.imageUrl} 
+                  alt={property.title} 
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100" 
+                />
+                <div className="absolute top-6 right-6 flex gap-2 z-20">
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(property.id);
+                    }}
+                    className="bg-rose-500/90 backdrop-blur-sm text-white hover:bg-rose-600 border-none h-9 w-9 rounded-xl shadow-xl transition-all hover:scale-110 active:scale-95"
+                  >
+                    <Trash2 className="h-4.5 w-4.5" />
+                  </Button>
+                  <Badge className={
+                    property.status === 'available' ? 'bg-emerald-500/80 text-white border-none font-bold uppercase tracking-widest text-[10px] px-3 py-1 shadow-lg' : 'bg-slate-900/80 text-white border-none font-bold uppercase tracking-widest text-[10px] px-3 py-1 shadow-lg'
+                  }>
+                    {property.status === 'available' ? 'Disponível' : 'Locado'}
+                  </Badge>
+                </div>
+              </div>
+              <CardHeader className="p-8 pb-3 text-white">
+                <div className="flex justify-between items-start">
+                  <h3 className="text-2xl font-bold text-white tracking-tight leading-tight group-hover:text-indigo-400 transition-colors uppercase italic serif">{property.title}</h3>
+                  {landlords.find(l => l.id === property.landlordId) && (
+                    <Badge variant="outline" className="border-white/20 text-slate-400 text-[9px] uppercase tracking-tighter">
+                      Prop: {landlords.find(l => l.id === property.landlordId)?.name.split(' ')[0]}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-start gap-2 mt-2">
+                  <Home className="h-3 w-3 text-slate-500 mt-1 shrink-0" />
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-loose">{property.address}</p>
+                </div>
+              </CardHeader>
+              <CardContent className="px-8 flex-1">
+                <p className="text-sm text-slate-400 font-medium leading-relaxed italic line-clamp-3 mb-6">{property.description}</p>
+                
+                {property.status === 'rented' && currentTenant && (
+                  <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 flex items-center gap-3">
+                    <User className="h-4 w-4 text-indigo-400" />
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Inquilino Atual</p>
+                      <p className="text-xs font-bold text-white">{currentTenant.name}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="px-8 py-8 mt-4 border-t border-white/5 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Mensalidade</span>
+                  <span className="text-2xl font-bold text-white font-mono tracking-tighter">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.rentAmount)}
+                  </span>
+                </div>
                 <Button 
-                  size="icon" 
-                  variant="ghost" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(property.id);
-                  }}
-                  className="bg-rose-500/90 backdrop-blur-sm text-white hover:bg-rose-600 border-none h-9 w-9 rounded-xl shadow-xl transition-all hover:scale-110 active:scale-95"
+                  onClick={() => onEdit(property)}
+                  className="h-10 px-6 rounded-full font-bold text-xs uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-lg hover:shadow-indigo-500/25"
                 >
-                  <Trash2 className="h-4.5 w-4.5" />
+                  Gerenciar
                 </Button>
-                <Badge className={
-                  property.status === 'available' ? 'bg-emerald-500/80 text-white border-none font-bold uppercase tracking-widest text-[10px] px-3 py-1 shadow-lg' : 'bg-slate-900/80 text-white border-none font-bold uppercase tracking-widest text-[10px] px-3 py-1 shadow-lg'
-                }>
-                  {property.status === 'available' ? 'Disponível' : 'Locado'}
-                </Badge>
-              </div>
-            </div>
-            <CardHeader className="p-8 pb-3 text-white">
-              <h3 className="text-2xl font-bold text-white tracking-tight leading-tight group-hover:text-indigo-400 transition-colors uppercase italic serif">{property.title}</h3>
-              <div className="flex items-start gap-2 mt-2">
-                <Home className="h-3 w-3 text-slate-500 mt-1 shrink-0" />
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-loose">{property.address}</p>
-              </div>
-            </CardHeader>
-            <CardContent className="px-8 flex-1">
-              <p className="text-sm text-slate-400 font-medium leading-relaxed italic line-clamp-3">{property.description}</p>
-            </CardContent>
-            <CardFooter className="px-8 py-8 mt-4 border-t border-white/5 flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Mensalidade</span>
-                <span className="text-2xl font-bold text-white font-mono tracking-tighter">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.rentAmount)}
-                </span>
-              </div>
-              <Button 
-                onClick={() => onEdit(property)}
-                className="h-10 px-6 rounded-full font-bold text-xs uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-lg hover:shadow-indigo-500/25"
-              >
-                Gerenciar
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
+              </CardFooter>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
@@ -1431,6 +1678,207 @@ function PaymentsView({ payments, contracts, tenants, properties, onEdit, onDele
           </TableBody>
         </Table>
       </Card>
+    </div>
+  );
+}
+
+function LandlordsView({ landlords, onEdit, onDelete }: { 
+  landlords: Landlord[], 
+  onEdit: (l: Landlord) => void,
+  onDelete: (id: string) => void
+}) {
+  return (
+    <div className="space-y-10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b pb-8 border-white/10">
+        <div>
+          <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Lista de Locadores</h2>
+          <p className="text-slate-400 font-medium mt-1">Gerenciamento de proprietários e beneficiários.</p>
+        </div>
+      </div>
+
+      <Card className="border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl">
+        <Table>
+          <TableHeader className="bg-white/5">
+            <TableRow className="border-b border-white/5 hover:bg-transparent">
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Nome / Razão Social</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Contato</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">CPF / CNPJ</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8 text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {landlords.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="h-32 text-center text-slate-500 font-medium">Nenhum locador cadastrado.</TableCell>
+              </TableRow>
+            ) : landlords.map((landlord) => (
+              <TableRow key={landlord.id} className="border-white/5 hover:bg-white/[0.02] transition-colors group">
+                <TableCell className="py-5 px-8">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10 border border-white/10">
+                      <AvatarFallback className="bg-blue-500/10 text-blue-400 font-bold text-xs">
+                        {landlord.name.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-bold text-white tracking-tight">{landlord.name}</p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{landlord.address}</p>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="py-5 px-8">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-slate-300">{landlord.email}</p>
+                    <p className="text-xs text-slate-500">{landlord.phone}</p>
+                  </div>
+                </TableCell>
+                <TableCell className="py-5 px-8">
+                  <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-300 font-mono text-[10px]">{landlord.cpfCnpj}</Badge>
+                </TableCell>
+                <TableCell className="py-5 px-8 text-right">
+                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => onEdit(landlord)}
+                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-white transition-colors"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => onDelete(landlord.id)}
+                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
+  );
+}
+
+function ProfileView({ user }: { user: any }) {
+  const { updateUserProfile, updateUserPhoto } = useFirebase();
+  const [name, setName] = useState(user?.displayName || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleUpdateProfile = async (e: any) => {
+    e.preventDefault();
+    if (!name) {
+      toast.error('O nome é obrigatório');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await updateUserProfile(name);
+      toast.success('Dados cadastrais atualizados com sucesso!');
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('A imagem deve ter no máximo 2MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      await updateUserPhoto(file);
+      toast.success('Foto de perfil atualizada!');
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-10">
+      <div className="border-b pb-8 border-white/10">
+        <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Perfil do Usuário</h2>
+        <p className="text-slate-400 font-medium mt-1">Gerencie suas informações de acesso e cadastro.</p>
+      </div>
+
+      <div className="max-w-2xl">
+        <Card className="border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl rounded-3xl p-8 border">
+          <form onSubmit={handleUpdateProfile} className="space-y-6">
+            <div className="flex flex-col items-center mb-10">
+              <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                <Avatar className="h-32 w-32 border-4 border-white/10 shadow-2xl mb-4 transition-transform group-hover:scale-105">
+                  <AvatarImage src={user?.photoURL || ''} />
+                  <AvatarFallback className="bg-indigo-600 text-white font-bold text-3xl italic serif">
+                    {name.substring(0, 2).toUpperCase() || 'AF'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="absolute inset-x-0 bottom-4 bg-black/60 backdrop-blur-sm h-1/3 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-b-full">
+                  {isUploading ? (
+                    <div className="h-5 w-5 border-2 border-white/30 border-t-white animate-spin rounded-full"></div>
+                  ) : (
+                    <Camera className="h-5 w-5 text-white" />
+                  )}
+                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handlePhotoUpload}
+                />
+              </div>
+              <h3 className="text-xl font-bold text-white serif italic">{name || 'Usuário'}</h3>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Locador Master</p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Nome Completo</label>
+                <Input 
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
+                  placeholder="Seu nome"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">E-mail de Acesso</label>
+                <Input 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
+                  placeholder="seu@email.com"
+                  disabled
+                />
+                <p className="text-[9px] text-slate-500 italic ml-1">* O e-mail não pode ser alterado por aqui por razões de segurança.</p>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-white/5 flex justify-end">
+              <Button 
+                type="submit" 
+                disabled={isLoading}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 h-12 rounded-xl shadow-xl shadow-indigo-500/20 transition-all uppercase tracking-widest text-[10px]"
+              >
+                {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 }

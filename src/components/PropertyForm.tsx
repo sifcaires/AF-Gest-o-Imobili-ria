@@ -3,21 +3,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Property } from '../types';
+import { Landlord, Property } from '../types';
 
 interface PropertyFormProps {
   initialData?: Partial<Property>;
-  onSubmit: (data: Omit<Property, 'id'>) => Promise<void>;
+  landlords: Landlord[];
+  onSubmit: (data: Omit<Property, 'id' | 'ownerId'>) => Promise<void>;
   isLoading?: boolean;
 }
 
-export function PropertyForm({ initialData, onSubmit, isLoading }: PropertyFormProps) {
+export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: PropertyFormProps) {
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
     description: initialData?.description || '',
     address: initialData?.address || '',
     rentAmount: initialData?.rentAmount || 0,
     status: initialData?.status || 'available' as const,
+    landlordId: initialData?.landlordId || '',
     imageUrl: initialData?.imageUrl || 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&q=80&w=800',
   });
 
@@ -29,7 +31,28 @@ export function PropertyForm({ initialData, onSubmit, isLoading }: PropertyFormP
   return (
     <form onSubmit={handleSubmit} className="space-y-4 py-4">
       <div className="space-y-2">
-        <Label htmlFor="title" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Título do Imóvel</Label>
+        <Label htmlFor="landlordId" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Proprietário (Locador)</Label>
+          <Select 
+            value={formData.landlordId} 
+            onValueChange={(value) => setFormData({ ...formData, landlordId: value })}
+            required
+          >
+            <SelectTrigger className="border-white/10 bg-white/5 text-white h-12 rounded-xl">
+              <SelectValue placeholder="Selecione o proprietário" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1e293b] border-white/10 text-white rounded-xl">
+              {landlords.map((landlord) => (
+                <SelectItem key={landlord.id} value={landlord.id}>{landlord.name}</SelectItem>
+              ))}
+              {landlords.length === 0 && (
+                <div className="py-2 px-8 text-xs text-slate-500 italic">Nenhum locador cadastrado.</div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="title" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Título do Imóvel</Label>
         <Input
           id="title"
           placeholder="Ex: Apartamento Moderno no Centro"

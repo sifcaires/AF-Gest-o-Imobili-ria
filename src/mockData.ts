@@ -3,6 +3,8 @@ import { Property, Tenant, Contract, Payment } from './types';
 export const mockProperties: Property[] = [
   {
     id: '1',
+    ownerId: 'mock-owner',
+    landlordId: 'mock-landlord',
     title: 'Apartamento Centro',
     description: 'Belo apartamento no centro da cidade, 2 quartos.',
     address: 'Av. Paulista, 1000 - São Paulo, SP',
@@ -12,6 +14,8 @@ export const mockProperties: Property[] = [
   },
   {
     id: '2',
+    ownerId: 'mock-owner',
+    landlordId: 'mock-landlord',
     title: 'Casa Bosque',
     description: 'Casa aconchegante com quintal e churrasqueira.',
     address: 'Rua das Flores, 123 - Curitiba, PR',
@@ -21,6 +25,8 @@ export const mockProperties: Property[] = [
   },
   {
     id: '3',
+    ownerId: 'mock-owner',
+    landlordId: 'mock-landlord',
     title: 'Studio Moderno',
     description: 'Studio mobiliado próximo ao metrô.',
     address: 'Rua Augusta, 500 - São Paulo, SP',

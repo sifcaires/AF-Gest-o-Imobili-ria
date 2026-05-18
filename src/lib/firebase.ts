@@ -4,45 +4,53 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfigLocal from '../../firebase-applet-config.json';
 
-// Configuration priority: Environment Variables (Vercel/Production) > local config file (AI Studio)
-const getEnvValue = (envKey: string, localValue: any) => {
+// Configuration priority: Environment Variables (Vercel/Production) > local config file (AI Studio - Dev Only)
+const getEnvValue = (envKey: string, localKey: keyof typeof firebaseConfigLocal) => {
   const value = import.meta.env[envKey];
-  // Check for empty strings, 'undefined' string, or null
   if (value && typeof value === 'string' && value.trim() !== '' && value !== 'undefined' && value !== 'null') {
     return value;
   }
-  return localValue;
+  // Only fallback to JSON in development
+  return import.meta.env.DEV ? firebaseConfigLocal[localKey] : '';
 };
 
 const firebaseConfig = {
-  apiKey: getEnvValue('VITE_FIREBASE_API_KEY', firebaseConfigLocal.apiKey),
-  authDomain: getEnvValue('VITE_FIREBASE_AUTH_DOMAIN', firebaseConfigLocal.authDomain),
-  projectId: getEnvValue('VITE_FIREBASE_PROJECT_ID', firebaseConfigLocal.projectId),
-  storageBucket: getEnvValue('VITE_FIREBASE_STORAGE_BUCKET', firebaseConfigLocal.storageBucket),
-  messagingSenderId: getEnvValue('VITE_FIREBASE_MESSAGING_SENDER_ID', firebaseConfigLocal.messagingSenderId),
-  appId: getEnvValue('VITE_FIREBASE_APP_ID', firebaseConfigLocal.appId),
+  apiKey: getEnvValue('VITE_FIREBASE_API_KEY', 'apiKey'),
+  authDomain: getEnvValue('VITE_FIREBASE_AUTH_DOMAIN', 'authDomain'),
+  projectId: getEnvValue('VITE_FIREBASE_PROJECT_ID', 'projectId'),
+  storageBucket: getEnvValue('VITE_FIREBASE_STORAGE_BUCKET', 'storageBucket'),
+  messagingSenderId: getEnvValue('VITE_FIREBASE_MESSAGING_SENDER_ID', 'messagingSenderId'),
+  appId: getEnvValue('VITE_FIREBASE_APP_ID', 'appId'),
 };
 
-// Diagnostic logging - helpful for debugging configuration mismatches
+// Diagnostic logging - only in development
 const isProduction = import.meta.env.PROD;
 const isMismatch = firebaseConfig.projectId !== firebaseConfigLocal.projectId;
 
-console.log(`[Firebase Init] Project ID: ${firebaseConfig.projectId} (${isMismatch ? 'Custom Environment Variable' : 'Default AI Studio Config'})`);
-console.log(`[Firebase Init] Auth Domain: ${firebaseConfig.authDomain}`);
+if (!isProduction) {
+  console.log(`[Firebase Init] Project ID: ${firebaseConfig.projectId} (${isMismatch ? 'Custom Environment Variable' : 'Default AI Studio Config'})`);
+  console.log(`[Firebase Init] Auth Domain: ${firebaseConfig.authDomain}`);
+}
 
 if (!firebaseConfig.apiKey) {
   console.error('[Firebase Init] CRITICAL: API Key is missing! Auth will fail.');
 }
 
-if (isMismatch) {
-  console.warn(`[Firebase Init] Warning: You are using a custom project (${firebaseConfig.projectId}) instead of the auto-provisioned one (${firebaseConfigLocal.projectId}). Ensure ALL VITE_FIREBASE_* environment variables are set correctly for your project.`);
+if (!isProduction && isMismatch) {
+  console.warn(`[Firebase Init] Warning: You are using a custom project (${firebaseConfig.projectId}) instead of the auto-provisioned one (${firebaseConfigLocal.projectId}).`);
 }
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfigLocal.firestoreDatabaseId || "(default)");
+const getDatabaseId = () => {
+  const envId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
+  if (envId) return envId;
+  return import.meta.env.DEV ? firebaseConfigLocal.firestoreDatabaseId || "(default)" : "(default)";
+};
+
+export const db = getFirestore(app, getDatabaseId());
 export const auth = getAuth(app);
-export const storage = getStorage(app, firebaseConfig.storageBucket);
+export const storage = getStorage(app, firebaseConfig.storageBucket || undefined);
 
 // Help system diagnose and fix security rules issues
 export enum OperationType {
@@ -91,7 +99,9 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   }
   const serializedError = JSON.stringify(errInfo);
-  console.error('Firestore Error: ', serializedError);
+  if (import.meta.env.DEV) {
+    console.error('Firestore Error: ', serializedError);
+  }
   
   // Show a user-friendly toast based on common errors
   const message = error instanceof Error ? error.message : String(error);

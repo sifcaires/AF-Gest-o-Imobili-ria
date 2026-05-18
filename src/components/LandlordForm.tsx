@@ -7,29 +7,26 @@ import {
   Mail, 
   Phone, 
   IdCard, 
-  Briefcase, 
-  DollarSign, 
-  Calendar as CalendarIcon 
+  MapPin, 
+  CreditCard
 } from 'lucide-react';
-import { Tenant } from '../types';
-import { maskCPF, maskPhone } from '../lib/masks';
+import { Landlord } from '../types';
+import { maskPhone, maskCPFouCNPJ } from '../lib/masks';
 
-interface TenantFormProps {
-  initialData?: Partial<Tenant>;
-  onSubmit: (data: Omit<Tenant, 'id'>) => Promise<void>;
+interface LandlordFormProps {
+  initialData?: Partial<Landlord>;
+  onSubmit: (data: Omit<Landlord, 'id'>) => Promise<void>;
   isLoading?: boolean;
 }
 
-export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps) {
+export function LandlordForm({ initialData, onSubmit, isLoading }: LandlordFormProps) {
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     email: initialData?.email || '',
     phone: initialData?.phone || '',
-    cpf: initialData?.cpf || '',
-    rg: initialData?.rg || '',
-    birthDate: initialData?.birthDate || '',
-    profession: initialData?.profession || '',
-    monthlyIncome: initialData?.monthlyIncome || 0,
+    cpfCnpj: initialData?.cpfCnpj || '',
+    pixKey: initialData?.pixKey || '',
+    address: initialData?.address || '',
   });
 
   const handleSubmit = async (e: FormEvent) => {
@@ -41,12 +38,12 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
     <form onSubmit={handleSubmit} className="space-y-6 py-4">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="name" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Nome Completo</Label>
+          <Label htmlFor="name" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Nome Completo / Razão Social</Label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input
               id="name"
-              placeholder="Ex: João da Silva"
+              placeholder="Ex: João da Silva ou Imobiliária Silva LTDA"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
@@ -89,57 +86,28 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="cpf" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">CPF</Label>
+            <Label htmlFor="cpfCnpj" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">CPF / CNPJ</Label>
             <div className="relative">
               <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
               <Input
-                id="cpf"
+                id="cpfCnpj"
                 placeholder="000.000.000-00"
-                value={formData.cpf}
-                onChange={(e) => setFormData({ ...formData, cpf: maskCPF(e.target.value) })}
+                value={formData.cpfCnpj}
+                onChange={(e) => setFormData({ ...formData, cpfCnpj: maskCPFouCNPJ(e.target.value) })}
                 required
                 className="border-white/10 bg-white/5 text-white h-12 pl-10 rounded-xl focus:ring-indigo-500/50"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="rg" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">RG</Label>
+            <Label htmlFor="pixKey" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Chave PIX (Para Recebimento)</Label>
             <div className="relative">
-              <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 opacity-50" />
+              <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
               <Input
-                id="rg"
-                placeholder="00.000.000-0"
-                value={formData.rg}
-                onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
-                className="border-white/10 bg-white/5 text-white h-12 pl-10 rounded-xl focus:ring-indigo-500/50"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="birthDate" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Data de Nascimento</Label>
-            <div className="relative">
-              <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-              <Input
-                id="birthDate"
-                type="date"
-                value={formData.birthDate}
-                onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                className="border-white/10 bg-white/5 text-white h-12 pl-10 rounded-xl focus:ring-indigo-500/50 [color-scheme:dark]"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="profession" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Profissão</Label>
-            <div className="relative">
-              <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-              <Input
-                id="profession"
-                placeholder="Ex: Engenheiro"
-                value={formData.profession}
-                onChange={(e) => setFormData({ ...formData, profession: e.target.value })}
+                id="pixKey"
+                placeholder="E-mail, CPF, Celular ou Aleatória"
+                value={formData.pixKey}
+                onChange={(e) => setFormData({ ...formData, pixKey: e.target.value })}
                 className="border-white/10 bg-white/5 text-white h-12 pl-10 rounded-xl focus:ring-indigo-500/50"
               />
             </div>
@@ -147,15 +115,14 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="monthlyIncome" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Renda Mensal Estimada (R$)</Label>
+          <Label htmlFor="address" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Endereço Residencial/Comercial</Label>
           <div className="relative">
-            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input
-              id="monthlyIncome"
-              type="number"
-              placeholder="0.00"
-              value={formData.monthlyIncome || ''}
-              onChange={(e) => setFormData({ ...formData, monthlyIncome: parseFloat(e.target.value) || 0 })}
+              id="address"
+              placeholder="Rua, Número, Bairro, Cidade - UF"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="border-white/10 bg-white/5 text-white h-12 pl-10 rounded-xl focus:ring-indigo-500/50"
             />
           </div>
@@ -165,13 +132,13 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
       <div className="flex gap-3 pt-4">
         <Button 
           type="submit" 
-          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-14 rounded-2xl shadow-xl shadow-emerald-500/20 uppercase tracking-widest text-xs transition-all transform hover:-translate-y-1"
+          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-14 rounded-2xl shadow-xl shadow-indigo-500/20 uppercase tracking-widest text-xs transition-all transform hover:-translate-y-1"
           disabled={isLoading}
         >
           {isLoading ? (
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
           ) : (
-            'Finalizar Cadastro de Inquilino'
+            initialData ? 'Atualizar Cadastro de Locador' : 'Finalizar Cadastro de Locador'
           )}
         </Button>
       </div>
