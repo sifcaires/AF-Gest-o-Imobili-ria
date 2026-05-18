@@ -19,7 +19,8 @@ import {
   LogIn,
   LogOut,
   Database,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
@@ -126,6 +127,7 @@ export default function App() {
   const [isRegistryOpen, setIsRegistryOpen] = useState(false);
   const [activeForm, setActiveForm] = useState<'none' | 'property' | 'tenant' | 'contract' | 'payment'>('none');
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'property' | 'tenant' | 'contract' | 'payment' } | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -163,7 +165,6 @@ export default function App() {
   }, [user, fetchData]);
 
   const deleteProperty = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este imóvel?')) return;
     setLoading(true);
     try {
       await deleteDoc(doc(db, 'properties', id));
@@ -173,6 +174,7 @@ export default function App() {
       handleFirestoreError(e, OperationType.DELETE, `properties/${id}`);
     } finally {
       setLoading(false);
+      setItemToDelete(null);
     }
   };
 
@@ -195,7 +197,6 @@ export default function App() {
   };
 
   const deleteTenant = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este inquilino?')) return;
     setLoading(true);
     try {
       await deleteDoc(doc(db, 'tenants', id));
@@ -205,6 +206,7 @@ export default function App() {
       handleFirestoreError(e, OperationType.DELETE, `tenants/${id}`);
     } finally {
       setLoading(false);
+      setItemToDelete(null);
     }
   };
 
@@ -227,7 +229,6 @@ export default function App() {
   };
 
   const deleteContract = async (id: string) => {
-    if (!confirm('Deseja realmente encerrar/excluir este contrato?')) return;
     setLoading(true);
     try {
       await deleteDoc(doc(db, 'contracts', id));
@@ -237,6 +238,7 @@ export default function App() {
       handleFirestoreError(e, OperationType.DELETE, `contracts/${id}`);
     } finally {
       setLoading(false);
+      setItemToDelete(null);
     }
   };
 
@@ -259,7 +261,6 @@ export default function App() {
   };
 
   const deletePayment = async (id: string) => {
-    if (!confirm('Deseja excluir este registro de recibo?')) return;
     setLoading(true);
     try {
       await deleteDoc(doc(db, 'payments', id));
@@ -269,6 +270,7 @@ export default function App() {
       handleFirestoreError(e, OperationType.DELETE, `payments/${id}`);
     } finally {
       setLoading(false);
+      setItemToDelete(null);
     }
   };
 
@@ -498,7 +500,7 @@ export default function App() {
             setActiveForm('property');
             setIsRegistryOpen(true);
           }}
-          onDelete={deleteProperty}
+          onDelete={(id) => setItemToDelete({ id, type: 'property' })}
         />;
       case 'tenants':
         return <TenantsView 
@@ -508,7 +510,7 @@ export default function App() {
             setActiveForm('tenant');
             setIsRegistryOpen(true);
           }}
-          onDelete={deleteTenant}
+          onDelete={(id) => setItemToDelete({ id, type: 'tenant' })}
         />;
       case 'contracts':
         return <ContractsView 
@@ -520,7 +522,7 @@ export default function App() {
             setActiveForm('contract');
             setIsRegistryOpen(true);
           }}
-          onDelete={deleteContract}
+          onDelete={(id) => setItemToDelete({ id, type: 'contract' })}
         />;
       case 'payments':
         return <PaymentsView 
@@ -533,7 +535,7 @@ export default function App() {
             setActiveForm('payment');
             setIsRegistryOpen(true);
           }}
-          onDelete={deletePayment}
+          onDelete={(id) => setItemToDelete({ id, type: 'payment' })}
         />;
       default:
         return <DashboardView stats={{ income: 0, propertiesCount: 0, tenantsCount: 0, pendingPayments: 0, overduePayments: 0 }} recentPayments={[]} />;
@@ -793,6 +795,40 @@ export default function App() {
             </AnimatePresence>
           </main>
         </SidebarInset>
+
+        <Dialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+          <DialogContent className="sm:max-w-md frosted border-white/10 text-white">
+            <DialogHeader>
+              <DialogTitle className="serif italic text-2xl">Confirmar Exclusão</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Esta ação não pode ser desfeita. Deseja realmente remover este registro do sistema?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-3 pt-6 pb-2">
+              <Button 
+                variant="ghost" 
+                onClick={() => setItemToDelete(null)}
+                className="text-slate-400 hover:bg-white/5 hover:text-white font-bold text-xs uppercase tracking-widest"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (!itemToDelete) return;
+                  if (itemToDelete.type === 'property') deleteProperty(itemToDelete.id);
+                  if (itemToDelete.type === 'tenant') deleteTenant(itemToDelete.id);
+                  if (itemToDelete.type === 'contract') deleteContract(itemToDelete.id);
+                  if (itemToDelete.type === 'payment') deletePayment(itemToDelete.id);
+                }}
+                disabled={loading}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-widest px-6 shadow-lg shadow-rose-900/20"
+              >
+                {loading ? 'Processando...' : 'Confirmar Exclusão'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
       </div>
       <Toaster position="top-right" richColors />
     </SidebarProvider>
@@ -1019,14 +1055,17 @@ function PropertiesView({ properties, searchTerm, setSearchTerm, onEdit, onDelet
                 alt={property.title} 
                 className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100" 
               />
-              <div className="absolute top-6 right-6 flex gap-2">
+              <div className="absolute top-6 right-6 flex gap-2 z-20">
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  onClick={() => onDelete(property.id)}
-                  className="bg-rose-500/80 backdrop-blur-sm text-white hover:bg-rose-600 border-none h-8 w-8 rounded-lg shadow-lg"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(property.id);
+                  }}
+                  className="bg-rose-500/90 backdrop-blur-sm text-white hover:bg-rose-600 border-none h-9 w-9 rounded-xl shadow-xl transition-all hover:scale-110 active:scale-95"
                 >
-                  <X className="h-4 w-4" />
+                  <Trash2 className="h-4.5 w-4.5" />
                 </Button>
                 <Badge className={
                   property.status === 'available' ? 'bg-emerald-500/80 text-white border-none font-bold uppercase tracking-widest text-[10px] px-3 py-1 shadow-lg' : 'bg-slate-900/80 text-white border-none font-bold uppercase tracking-widest text-[10px] px-3 py-1 shadow-lg'
@@ -1116,9 +1155,9 @@ function TenantsView({ tenants, onEdit, onDelete }: {
                     <Button 
                       variant="outline" 
                       onClick={() => onDelete(tenant.id)}
-                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
+                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/20 text-rose-400 border hover:border-rose-500/50 transition-colors"
                     >
-                      <X className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
@@ -1383,7 +1422,7 @@ function PaymentsView({ payments, contracts, tenants, properties, onEdit, onDele
                       onClick={() => onDelete(payment.id)}
                       className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
                     >
-                      <X className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>

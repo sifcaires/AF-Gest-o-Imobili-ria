@@ -5,8 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Contract, Property, Tenant } from '../types';
 import { storage, auth } from '../lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { FileText, Upload, CheckCircle2, Loader2, X } from 'lucide-react';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { FileText, Upload, CheckCircle2, Loader2, X, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ContractFormProps {
   properties: Property[];
@@ -28,7 +29,9 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
   });
 
   const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handlePropertyChange = (propertyId: string) => {
     const property = properties.find(p => p.id === propertyId);
@@ -40,44 +43,95 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setFileError(null);
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+      const maxSize = 5 * 1024 * 1024; // 5MB
       
-      if (validTypes.includes(selectedFile.type)) {
-        setFile(selectedFile);
-      } else {
-        alert('Por favor, selecione um arquivo PDF ou Imagem (JPEG/PNG).');
+      if (!validTypes.includes(selectedFile.type) && selectedFile.type !== 'image/jpg') {
+        setFileError('Por favor, selecione um arquivo PDF ou Imagem (JPEG/PNG).');
+        return;
       }
+
+      if (selectedFile.size > maxSize) {
+        setFileError('O arquivo é muito grande. O limite é 5MB.');
+        return;
+      }
+
+      setFile(selectedFile);
+      setUploadProgress(0);
+      toast.success('Documento selecionado: ' + selectedFile.name);
     }
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
-    let documentUrl = formData.documentUrl;
+    if (!formData.propertyId || !formData.tenantId) {
+      toast.error('Por favor, selecione o imóvel e o inquilino.');
+      return;
+    }
 
-    if (file && auth.currentUser) {
-      setUploading(true);
-      try {
+    let documentUrl = formData.documentUrl;
+    console.log('[ContractForm] Submitting...', { propertyId: formData.propertyId, tenantId: formData.tenantId });
+
+    setUploading(true);
+    try {
+      if (file) {
+        if (!auth.currentUser) {
+          throw new Error('Usuário não autenticado para fazer upload.');
+        }
+
+        console.log('[ContractForm] Starting file upload...', file.name);
         const fileExt = file.name.split('.').pop();
         const fileName = `contracts/${auth.currentUser.uid}/${Date.now()}.${fileExt}`;
         const storageRef = ref(storage, fileName);
-        await uploadBytes(storageRef, file);
-        documentUrl = await getDownloadURL(storageRef);
-      } catch (error) {
-        console.error('Erro ao fazer upload:', error);
-        alert('Erro ao enviar o documento. Tente novamente.');
-        setUploading(false);
-        return;
-      }
-    }
+        
+        // Use uploadBytesResumable for better feedback and reliability
+        const uploadTask = uploadBytesResumable(storageRef, file);
 
-    await onSubmit({
-      ...formData,
-      documentUrl,
-    });
-    setUploading(false);
+        documentUrl = await new Promise((resolve, reject) => {
+          uploadTask.on('state_changed', 
+            (snapshot) => {
+              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              setUploadProgress(progress);
+              console.log('[ContractForm] Upload progress:', progress.toFixed(2) + '%');
+            }, 
+            (error) => {
+              console.error('[ContractForm] Upload task error:', error);
+              reject(new Error(`Erro no upload: ${error.message || 'Falha na conexão com Storage'}`));
+            }, 
+            async () => {
+              try {
+                const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                console.log('[ContractForm] Upload successful, URL:', downloadUrl);
+                resolve(downloadUrl);
+              } catch (urlError) {
+                reject(urlError);
+              }
+            }
+          );
+        });
+
+        toast.success('Documento enviado com sucesso!');
+      }
+
+      console.log('[ContractForm] Calling onSubmit...');
+      await onSubmit({
+        ...formData,
+        documentUrl,
+      });
+      console.log('[ContractForm] onSubmit completed successfully');
+      
+    } catch (error: any) {
+      console.error('[ContractForm] Error in handleSubmit:', error);
+      const errorMessage = error.message || 'Houve um problema ao salvar o contrato.';
+      toast.error(errorMessage);
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   return (
@@ -93,9 +147,11 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
               <SelectValue placeholder="Selecione o imóvel" />
             </SelectTrigger>
             <SelectContent className="bg-[#1e293b] border-white/10 text-white rounded-xl">
-              {properties.filter(p => p.status === 'available').map(property => (
-                <SelectItem key={property.id} value={property.id}>{property.title}</SelectItem>
-              ))}
+              {properties
+                .filter(p => p.status === 'available' || p.id === formData.propertyId)
+                .map(property => (
+                  <SelectItem key={property.id} value={property.id}>{property.title}</SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </div>
@@ -193,7 +249,17 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-sm font-medium truncate">{file.name}</p>
-                  <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-indigo-500 transition-all duration-300" 
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                    <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest whitespace-nowrap">
+                      {uploading ? `${Math.round(uploadProgress)}%` : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
+                    </p>
+                  </div>
                 </div>
                 <Button 
                   type="button" 
@@ -218,6 +284,12 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
               </>
             )}
           </Label>
+          {fileError && (
+            <div className="mt-2 flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 animate-in fade-in slide-in-from-top-1">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <p className="text-xs font-medium">{fileError}</p>
+            </div>
+          )}
         </div>
       </div>
 

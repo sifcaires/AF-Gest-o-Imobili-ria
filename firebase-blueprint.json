@@ -51,6 +51,7 @@
         "endDate": { "type": "string", "format": "date" },
         "rentAmount": { "type": "number" },
         "dayOfPayment": { "type": "number" },
+        "documentUrl": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },

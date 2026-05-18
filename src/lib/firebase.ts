@@ -42,7 +42,7 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfigLocal.firestoreDatabaseId || "(default)");
 export const auth = getAuth(app);
-export const storage = getStorage(app);
+export const storage = getStorage(app, firebaseConfig.storageBucket);
 
 // Help system diagnose and fix security rules issues
 export enum OperationType {
@@ -71,6 +71,8 @@ export interface FirestoreErrorInfo {
   }
 }
 
+import { toast } from 'sonner';
+
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
@@ -90,6 +92,17 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   }
   const serializedError = JSON.stringify(errInfo);
   console.error('Firestore Error: ', serializedError);
+  
+  // Show a user-friendly toast based on common errors
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes('permission-denied') || message.includes('insufficient permissions')) {
+    toast.error('Acesso negado. Você não tem permissão para esta operação.');
+  } else if (message.includes('not-found')) {
+    toast.error('Registro não encontrado.');
+  } else {
+    toast.error('Erro no servidor: ' + message);
+  }
+
   throw new Error(serializedError);
 }
 
