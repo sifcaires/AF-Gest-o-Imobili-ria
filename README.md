@@ -25,6 +25,13 @@ Sistema moderno para gestão de imóveis, inquilinos, contratos e pagamentos.
 
 3. O comando de build será `npm run build` e o diretório de saída será `dist`.
 
+## 🔥 Configuração do Firebase (Regras de Segurança)
+
+Para que o aplicativo funcione corretamente, você deve aplicar as regras de segurança no Console do Firebase:
+
+1. **Firestore Rules**: Copie o conteúdo de `firestore.rules` e cole em **Firestore Database** > **Rules**.
+2. **Storage Rules**: Copie o conteúdo de `storage.rules` e cole em **Storage** > **Rules**.
+
 ## ⚠️ Solução de Erros Comuns
 
 ### auth/configuration-not-found

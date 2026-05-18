@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.env.local
+firebase-blueprint.json
+firebase-applet-config.json
+DRAFT_firestore.rules
+security_spec.md
+storage.rules
+firestore.rules
+metadata.json

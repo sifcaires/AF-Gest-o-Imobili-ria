@@ -3,13 +3,16 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "vercel-build": "vite build"
+    "vercel-build": "echo '{}' > firebase-applet-config.json && vite build"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
