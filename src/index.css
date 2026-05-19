@@ -94,6 +94,11 @@
     /* Since we are already dark by default in root, we can just ensure dark mode looks same or slightly adjusted */
 }
 
+@keyframes progress-stripe {
+  from { background-position: 0 0; }
+  to { background-position: 20px 0; }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

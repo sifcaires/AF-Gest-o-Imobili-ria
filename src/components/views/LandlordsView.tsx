@@ -26,15 +26,18 @@ import { Button } from '@/components/ui/button';
 import { Landlord } from '../../types';
 
 interface LandlordsViewProps {
+  user: any;
   landlords: Landlord[];
   searchTerm: string;
   setSearchTerm: (s: string) => void;
   onEdit: (l: Landlord) => void;
   onDelete: (id: string) => void;
+  onRegisterMe: () => void;
 }
 
-export function LandlordsView({ landlords, searchTerm, setSearchTerm, onEdit, onDelete }: LandlordsViewProps) {
+export function LandlordsView({ user, landlords, searchTerm, setSearchTerm, onEdit, onDelete, onRegisterMe }: LandlordsViewProps) {
   const [filterDoc, setFilterDoc] = useState<'all' | 'with' | 'without'>('all');
+  const isAlreadyLandlord = landlords.some(l => l.email === user?.email);
 
   const filteredLandlords = landlords.filter(l => {
     const s = (searchTerm || '').toLowerCase();
@@ -101,10 +104,23 @@ export function LandlordsView({ landlords, searchTerm, setSearchTerm, onEdit, on
           <TableBody>
             {filteredLandlords.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-48 text-center">
-                  <div className="flex flex-col items-center justify-center space-y-3">
-                    <UserSquare2 className="h-10 w-10 text-slate-600" />
-                    <p className="text-slate-500 font-medium">Nenhum locador encontrado.</p>
+                <TableCell colSpan={5} className="h-64 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-4">
+                    <div className="h-16 w-16 rounded-2xl bg-white/5 flex items-center justify-center">
+                      <UserSquare2 className="h-8 w-8 text-slate-600" />
+                    </div>
+                    <div>
+                      <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Nenhum locador encontrado</p>
+                      <p className="text-slate-600 text-[10px] mt-1">Refine sua busca ou adicione um novo registro.</p>
+                    </div>
+                    {!isAlreadyLandlord && (
+                      <Button 
+                        onClick={onRegisterMe}
+                        className="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-[10px] uppercase tracking-widest px-6 h-10 rounded-xl transition-all"
+                      >
+                        Me cadastrar como Locador
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

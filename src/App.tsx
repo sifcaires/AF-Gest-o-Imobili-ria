@@ -215,6 +215,7 @@ export default function App() {
         />;
       case 'landlords':
         return <LandlordsView 
+          user={user}
           landlords={landlords} 
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -224,9 +225,28 @@ export default function App() {
             setIsRegistryOpen(true);
           }}
           onDelete={(id) => setItemToDelete({ id, type: 'landlord' })}
+          onRegisterMe={() => {
+            setEditingItem({
+              name: user.displayName || '',
+              email: user.email || '',
+            });
+            setActiveForm('landlord');
+            setIsRegistryOpen(true);
+          }}
         />;
       case 'profile':
-        return <ProfileView user={user} />;
+        return <ProfileView 
+          user={user} 
+          landlords={landlords}
+          onRegisterAsLandlord={() => {
+            setEditingItem({
+              name: user.displayName || '',
+              email: user.email || '',
+            });
+            setActiveForm('landlord');
+            setIsRegistryOpen(true);
+          }}
+        />;
       default:
         return <DashboardView 
           userName={user?.displayName || 'Gestor'}

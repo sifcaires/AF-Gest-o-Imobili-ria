@@ -4,7 +4,10 @@ import {
   Camera, 
   Settings, 
   Upload, 
-  Info 
+  Info,
+  UserSquare2,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { 
   Card, 
@@ -14,12 +17,15 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useFirebase } from '../FirebaseProvider';
 import { toast } from 'sonner';
+import { Landlord } from '../../types';
 
 interface ProfileViewProps {
   user: any;
+  landlords: Landlord[];
+  onRegisterAsLandlord: () => void;
 }
 
-export function ProfileView({ user }: ProfileViewProps) {
+export function ProfileView({ user, landlords, onRegisterAsLandlord }: ProfileViewProps) {
   const { updateUserProfile, updateUserPhoto, appLogo, updateAppLogo } = useFirebase();
   const [name, setName] = useState(user?.displayName || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -30,6 +36,7 @@ export function ProfileView({ user }: ProfileViewProps) {
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com';
+  const isAlreadyLandlord = landlords.some(l => l.email === user?.email);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,8 +173,46 @@ export function ProfileView({ user }: ProfileViewProps) {
           </Card>
         </div>
 
-        {isAdmin && (
-          <div className="space-y-6">
+        <div className="space-y-10">
+          <Card className="border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl rounded-3xl p-8 border">
+            {!isAlreadyLandlord ? (
+              <div className="flex flex-col items-center text-center space-y-6">
+                <div className="h-20 w-20 rounded-3xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+                  <UserSquare2 className="h-10 w-10 text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white serif italic">Seja um Locador</h3>
+                  <p className="text-slate-400 text-sm mt-2 max-w-sm">
+                    Para cadastrar imóveis e gerenciar contratos, você precisa estar registrado como locador no sistema.
+                  </p>
+                </div>
+                <Button 
+                  onClick={onRegisterAsLandlord}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 px-8 rounded-xl shadow-lg shadow-indigo-500/20 uppercase tracking-widest text-[10px] transition-all transform hover:-translate-y-1"
+                >
+                  Me cadastrar como Locador
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center text-center space-y-6">
+                <div className="h-20 w-20 rounded-3xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                  <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white serif italic">Cadastro Ativo</h3>
+                  <p className="text-slate-400 text-sm mt-2">
+                    Parabéns! Você já está habilitado como locador e pode gerenciar seus imóveis plenamente.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 bg-emerald-500/10 px-4 py-2 rounded-full border border-emerald-500/20">
+                  <Clock className="h-4 w-4 text-emerald-400" />
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Verificado</span>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {isAdmin && (
             <Card className="border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl rounded-3xl p-8 border">
               <div className="flex items-center gap-4 mb-8">
                 <div className="h-12 w-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center">
@@ -227,8 +272,8 @@ export function ProfileView({ user }: ProfileViewProps) {
                 </div>
               </div>
             </Card>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

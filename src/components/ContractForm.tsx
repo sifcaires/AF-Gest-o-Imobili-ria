@@ -243,45 +243,67 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
             className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl p-6 bg-white/5 hover:bg-white/10 hover:border-indigo-500/50 transition-all cursor-pointer group"
           >
             {file ? (
-              <div className="flex items-center gap-3 w-full">
-                <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">{file.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-indigo-500 transition-all duration-300" 
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                    <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest whitespace-nowrap">
-                      {uploading ? `${Math.round(uploadProgress)}%` : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
-                    </p>
+              <div className="w-full space-y-4 animate-in fade-in zoom-in duration-300">
+                <div className="flex items-center gap-4 bg-white/10 p-4 rounded-xl border border-white/10 shadow-inner">
+                  <div className="h-12 w-12 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0 border border-indigo-500/20">
+                    <FileText className="h-6 w-6 text-indigo-400" />
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="text-white text-base font-bold truncate leading-tight">{file.name}</p>
+                      <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest bg-white/5 py-1 px-2 rounded-md border border-white/5">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <span className="text-xs text-indigo-300 font-medium whitespace-nowrap">Documento pronto</span>
+                    </div>
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setFile(null);
+                      setUploadProgress(0);
+                    }}
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
                 </div>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-slate-400 hover:text-white"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setFile(null);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+
+                {uploading && (
+                  <div className="space-y-2 px-1">
+                    <div className="flex justify-between items-end">
+                      <div className="flex items-center gap-2 text-indigo-400">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Enviando arquivo...</span>
+                      </div>
+                      <span className="text-2xl font-black text-white italic serif tracking-tighter">
+                        {Math.round(uploadProgress)}%
+                      </span>
+                    </div>
+                    <div className="h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 shadow-inner p-[2px]">
+                      <div 
+                        className="h-full bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-400 rounded-full transition-all duration-300 ease-out shadow-[0_0_12px_rgba(99,102,241,0.5)]" 
+                        style={{ width: `${uploadProgress}%` }}
+                      >
+                         <div className="w-full h-full opacity-30 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:20px_20px] animate-[progress-stripe_1s_linear_infinite]" />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
-              <>
-                <div className="h-12 w-12 rounded-full bg-indigo-500/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <Upload className="h-6 w-6 text-indigo-400" />
+              <div className="flex flex-col items-center justify-center py-6">
+                <div className="h-16 w-16 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 bg-white/5 border border-white/5 group-hover:border-indigo-500/50 group-hover:bg-indigo-500/20">
+                  <Upload className="h-8 w-8 text-indigo-400" />
                 </div>
-                <p className="text-white text-sm font-medium">Clique para fazer upload</p>
-                <p className="text-slate-400 text-xs mt-1">PDF, JPG ou PNG (Máx 5MB)</p>
-              </>
+                <p className="text-white text-base font-bold tracking-tight">Anexar Contrato Assinado</p>
+                <p className="text-slate-400 text-xs mt-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">PDF, JPG ou PNG (Máx 5MB)</p>
+              </div>
             )}
           </Label>
           {fileError && (
