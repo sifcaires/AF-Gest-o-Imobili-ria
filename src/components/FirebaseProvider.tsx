@@ -9,7 +9,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, storage, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { toast } from 'sonner';
@@ -155,8 +155,19 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       
       const storageRef = ref(storage, `profiles/${auth.currentUser.uid}/${Date.now()}_${file.name}`);
       const metadata = { contentType: file.type };
-      const snapshot = await uploadBytes(storageRef, file, metadata);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+      
+      const downloadURL = await new Promise<string>((resolve, reject) => {
+        uploadTask.on('state_changed', 
+          null, 
+          (error) => reject(error), 
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(url);
+          }
+        );
+      });
       
       await updateProfile(auth.currentUser, { photoURL: downloadURL });
       
@@ -167,19 +178,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       return downloadURL;
     } catch (error: any) {
       console.error('Error uploading photo:', error);
-      let errorMessage = 'Erro ao fazer upload da imagem.';
-      
-      if (error.code === 'storage/unauthorized') {
-        errorMessage = 'Permissão negada no Storage. Verifique as regras de segurança.';
-      } else if (error.code === 'storage/retry-limit-exceeded') {
-        errorMessage = 'Tempo limite excedido. Tente novamente.';
-      } else if (error.code === 'storage/project-not-found') {
-        errorMessage = 'Projeto Firebase não encontrado.';
-      } else if (error.message) {
-        errorMessage = `Erro: ${error.message}`;
-      }
-      
-      toast.error(errorMessage);
+      handleFirestoreError(error, OperationType.WRITE, 'profiles/photo');
       throw error;
     }
   };
@@ -190,8 +189,19 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       
       const storageRef = ref(storage, `brand/logo_${Date.now()}_${file.name}`);
       const metadata = { contentType: file.type };
-      const snapshot = await uploadBytes(storageRef, file, metadata);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+      
+      const downloadURL = await new Promise<string>((resolve, reject) => {
+        uploadTask.on('state_changed', 
+          null, 
+          (error) => reject(error), 
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(url);
+          }
+        );
+      });
       
       await setDoc(doc(db, 'settings', 'app'), { 
         logoUrl: downloadURL,

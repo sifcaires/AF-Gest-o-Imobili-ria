@@ -42,28 +42,33 @@ const getDatabaseId = () => {
 
 const getStorageBucket = () => {
   let bucket = getEnvValue('VITE_FIREBASE_STORAGE_BUCKET');
+  
   if (!bucket) {
     const projectId = getEnvValue('VITE_FIREBASE_PROJECT_ID');
     if (projectId) {
-      // Modern Firebase projects use .firebasestorage.app
-      // Older ones use .appspot.com
-      // We'll prioritize .firebasestorage.app if we have no bucket,
-      // but getStorage(app) usually handles this if config.storageBucket is set.
-      // However, if config is missing, we try to guess.
-      return `${projectId}.firebasestorage.app`;
+      bucket = `${projectId}.firebasestorage.app`;
+      console.log('[Firebase] Guessing storage bucket from project ID:', bucket);
+    } else {
+      return undefined;
     }
-    return undefined;
   }
+
   // Remove gs:// prefix if present
   bucket = bucket.replace(/^gs:\/\//, '');
   // Remove trailing slashes
   bucket = bucket.replace(/\/+$/, '');
+  
+  if (bucket) {
+    console.log('[Firebase] Using storage bucket:', bucket);
+  }
+  
   return bucket;
 };
 
+const storageBucket = getStorageBucket();
 export const db = getFirestore(app, getDatabaseId());
 export const auth = getAuth(app);
-export const storage = getStorage(app, getStorageBucket());
+export const storage = storageBucket ? getStorage(app, storageBucket) : getStorage(app);
 
 // Help system diagnose and fix security rules issues
 export enum OperationType {
@@ -113,19 +118,22 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   }
   const serializedError = JSON.stringify(errInfo);
   if (import.meta.env.DEV) {
-    console.error('Firestore Error: ', serializedError);
+    console.error('Firebase Error: ', serializedError);
   }
   
   // Show a user-friendly toast based on common errors
   const message = error instanceof Error ? error.message : String(error);
-  const isStorageError = message.includes('Storage') || (error as any)?.code?.startsWith('storage/');
+  const isStorageError = message.toLowerCase().includes('storage') || (error as any)?.code?.startsWith('storage/');
 
   if (message.includes('permission-denied') || message.includes('insufficient permissions') || (error as any)?.code === 'storage/unauthorized') {
-    toast.error('Acesso negado. Verifique as permissões de acesso.');
+    toast.error('Acesso negado. Verifique as permissões de acesso (Firestore/Storage).');
   } else if (message.includes('not-found') || (error as any)?.code === 'storage/object-not-found') {
     toast.error('Registro ou arquivo não encontrado.');
-  } else if (message.includes('retry-limit-exceeded') || isStorageError && message.includes('retry')) {
-    toast.error('Erro de conexão com o Firebase Storage. Verifique o bucket e as regras de CORS no console do Google Cloud.');
+  } else if (message.includes('retry-limit-exceeded') || (isStorageError && message.includes('retry'))) {
+    toast.error('Erro de conexão com o Firebase Storage. Possível bucket inexistente ou erro de CORS.');
+    console.error('[Storage Error] Bucket used:', getStorageBucket());
+  } else if (message.includes('project-not-found')) {
+    toast.error('Projeto Firebase não encontrado. Verifique suas chaves de API.');
   } else {
     toast.error('Erro no servidor: ' + message);
   }

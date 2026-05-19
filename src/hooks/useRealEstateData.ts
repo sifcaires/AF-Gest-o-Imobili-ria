@@ -13,7 +13,7 @@ import {
   writeBatch,
   getDocs
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
 import { db, storage, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Property, Tenant, Contract, Payment, Landlord } from '../types';
 import { toast } from 'sonner';
@@ -289,8 +289,21 @@ export function useRealEstateData(user: any) {
       if (file) {
         const storageRef = ref(storage, `landlords/${landlordRef.id}/${file.name}`);
         const metadata = { contentType: file.type };
-        const snapshot = await uploadBytes(storageRef, file, metadata);
-        const downloadURL = await getDownloadURL(snapshot.ref);
+        
+        // Use resumable upload for better state management
+        const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+        
+        const downloadURL = await new Promise<string>((resolve, reject) => {
+          uploadTask.on('state_changed', 
+            null, 
+            (error) => reject(error), 
+            async () => {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(url);
+            }
+          );
+        });
+        
         finalData.documentUrl = downloadURL;
       }
 
@@ -323,8 +336,20 @@ export function useRealEstateData(user: any) {
       if (file) {
         const storageRef = ref(storage, `landlords/${id}/${file.name}`);
         const metadata = { contentType: file.type };
-        const snapshot = await uploadBytes(storageRef, file, metadata);
-        const downloadURL = await getDownloadURL(snapshot.ref);
+        
+        const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+        
+        const downloadURL = await new Promise<string>((resolve, reject) => {
+          uploadTask.on('state_changed', 
+            null, 
+            (error) => reject(error), 
+            async () => {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(url);
+            }
+          );
+        });
+        
         finalData.documentUrl = downloadURL;
       }
 
