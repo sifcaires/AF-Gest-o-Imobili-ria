@@ -124,7 +124,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       }
       
       const storageRef = ref(storage, `profiles/${auth.currentUser.uid}/${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
+      const metadata = { contentType: file.type };
+      const snapshot = await uploadBytes(storageRef, file, metadata);
       const downloadURL = await getDownloadURL(snapshot.ref);
       
       await updateProfile(auth.currentUser, { photoURL: downloadURL });
@@ -158,7 +159,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       if (!storage) throw new Error('Storage não inicializado.');
       
       const storageRef = ref(storage, `brand/logo_${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
+      const metadata = { contentType: file.type };
+      const snapshot = await uploadBytes(storageRef, file, metadata);
       const downloadURL = await getDownloadURL(snapshot.ref);
       
       await setDoc(doc(db, 'settings', 'app'), { 

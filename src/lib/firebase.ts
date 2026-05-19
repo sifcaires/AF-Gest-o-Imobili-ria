@@ -40,9 +40,19 @@ const getDatabaseId = () => {
   return import.meta.env.VITE_FIREBASE_DATABASE_ID || "(default)";
 };
 
+const getStorageBucket = () => {
+  let bucket = getEnvValue('VITE_FIREBASE_STORAGE_BUCKET');
+  if (!bucket) return undefined;
+  // Remove gs:// prefix if present
+  bucket = bucket.replace(/^gs:\/\//, '');
+  // Remove trailing slashes
+  bucket = bucket.replace(/\/+$/, '');
+  return bucket;
+};
+
 export const db = getFirestore(app, getDatabaseId());
 export const auth = getAuth(app);
-export const storage = getStorage(app, firebaseConfig.storageBucket || undefined);
+export const storage = getStorage(app, getStorageBucket());
 
 // Help system diagnose and fix security rules issues
 export enum OperationType {
@@ -97,10 +107,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   
   // Show a user-friendly toast based on common errors
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes('permission-denied') || message.includes('insufficient permissions')) {
-    toast.error('Acesso negado. Você não tem permissão para esta operação.');
-  } else if (message.includes('not-found')) {
-    toast.error('Registro não encontrado.');
+  const isStorageError = message.includes('Storage') || (error as any)?.code?.startsWith('storage/');
+
+  if (message.includes('permission-denied') || message.includes('insufficient permissions') || (error as any)?.code === 'storage/unauthorized') {
+    toast.error('Acesso negado. Verifique as permissões de acesso.');
+  } else if (message.includes('not-found') || (error as any)?.code === 'storage/object-not-found') {
+    toast.error('Registro ou arquivo não encontrado.');
+  } else if (message.includes('retry-limit-exceeded') || isStorageError && message.includes('retry')) {
+    toast.error('Erro de conexão com o Firebase Storage. Verifique o bucket e as regras de CORS no console do Google Cloud.');
   } else {
     toast.error('Erro no servidor: ' + message);
   }
