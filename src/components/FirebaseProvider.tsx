@@ -9,7 +9,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, storage, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { toast } from 'sonner';
@@ -156,8 +156,23 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       const storageRef = ref(storage, `profiles/${auth.currentUser.uid}/${Date.now()}_${file.name}`);
       const metadata = { contentType: file.type };
       
-      const snapshot = await uploadBytes(storageRef, file, metadata);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      // Use uploadBytesResumable for better feedback and reliability
+      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+      
+      const downloadURL = await new Promise<string>((resolve, reject) => {
+        uploadTask.on('state_changed', 
+          null, 
+          (error) => reject(error), 
+          async () => {
+            try {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(url);
+            } catch (err) {
+              reject(err);
+            }
+          }
+        );
+      });
       
       await updateProfile(auth.currentUser, { photoURL: downloadURL });
       
@@ -180,8 +195,23 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       const storageRef = ref(storage, `brand/logo_${Date.now()}_${file.name}`);
       const metadata = { contentType: file.type };
       
-      const snapshot = await uploadBytes(storageRef, file, metadata);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      // Use uploadBytesResumable for better feedback and reliability
+      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+      
+      const downloadURL = await new Promise<string>((resolve, reject) => {
+        uploadTask.on('state_changed', 
+          null, 
+          (error) => reject(error), 
+          async () => {
+            try {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(url);
+            } catch (err) {
+              reject(err);
+            }
+          }
+        );
+      });
       
       await setDoc(doc(db, 'settings', 'app'), { 
         logoUrl: downloadURL,
