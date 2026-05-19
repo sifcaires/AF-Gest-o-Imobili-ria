@@ -46,8 +46,10 @@ const getStorageBucket = () => {
   if (!bucket) {
     const projectId = getEnvValue('VITE_FIREBASE_PROJECT_ID');
     if (projectId) {
-      bucket = `${projectId}.firebasestorage.app`;
-      console.log('[Firebase] Guessing storage bucket from project ID:', bucket);
+      // Trying .appspot.com as it's the most common default for older/standard projects
+      // and often works when .firebasestorage.app fails if CORS isn't set for the new one.
+      bucket = `${projectId}.appspot.com`;
+      console.log('[Firebase] Guessing storage bucket (trying appspot.com):', bucket);
     } else {
       return undefined;
     }

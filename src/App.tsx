@@ -194,6 +194,7 @@ export default function App() {
           contracts={contracts} 
           properties={properties} 
           tenants={tenants} 
+          payments={payments}
           onEdit={(contract) => {
             setEditingItem(contract);
             setActiveForm('contract');

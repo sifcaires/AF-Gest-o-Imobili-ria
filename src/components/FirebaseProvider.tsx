@@ -9,7 +9,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, storage, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { toast } from 'sonner';
@@ -156,18 +156,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       const storageRef = ref(storage, `profiles/${auth.currentUser.uid}/${Date.now()}_${file.name}`);
       const metadata = { contentType: file.type };
       
-      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
-      
-      const downloadURL = await new Promise<string>((resolve, reject) => {
-        uploadTask.on('state_changed', 
-          null, 
-          (error) => reject(error), 
-          async () => {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(url);
-          }
-        );
-      });
+      const snapshot = await uploadBytes(storageRef, file, metadata);
+      const downloadURL = await getDownloadURL(snapshot.ref);
       
       await updateProfile(auth.currentUser, { photoURL: downloadURL });
       
@@ -190,18 +180,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       const storageRef = ref(storage, `brand/logo_${Date.now()}_${file.name}`);
       const metadata = { contentType: file.type };
       
-      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
-      
-      const downloadURL = await new Promise<string>((resolve, reject) => {
-        uploadTask.on('state_changed', 
-          null, 
-          (error) => reject(error), 
-          async () => {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(url);
-          }
-        );
-      });
+      const snapshot = await uploadBytes(storageRef, file, metadata);
+      const downloadURL = await getDownloadURL(snapshot.ref);
       
       await setDoc(doc(db, 'settings', 'app'), { 
         logoUrl: downloadURL,

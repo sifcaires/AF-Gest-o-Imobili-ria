@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Contract, Property, Tenant } from '../types';
 import { storage, auth } from '../lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { FileText, Upload, CheckCircle2, Loader2, X, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -88,31 +88,8 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
         const fileName = `contracts/${auth.currentUser.uid}/${Date.now()}.${fileExt}`;
         const storageRef = ref(storage, fileName);
         
-        // Use uploadBytesResumable for better feedback and reliability
-        const uploadTask = uploadBytesResumable(storageRef, file);
-
-        documentUrl = await new Promise((resolve, reject) => {
-          uploadTask.on('state_changed', 
-            (snapshot) => {
-              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              setUploadProgress(progress);
-              console.log('[ContractForm] Upload progress:', progress.toFixed(2) + '%');
-            }, 
-            (error) => {
-              console.error('[ContractForm] Upload task error:', error);
-              reject(new Error(`Erro no upload: ${error.message || 'Falha na conexão com Storage'}`));
-            }, 
-            async () => {
-              try {
-                const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                console.log('[ContractForm] Upload successful, URL:', downloadUrl);
-                resolve(downloadUrl);
-              } catch (urlError) {
-                reject(urlError);
-              }
-            }
-          );
-        });
+        const snapshot = await uploadBytes(storageRef, file);
+        documentUrl = await getDownloadURL(snapshot.ref);
 
         toast.success('Documento enviado com sucesso!');
       }
