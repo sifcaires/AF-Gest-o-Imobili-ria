@@ -25,7 +25,12 @@ import {
   Pencil,
   User,
   Camera,
-  ImagePlus
+  ImagePlus,
+  Settings,
+  Upload,
+  Info,
+  Mail,
+  Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
@@ -106,7 +111,8 @@ import {
   writeBatch,
   deleteDoc
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from './lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage, handleFirestoreError, OperationType } from './lib/firebase';
 
 import { boletoService } from './services/boletoService';
 
@@ -122,7 +128,7 @@ const chartData = [
 ];
 
 export default function App() {
-  const { user, loading: authLoading, signInWithGoogle, signInWithEmail, signUpWithEmail, logout, authError, updateUserProfile, updateEmail } = useFirebase();
+  const { user, loading: authLoading, signInWithGoogle, signInWithEmail, signUpWithEmail, logout, authError, updateUserProfile, updateEmail, appLogo } = useFirebase();
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'admin'>('login');
   const [authData, setAuthData] = useState({ email: '', password: '', name: '' });
@@ -375,11 +381,23 @@ export default function App() {
     }
   };
 
-  const updateLandlord = async (id: string, data: Partial<Landlord>) => {
+  const updateLandlord = async (id: string, data: any) => {
+    if (!user) return;
     setLoading(true);
     try {
+      let finalData = { ...data };
+      
+      if (data.file) {
+        const file = data.file as File;
+        const storageRef = ref(storage, `landlords/${id}/${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        delete finalData.file;
+        finalData.documentUrl = downloadURL;
+      }
+
       await updateDoc(doc(db, 'landlords', id), {
-        ...data,
+        ...finalData,
         updatedAt: serverTimestamp()
       });
       toast.success('Cadastro de locador atualizado!');
@@ -487,16 +505,34 @@ export default function App() {
     }
   };
 
-  const handleAddLandlord = async (data: Omit<Landlord, 'id'>) => {
+  const handleAddLandlord = async (data: any) => {
     if (!user) return;
     setLoading(true);
     try {
-      await addDoc(collection(db, 'landlords'), {
-        ...data,
+      let finalData = { ...data };
+      
+      // Temporary ID for storage path if needed, or we add then update
+      const landlordRef = doc(collection(db, 'landlords'));
+      
+      if (data.file) {
+        const file = data.file as File;
+        const storageRef = ref(storage, `landlords/${landlordRef.id}/${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        delete finalData.file;
+        finalData.documentUrl = downloadURL;
+      }
+
+      const batch = writeBatch(db);
+      batch.set(landlordRef, {
+        ...finalData,
         ownerId: user.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+      
+      await batch.commit();
+      
       toast.success('Locador cadastrado com sucesso!');
       setIsRegistryOpen(false);
       setActiveForm('none');
@@ -741,6 +777,8 @@ export default function App() {
       case 'landlords':
         return <LandlordsView 
           landlords={landlords} 
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
           onEdit={(landlord) => {
             setEditingItem(landlord);
             setActiveForm('landlord');
@@ -749,7 +787,7 @@ export default function App() {
           onDelete={(id) => setItemToDelete({ id, type: 'landlord' })}
         />;
       case 'profile':
-        return <ProfileView user={user} onResetDatabase={resetDatabase} />;
+        return <ProfileView user={user} />;
       default:
         return <DashboardView 
           userName={user?.displayName || 'Gestor'}
@@ -769,9 +807,13 @@ export default function App() {
         <Sidebar className="border-r border-white/10 bg-white/5 backdrop-blur-xl z-10">
           <SidebarHeader className="p-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 font-bold text-white shadow-lg shadow-indigo-500/20 text-sm">
-                AF
-              </div>
+              {appLogo ? (
+                <img src={appLogo} alt="Logo" className="h-10 w-10 object-contain rounded-xl" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 font-bold text-white shadow-lg shadow-indigo-500/20 text-sm">
+                  AF
+                </div>
+              )}
               <div>
                 <h1 className="font-bold tracking-tight text-white text-sm whitespace-nowrap">Portal AF</h1>
                 <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') ? 'Painel Administrativo' : 'Área do Locador'}</p>
@@ -857,8 +899,8 @@ export default function App() {
           </SidebarContent>
           <SidebarFooter className="p-4 border-t border-white/10">
             <div className="flex items-center gap-3 px-2 py-3 rounded-lg hover:bg-white/5 transition-colors group">
-              <Avatar className="h-9 w-9 border border-white/10 text-slate-100">
-                <AvatarImage src={user?.photoURL || ''} />
+              <Avatar className="size-9 border border-white/10 text-slate-100" key={user?.photoURL}>
+                <AvatarImage src={user?.photoURL || ''} referrerPolicy="no-referrer" />
                 <AvatarFallback className="bg-white/10 text-white font-semibold text-xs">{user?.displayName?.substring(0, 2).toUpperCase() || 'AF'}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col overflow-hidden">
@@ -1724,17 +1766,62 @@ function PaymentsView({ payments, contracts, tenants, properties, onEdit, onDele
   );
 }
 
-function LandlordsView({ landlords, onEdit, onDelete }: { 
+function LandlordsView({ landlords, searchTerm, setSearchTerm, onEdit, onDelete }: { 
   landlords: Landlord[], 
+  searchTerm: string,
+  setSearchTerm: (s: string) => void,
   onEdit: (l: Landlord) => void,
   onDelete: (id: string) => void
 }) {
+  const [filterDoc, setFilterDoc] = useState<'all' | 'with' | 'without'>('all');
+
+  const filteredLandlords = landlords.filter(l => {
+    const matchesSearch = l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      l.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      l.cpfCnpj.includes(searchTerm);
+    
+    if (filterDoc === 'with') return matchesSearch && !!l.documentUrl;
+    if (filterDoc === 'without') return matchesSearch && !l.documentUrl;
+    return matchesSearch;
+  });
+
   return (
     <div className="space-y-10">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b pb-8 border-white/10">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b pb-8 border-white/10">
         <div>
-          <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Lista de Locadores</h2>
+          <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Locadores</h2>
           <p className="text-slate-400 font-medium mt-1">Gerenciamento de proprietários e beneficiários.</p>
+        </div>
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+            <button 
+              onClick={() => setFilterDoc('all')}
+              className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${filterDoc === 'all' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              Todos
+            </button>
+            <button 
+              onClick={() => setFilterDoc('with')}
+              className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${filterDoc === 'with' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              Com Doc
+            </button>
+            <button 
+              onClick={() => setFilterDoc('without')}
+              className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${filterDoc === 'without' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              Sem Doc
+            </button>
+          </div>
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <Input 
+              placeholder="Buscar..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-11 h-12 bg-white/5 border-white/10 text-white rounded-xl focus:ring-indigo-500/50"
+            />
+          </div>
         </div>
       </div>
 
@@ -1744,38 +1831,65 @@ function LandlordsView({ landlords, onEdit, onDelete }: {
             <TableRow className="border-b border-white/5 hover:bg-transparent">
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Nome / Razão Social</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Contato</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">CPF / CNPJ</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Documento</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Docus</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {landlords.length === 0 ? (
+            {filteredLandlords.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-32 text-center text-slate-500 font-medium">Nenhum locador cadastrado.</TableCell>
+                <TableCell colSpan={5} className="h-48 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                    <UserSquare2 className="h-10 w-10 text-slate-600" />
+                    <p className="text-slate-500 font-medium">Nenhum locador encontrado.</p>
+                  </div>
+                </TableCell>
               </TableRow>
-            ) : landlords.map((landlord) => (
+            ) : filteredLandlords.map((landlord) => (
               <TableRow key={landlord.id} className="border-white/5 hover:bg-white/[0.02] transition-colors group">
                 <TableCell className="py-5 px-8">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 border border-white/10">
-                      <AvatarFallback className="bg-blue-500/10 text-blue-400 font-bold text-xs">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-12 w-12 border-2 border-white/10 shadow-lg">
+                      <AvatarFallback className="bg-gradient-to-br from-indigo-500/20 to-blue-500/20 text-indigo-400 font-bold text-sm italic">
                         {landlord.name.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-bold text-white tracking-tight">{landlord.name}</p>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{landlord.address}</p>
+                      <p className="font-bold text-white tracking-tight text-lg">{landlord.name}</p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest max-w-[200px] truncate">{landlord.address || 'Endereço não informado'}</p>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell className="py-5 px-8">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-slate-300">{landlord.email}</p>
-                    <p className="text-xs text-slate-500">{landlord.phone}</p>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3 w-3 text-slate-500" />
+                      <p className="text-sm font-medium text-slate-300">{landlord.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3 w-3 text-slate-500" />
+                      <p className="text-xs text-slate-500">{landlord.phone}</p>
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell className="py-5 px-8">
-                  <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-300 font-mono text-[10px]">{landlord.cpfCnpj}</Badge>
+                  <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-300 font-mono text-[10px] px-3 py-1">{landlord.cpfCnpj}</Badge>
+                </TableCell>
+                <TableCell className="py-5 px-8">
+                  {landlord.documentUrl ? (
+                    <a 
+                      href={landlord.documentUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg border border-indigo-500/20 text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-105"
+                    >
+                      <FileText className="h-3 w-3" />
+                      Ver
+                    </a>
+                  ) : (
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest italic">Pendente</span>
+                  )}
                 </TableCell>
                 <TableCell className="py-5 px-8 text-right">
                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1783,6 +1897,7 @@ function LandlordsView({ landlords, onEdit, onDelete }: {
                       variant="outline" 
                       onClick={() => onEdit(landlord)}
                       className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-white transition-colors"
+                      title="Editar"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -1790,6 +1905,7 @@ function LandlordsView({ landlords, onEdit, onDelete }: {
                       variant="outline" 
                       onClick={() => onDelete(landlord.id)}
                       className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
+                      title="Excluir"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -1804,13 +1920,17 @@ function LandlordsView({ landlords, onEdit, onDelete }: {
   );
 }
 
-function ProfileView({ user, onResetDatabase }: { user: any, onResetDatabase: () => void }) {
-  const { updateUserProfile, updateUserPhoto } = useFirebase();
+function ProfileView({ user }: { user: any }) {
+  const { updateUserProfile, updateUserPhoto, appLogo, updateAppLogo } = useFirebase();
   const [name, setName] = useState(user?.displayName || '');
   const [email, setEmail] = useState(user?.email || '');
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const logoInputRef = React.useRef<HTMLInputElement>(null);
+
+  const isAdmin = user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com';
 
   const handleUpdateProfile = async (e: any) => {
     e.preventDefault();
@@ -1849,6 +1969,26 @@ function ProfileView({ user, onResetDatabase }: { user: any, onResetDatabase: ()
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('O logo deve ter no máximo 2MB');
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    try {
+      await updateAppLogo(file);
+      toast.success('Logo do sistema atualizado!');
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
   return (
     <div className="space-y-10">
       <div className="border-b pb-8 border-white/10">
@@ -1856,81 +1996,140 @@ function ProfileView({ user, onResetDatabase }: { user: any, onResetDatabase: ()
         <p className="text-slate-400 font-medium mt-1">Gerencie suas informações de acesso e cadastro.</p>
       </div>
 
-      <div className="max-w-2xl">
-        <Card className="border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl rounded-3xl p-8 border">
-          <form onSubmit={handleUpdateProfile} className="space-y-6">
-            <div className="flex flex-col items-center mb-10">
-              <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                <Avatar className="h-32 w-32 border-4 border-white/10 shadow-2xl mb-4 transition-transform group-hover:scale-105">
-                  <AvatarImage src={user?.photoURL || ''} />
-                  <AvatarFallback className="bg-indigo-600 text-white font-bold text-3xl italic serif">
-                    {name.substring(0, 2).toUpperCase() || 'AF'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="absolute inset-x-0 bottom-4 bg-black/60 backdrop-blur-sm h-1/3 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-b-full">
-                  {isUploading ? (
-                    <div className="h-5 w-5 border-2 border-white/30 border-t-white animate-spin rounded-full"></div>
-                  ) : (
-                    <Camera className="h-5 w-5 text-white" />
-                  )}
+      <div className="grid gap-10 lg:grid-cols-2">
+        <div className="space-y-10">
+          <Card className="border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl rounded-3xl p-8 border">
+            <form onSubmit={handleUpdateProfile} className="space-y-6">
+              <div className="space-y-6">
+                <div className="flex flex-col items-center mb-10">
+                  <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                    <Avatar className="size-32 border-4 border-white/10 shadow-2xl mb-4 transition-transform group-hover:scale-105" key={user?.photoURL}>
+                      <AvatarImage src={user?.photoURL || ''} referrerPolicy="no-referrer" />
+                      <AvatarFallback className="bg-indigo-600 text-white font-bold text-3xl italic serif">
+                        {name.substring(0, 2).toUpperCase() || 'AF'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full border-4 border-transparent">
+                      {isUploading ? (
+                        <div className="h-6 w-6 border-2 border-white/30 border-t-white animate-spin rounded-full"></div>
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <Camera className="h-6 w-6 text-white mb-1" />
+                          <span className="text-[8px] text-white font-bold uppercase tracking-tighter">Alterar Foto</span>
+                        </div>
+                      )}
+                    </div>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={handlePhotoUpload}
+                    />
+                  </div>
+                  <h3 className="text-xl font-bold text-white serif italic mt-4">{name || 'Usuário'}</h3>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Locador Master</p>
                 </div>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept="image/*" 
-                  onChange={handlePhotoUpload}
-                />
               </div>
-              <h3 className="text-xl font-bold text-white serif italic">{name || 'Usuário'}</h3>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Locador Master</p>
-            </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Nome Completo</label>
-                <Input 
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
-                  placeholder="Seu nome"
-                />
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Nome Completo</label>
+                  <Input 
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
+                    placeholder="Seu nome"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">E-mail de Acesso</label>
+                  <Input 
+                    value={email}
+                    className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
+                    placeholder="seu@email.com"
+                    disabled
+                  />
+                  <p className="text-[9px] text-slate-500 italic ml-1">* O e-mail não pode ser alterado por aqui por razões de segurança.</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">E-mail de Acesso</label>
-                <Input 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
-                  placeholder="seu@email.com"
-                  disabled
-                />
-                <p className="text-[9px] text-slate-500 italic ml-1">* O e-mail não pode ser alterado por aqui por razões de segurança.</p>
-              </div>
-            </div>
 
-            <div className="pt-6 border-t border-white/5 flex justify-between items-center">
-              {(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') && (
+              <div className="pt-6 border-t border-white/5 flex justify-center">
                 <Button 
-                  type="button"
-                  onClick={onResetDatabase}
-                  variant="outline"
-                  className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/20 font-bold px-6 h-12 rounded-xl transition-all uppercase tracking-widest text-[10px]"
+                  type="submit" 
+                  disabled={isLoading}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 h-12 rounded-xl shadow-xl shadow-indigo-500/20 transition-all uppercase tracking-widest text-[10px]"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Limpar Todo o Banco
+                  {isLoading ? 'Salvando...' : 'Salvar Alterações'}
                 </Button>
-              )}
-              <Button 
-                type="submit" 
-                disabled={isLoading}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 h-12 rounded-xl shadow-xl shadow-indigo-500/20 transition-all uppercase tracking-widest text-[10px]"
-              >
-                {isLoading ? 'Salvando...' : 'Salvar Alterações'}
-              </Button>
-            </div>
-          </form>
-        </Card>
+              </div>
+            </form>
+          </Card>
+        </div>
+
+        {isAdmin && (
+          <div className="space-y-6">
+            <Card className="border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl rounded-3xl p-8 border">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="h-12 w-12 rounded-2xl bg-cyan-500/20 flex items-center justify-center">
+                  <Settings className="h-6 w-6 text-cyan-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white serif italic">Identidade Visual</h3>
+                  <p className="text-xs text-slate-400 font-medium">Personalize a marca da sua imobiliária.</p>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                <div className="flex flex-col items-center">
+                  <div className="relative group cursor-pointer w-full max-w-[200px]" onClick={() => logoInputRef.current?.click()}>
+                    <div className="aspect-square w-full bg-white/5 border-2 border-dashed border-white/20 rounded-3xl flex items-center justify-center overflow-hidden transition-all group-hover:border-indigo-500/50 group-hover:bg-white/10">
+                      {appLogo ? (
+                        <img src={appLogo} alt="App Logo" className="w-[80%] h-[80%] object-contain" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="text-center p-6">
+                          <Building2 className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nenhum logo configurado</p>
+                        </div>
+                      )}
+                      
+                      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        {isUploadingLogo ? (
+                          <div className="h-8 w-8 border-3 border-white/30 border-t-white animate-spin rounded-full"></div>
+                        ) : (
+                          <div className="flex flex-col items-center">
+                            <Upload className="h-8 w-8 text-white mb-2" />
+                            <span className="text-[10px] text-white font-bold uppercase tracking-wider">Substituir Logo</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <input 
+                      type="file" 
+                      ref={logoInputRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={handleLogoUpload}
+                    />
+                  </div>
+                  <div className="mt-6 text-center">
+                    <h4 className="text-sm font-bold text-white mb-1">Logo Principal</h4>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest">Aparece na barra lateral e nos documentos.</p>
+                  </div>
+                </div>
+
+                <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-5">
+                  <div className="flex gap-3">
+                    <Info className="h-5 w-5 text-indigo-400 shrink-0" />
+                    <p className="text-[11px] text-indigo-300/80 leading-relaxed">
+                      Recomendamos o uso de logos com <strong>fundo transparente (PNG)</strong> e formato quadrado ou proporção equilibrada para melhor visualização na barra lateral.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

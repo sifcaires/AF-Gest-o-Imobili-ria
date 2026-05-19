@@ -92,6 +92,17 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "ownerId", "name", "email", "phone", "cpfCnpj"]
+    },
+    "AppSettings": {
+      "title": "App Settings",
+      "description": "Global application settings",
+      "type": "object",
+      "properties": {
+        "logoUrl": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["logoUrl"]
     }
   },
   "firestore": {
@@ -114,6 +125,10 @@
     "landlords/{landlordId}": {
       "schema": "Landlord",
       "description": "Collection of all landlords"
+    },
+    "settings/{settingId}": {
+      "schema": "AppSettings",
+      "description": "Global application settings documents"
     }
   }
 }

@@ -10,19 +10,22 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, storage } from '../lib/firebase';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { auth, storage, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { toast } from 'sonner';
 
 interface FirebaseContextType {
   user: User | null;
   loading: boolean;
   authError: string | null;
+  appLogo: string | null;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   updateEmail: (email: string) => Promise<void>;
   updateUserProfile: (name: string) => Promise<void>;
   updateUserPhoto: (file: File) => Promise<string>;
+  updateAppLogo: (file: File) => Promise<string>;
   logout: () => Promise<void>;
 }
 
@@ -32,14 +35,32 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [appLogo, setAppLogo] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
     });
 
-    return unsubscribe;
+    // Subscrição para o logo do app
+    const unsubscribeLogo = onSnapshot(doc(db, 'settings', 'app'), (doc) => {
+      if (doc.exists()) {
+        const logoUrl = doc.data().logoUrl || null;
+        console.log('[FirebaseProvider] Logo URL updated:', logoUrl);
+        setAppLogo(logoUrl);
+      }
+    }, (error) => {
+      // Don't show error toast for public settings if not authenticated yet or if it's the first load
+      // The rules allow public read, so this should not happen now.
+      console.warn('Settings snapshot error:', error);
+      handleFirestoreError(error, OperationType.GET, 'settings/app');
+    });
+
+    return () => {
+      unsubscribeAuth();
+      unsubscribeLogo();
+    };
   }, []);
 
   const signInWithGoogle = async () => {
@@ -75,6 +96,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     if (!auth.currentUser) return;
     try {
       await updateProfile(auth.currentUser, { displayName: name });
+      // Force user object refresh
+      await auth.currentUser.reload();
       setUser({ ...auth.currentUser });
     } catch (error: any) {
       handleAuthError(error);
@@ -105,6 +128,9 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       const downloadURL = await getDownloadURL(snapshot.ref);
       
       await updateProfile(auth.currentUser, { photoURL: downloadURL });
+      
+      // Force user object refresh
+      await auth.currentUser.reload();
       setUser({ ...auth.currentUser });
       
       return downloadURL;
@@ -124,6 +150,27 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       
       toast.error(errorMessage);
       throw error;
+    }
+  };
+
+  const updateAppLogo = async (file: File): Promise<string> => {
+    try {
+      if (!storage) throw new Error('Storage não inicializado.');
+      
+      const storageRef = ref(storage, `brand/logo_${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      await setDoc(doc(db, 'settings', 'app'), { 
+        logoUrl: downloadURL,
+        updatedAt: new Date().toISOString(),
+        updatedBy: auth.currentUser?.uid || 'system'
+      }, { merge: true });
+      
+      setAppLogo(downloadURL);
+      return downloadURL;
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings/app');
     }
   };
 
@@ -178,12 +225,14 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       user, 
       loading, 
       authError, 
+      appLogo,
       signInWithGoogle, 
       signInWithEmail, 
       signUpWithEmail, 
       updateEmail,
       updateUserProfile,
       updateUserPhoto,
+      updateAppLogo,
       logout 
     }}>
       {children}

@@ -7,7 +7,11 @@ service cloud.firestore {
     }
     
     function isOwner(data) {
-      return isSignedIn() && (data.ownerId == request.auth.uid || request.auth.token.email == 'admin@email.com' || request.auth.token.email == 'sifcaires@gmail.com');
+      return isSignedIn() && (data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.email == 'admin@email.com' || request.auth.token.email == 'sifcaires@gmail.com');
     }
 
     function isValidId(id) {
@@ -15,6 +19,11 @@ service cloud.firestore {
     }
 
     // Matching all collections
+    match /settings/{id} {
+      allow read: if true; // Public settings like logo should be readable by all? Or at least all signed in?
+      allow write: if isAdmin();
+    }
+    
     match /properties/{id} {
       allow read, write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
     }

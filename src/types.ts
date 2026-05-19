@@ -7,6 +7,7 @@ export interface Landlord {
   cpfCnpj: string;
   pixKey?: string;
   address?: string;
+  documentUrl?: string;
 }
 
 export interface Property {
