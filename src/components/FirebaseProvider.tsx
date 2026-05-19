@@ -137,19 +137,19 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       if (match) errorCode = match[0];
     }
     
-    console.error('Auth error:', error);
+    console.error('[Auth Error Debug]', { errorCode, errorMessage, fullError: error });
     
     if (errorCode === 'auth/configuration-not-found') {
       setAuthError('O login não está ativado no Console do Firebase.');
     } else if (errorCode === 'auth/unauthorized-domain') {
       setAuthError('Domínio não autorizado no Console do Firebase.');
-    } else if (errorCode === 'auth/email-already-in-use') {
+    } else if (errorCode === 'auth/email-already-in-use' || errorMessage.includes('auth/email-already-in-use')) {
       setAuthError('Este e-mail já está em uso.');
-    } else if (errorCode === 'auth/weak-password') {
+    } else if (errorCode === 'auth/weak-password' || errorMessage.includes('auth/weak-password')) {
       setAuthError('A senha é muito fraca (mínimo 6 caracteres).');
-    } else if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential' || errorCode === 'auth/invalid-login-credentials') {
+    } else if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential' || errorCode === 'auth/invalid-login-credentials' || errorMessage.includes('auth/invalid-credential')) {
       setAuthError('Email ou senha inválidos.');
-    } else if (errorCode === 'auth/invalid-email') {
+    } else if (errorCode === 'auth/invalid-email' || errorMessage.includes('auth/invalid-email')) {
       setAuthError('O formato do e-mail é inválido.');
     } else if (errorCode === 'auth/operation-not-allowed') {
       setAuthError('Este método de login não está habilitado.');

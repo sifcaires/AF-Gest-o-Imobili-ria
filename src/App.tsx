@@ -142,7 +142,7 @@ export default function App() {
     if (!user) return;
     setLoading(true);
     try {
-      const isAdmin = user.email === 'admin@email.com';
+      const isAdmin = user.email === 'admin@email.com' || user.email === 'sifcaires@gmail.com';
       
       const qProperties = isAdmin 
         ? collection(db, 'properties') 
@@ -190,6 +190,48 @@ export default function App() {
       fetchData();
     }
   }, [user, fetchData]);
+
+  const resetDatabase = async () => {
+    if (user?.email !== 'admin@email.com' && user?.email !== 'sifcaires@gmail.com') return;
+    
+    const confirmation = window.confirm('AVISO CRÍTICO: Você está prestes a LIMPAR TODO O BANCO DE DADOS. Esta ação é irreversível e excluirá todos os imóveis, inquilinos, contratos e pagamentos. Deseja prosseguir?');
+    
+    if (!confirmation) return;
+    
+    setLoading(true);
+    try {
+      const collectionsToReset = ['properties', 'tenants', 'contracts', 'payments', 'landlords'];
+      
+      for (const colName of collectionsToReset) {
+        const q = collection(db, colName);
+        const snapshot = await getDocs(q);
+        
+        if (snapshot.empty) continue;
+        
+        // Firestore batches are limited to 500 operations
+        const chunks = [];
+        for (let i = 0; i < snapshot.docs.length; i += 500) {
+          chunks.push(snapshot.docs.slice(i, i + 500));
+        }
+        
+        for (const chunk of chunks) {
+          const batch = writeBatch(db);
+          chunk.forEach((doc) => {
+            batch.delete(doc.ref);
+          });
+          await batch.commit();
+        }
+      }
+      
+      toast.success('Banco de dados redefinido com sucesso!');
+      fetchData();
+    } catch (e: any) {
+      console.error('Erro ao resetar banco:', e);
+      toast.error(`Falha ao limpar banco: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const deleteProperty = async (id: string) => {
     setLoading(true);
@@ -707,7 +749,7 @@ export default function App() {
           onDelete={(id) => setItemToDelete({ id, type: 'landlord' })}
         />;
       case 'profile':
-        return <ProfileView user={user} />;
+        return <ProfileView user={user} onResetDatabase={resetDatabase} />;
       default:
         return <DashboardView 
           userName={user?.displayName || 'Gestor'}
@@ -732,7 +774,7 @@ export default function App() {
               </div>
               <div>
                 <h1 className="font-bold tracking-tight text-white text-sm whitespace-nowrap">Portal AF</h1>
-                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{user?.email === 'admin@email.com' ? 'Painel Administrativo' : 'Área do Locador'}</p>
+                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') ? 'Painel Administrativo' : 'Área do Locador'}</p>
               </div>
             </div>
           </SidebarHeader>
@@ -820,8 +862,8 @@ export default function App() {
                 <AvatarFallback className="bg-white/10 text-white font-semibold text-xs">{user?.displayName?.substring(0, 2).toUpperCase() || 'AF'}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-semibold text-white truncate max-w-[120px]">{user?.displayName || (user?.email === 'admin@email.com' ? 'Administrador' : 'Usuário')}</span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{user?.email === 'admin@email.com' ? 'Diretor Geral' : 'Locador Master'}</span>
+                <span className="text-sm font-semibold text-white truncate max-w-[120px]">{user?.displayName || ((user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') ? 'Administrador' : 'Usuário')}</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') ? 'Diretor Geral' : 'Locador Master'}</span>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -1762,7 +1804,7 @@ function LandlordsView({ landlords, onEdit, onDelete }: {
   );
 }
 
-function ProfileView({ user }: { user: any }) {
+function ProfileView({ user, onResetDatabase }: { user: any, onResetDatabase: () => void }) {
   const { updateUserProfile, updateUserPhoto } = useFirebase();
   const [name, setName] = useState(user?.displayName || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -1867,7 +1909,18 @@ function ProfileView({ user }: { user: any }) {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-white/5 flex justify-end">
+            <div className="pt-6 border-t border-white/5 flex justify-between items-center">
+              {(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') && (
+                <Button 
+                  type="button"
+                  onClick={onResetDatabase}
+                  variant="outline"
+                  className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/20 font-bold px-6 h-12 rounded-xl transition-all uppercase tracking-widest text-[10px]"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Limpar Todo o Banco
+                </Button>
+              )}
               <Button 
                 type="submit" 
                 disabled={isLoading}
