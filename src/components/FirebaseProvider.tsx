@@ -38,9 +38,39 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [appLogo, setAppLogo] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       setLoading(false);
+
+      if (user) {
+        // Persist user data to Firestore
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          const isDirector = user.email === 'admin@email.com' || user.email === 'sifcaires@gmail.com';
+          
+          const userData = {
+            uid: user.uid,
+            displayName: user.displayName,
+            email: user.email,
+            photoURL: user.photoURL,
+            lastLogin: new Date().toISOString(),
+            role: isDirector ? 'director' : 'landlord'
+          };
+
+          if (!userDoc.exists()) {
+            await setDoc(userDocRef, {
+              ...userData,
+              createdAt: new Date().toISOString(),
+            });
+          } else {
+            await setDoc(userDocRef, userData, { merge: true });
+          }
+        } catch (error) {
+          console.error('[FirebaseProvider] Error persisting user data:', error);
+        }
+      }
     });
 
     // Subscrição para o logo do app

@@ -57,4 +57,15 @@ export interface Payment {
   status: 'paid' | 'pending' | 'overdue';
   paymentDate?: string;
   boletoLink?: string;
+  createdAt?: string;
+}
+
+export interface AppUser {
+  uid: string;
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
+  role: 'director' | 'landlord';
+  createdAt: string;
+  lastLogin: string;
 }

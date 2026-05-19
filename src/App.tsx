@@ -78,8 +78,9 @@ import { ContractsView } from './components/views/ContractsView';
 import { PaymentsView } from './components/views/PaymentsView';
 import { LandlordsView } from './components/views/LandlordsView';
 import { ProfileView } from './components/views/ProfileView';
+import { UsersView } from './components/views/UsersView';
 
-type View = 'dashboard' | 'properties' | 'tenants' | 'contracts' | 'payments' | 'landlords' | 'profile';
+type View = 'dashboard' | 'properties' | 'tenants' | 'contracts' | 'payments' | 'landlords' | 'profile' | 'users';
 
 const chartData = [
   { name: 'Jan', total: 15000 },
@@ -102,7 +103,7 @@ export default function App() {
   const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'property' | 'tenant' | 'contract' | 'payment' | 'landlord' } | null>(null);
 
   const {
-    properties, tenants, contracts, payments, landlords, loading, isOperating,
+    properties, tenants, contracts, payments, landlords, users, loading, isOperating,
     addProperty, updateProperty, deleteProperty,
     addTenant, updateTenant, deleteTenant,
     addContract, updateContract, deleteContract,
@@ -247,6 +248,8 @@ export default function App() {
             setIsRegistryOpen(true);
           }}
         />;
+      case 'users':
+        return <UsersView users={users} />;
       default:
         return <DashboardView 
           userName={user?.displayName || 'Gestor'}
@@ -304,6 +307,18 @@ export default function App() {
                     <span className="font-medium text-sm">Usuário</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                {(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveView('users')} 
+                      isActive={activeView === 'users'}
+                      className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
+                    >
+                      <Users className="mr-3 h-5 w-5" />
+                      <span className="font-medium text-sm">Usuários</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     onClick={() => setActiveView('landlords')} 
@@ -562,7 +577,7 @@ export default function App() {
                     ) : activeForm === 'landlord' ? (
                       <LandlordForm 
                         initialData={editingItem} 
-                        onSubmit={editingItem ? async (data) => {
+                        onSubmit={(editingItem && editingItem.id) ? async (data) => {
                           await updateLandlord(editingItem.id, data);
                           setIsRegistryOpen(false);
                           setEditingItem(null);

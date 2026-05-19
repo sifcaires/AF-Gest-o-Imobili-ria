@@ -24,6 +24,7 @@ export function useRealEstateData(user: any) {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [landlords, setLandlords] = useState<Landlord[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOperating, setIsOperating] = useState(false);
 
@@ -34,12 +35,17 @@ export function useRealEstateData(user: any) {
       setContracts([]);
       setPayments([]);
       setLandlords([]);
+      setUsers([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
     const isAdmin = user.email === 'admin@email.com' || user.email === 'sifcaires@gmail.com';
+
+    const usersUnsubscribe = isAdmin ? onSnapshot(collection(db, 'users'), (snapshot) => {
+      setUsers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (e) => handleFirestoreError(e, OperationType.LIST, 'users')) : () => {};
 
     const getQuery = (collectionName: string) => {
       return isAdmin 
@@ -77,6 +83,7 @@ export function useRealEstateData(user: any) {
       unsubContracts();
       unsubPayments();
       unsubLandlords();
+      usersUnsubscribe();
     };
   }, [user]);
 
@@ -303,6 +310,11 @@ export function useRealEstateData(user: any) {
   };
 
   const updateLandlord = async (id: string, data: any) => {
+    if (!id || id === 'undefined') {
+      console.error('[UpdateLandlord] Attempted to update landlord with invalid ID:', id);
+      toast.error('Erro interno: ID do locador inválido.');
+      return;
+    }
     setIsOperating(true);
     try {
       const { file, ...formFields } = data;
@@ -330,6 +342,10 @@ export function useRealEstateData(user: any) {
   };
 
   const deleteLandlord = async (id: string) => {
+    if (!id || id === 'undefined') {
+      toast.error('ID inválido para remoção.');
+      return;
+    }
     setIsOperating(true);
     try {
       await deleteDoc(doc(db, 'landlords', id));
@@ -348,7 +364,7 @@ export function useRealEstateData(user: any) {
     if (!window.confirm('CUIDADO: Limpar todo o banco de dados?')) return;
     
     try {
-      const collections = ['properties', 'tenants', 'contracts', 'payments', 'landlords'];
+      const collections = ['properties', 'tenants', 'contracts', 'payments', 'landlords', 'users'];
       for (const col of collections) {
         const snapshot = await getDocs(collection(db, col));
         const batch = writeBatch(db);
@@ -363,7 +379,7 @@ export function useRealEstateData(user: any) {
   };
 
   return {
-    properties, tenants, contracts, payments, landlords, loading, isOperating,
+    properties, tenants, contracts, payments, landlords, users, loading, isOperating,
     addProperty, updateProperty, deleteProperty,
     addTenant, updateTenant, deleteTenant,
     addContract, updateContract, deleteContract,

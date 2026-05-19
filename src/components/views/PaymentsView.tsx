@@ -127,16 +127,16 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
                     </Button>
                     <Dialog open={!!selectedPayment && selectedPayment.id === payment.id} onOpenChange={(open) => !open && setSelectedPayment(null)}>
                       <DialogTrigger
-                        asChild
-                      >
-                        <Button 
-                          className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase tracking-widest gap-3 shadow-xl shadow-indigo-500/25 transition-all"
-                          onClick={() => setSelectedPayment(payment)}
-                        >
-                          <FileDown className="h-4 w-4" />
-                          Boleto
-                        </Button>
-                      </DialogTrigger>
+                        render={
+                          <Button 
+                            className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase tracking-widest gap-3 shadow-xl shadow-indigo-500/25 transition-all"
+                            onClick={() => setSelectedPayment(payment)}
+                          >
+                            <FileDown className="h-4 w-4" />
+                            Boleto
+                          </Button>
+                        }
+                      />
                       <DialogContent className="sm:max-w-md overflow-hidden p-0 border-white/10 shadow-2xl rounded-3xl frosted">
                         <div className="bg-indigo-600 text-white p-10 flex flex-col items-center gap-6 relative overflow-hidden">
                           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full translate-x-20 -translate-y-20"></div>

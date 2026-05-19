@@ -42,7 +42,18 @@ const getDatabaseId = () => {
 
 const getStorageBucket = () => {
   let bucket = getEnvValue('VITE_FIREBASE_STORAGE_BUCKET');
-  if (!bucket) return undefined;
+  if (!bucket) {
+    const projectId = getEnvValue('VITE_FIREBASE_PROJECT_ID');
+    if (projectId) {
+      // Modern Firebase projects use .firebasestorage.app
+      // Older ones use .appspot.com
+      // We'll prioritize .firebasestorage.app if we have no bucket,
+      // but getStorage(app) usually handles this if config.storageBucket is set.
+      // However, if config is missing, we try to guess.
+      return `${projectId}.firebasestorage.app`;
+    }
+    return undefined;
+  }
   // Remove gs:// prefix if present
   bucket = bucket.replace(/^gs:\/\//, '');
   // Remove trailing slashes
