@@ -14,17 +14,27 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Tenant } from '../../types';
+import { Tenant, AppUser } from '../../types';
 
 interface TenantsViewProps {
   tenants: Tenant[];
+  user?: any;
+  users?: AppUser[];
   onEdit: (t: Tenant) => void;
   onDelete: (id: string) => void;
 }
 
-export function TenantsView({ tenants, onEdit, onDelete }: TenantsViewProps) {
+export function TenantsView({ tenants, user, users, onEdit, onDelete }: TenantsViewProps) {
+  const getPhoto = (email: string) => {
+    if (email?.toLowerCase() === user?.email?.toLowerCase() && user?.photoURL) {
+      return user.photoURL;
+    }
+    const found = users?.find(u => u.email?.toLowerCase() === email?.toLowerCase());
+    return found?.photoURL || null;
+  };
+
   return (
     <div className="space-y-10">
        <div className="border-b pb-8 border-white/10">
@@ -48,6 +58,9 @@ export function TenantsView({ tenants, onEdit, onDelete }: TenantsViewProps) {
                 <TableCell className="py-8 px-10">
                   <div className="flex items-center gap-5">
                     <Avatar className="h-14 w-14 border-4 border-white/10 shadow-xl">
+                      {getPhoto(tenant.email) && (
+                        <AvatarImage src={getPhoto(tenant.email) || ''} referrerPolicy="no-referrer" />
+                      )}
                       <AvatarFallback className="bg-indigo-600 text-white font-bold text-lg italic serif">{(tenant.name || 'I').substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">

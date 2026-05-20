@@ -9,9 +9,9 @@ import {
   createUserWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref } from 'firebase/storage';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { auth, storage, db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { auth, storage, db, handleFirestoreError, OperationType, uploadFileWithFallback } from '../lib/firebase';
 import { toast } from 'sonner';
 
 interface FirebaseContextType {
@@ -39,14 +39,21 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      setLoading(false);
-
       if (user) {
         // Persist user data to Firestore
         try {
           const userDocRef = doc(db, 'users', user.uid);
           const userDoc = await getDoc(userDocRef);
+          
+          let photoURL = user.photoURL;
+          let firestorePhotoURL = null;
+          
+          if (userDoc.exists()) {
+            firestorePhotoURL = userDoc.data()?.photoURL || null;
+            if (firestorePhotoURL && (firestorePhotoURL.startsWith('data:') || photoURL === 'firestore:photo' || !photoURL)) {
+              photoURL = firestorePhotoURL;
+            }
+          }
           
           const isDirector = user.email === 'admin@email.com' || user.email === 'sifcaires@gmail.com';
           
@@ -54,23 +61,41 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
             uid: user.uid,
             displayName: user.displayName,
             email: user.email,
-            photoURL: user.photoURL,
+            photoURL: photoURL,
             lastLogin: new Date().toISOString(),
             role: isDirector ? 'director' : 'landlord'
           };
 
+          const firestoreWriteData = { ...userData };
+          if (user.photoURL === 'firestore:photo' && firestorePhotoURL) {
+            firestoreWriteData.photoURL = firestorePhotoURL;
+          }
+
           if (!userDoc.exists()) {
             await setDoc(userDocRef, {
-              ...userData,
+              ...firestoreWriteData,
               createdAt: new Date().toISOString(),
             });
           } else {
-            await setDoc(userDocRef, userData, { merge: true });
+            await setDoc(userDocRef, firestoreWriteData, { merge: true });
           }
+
+          const customUser = Object.create(user);
+          Object.defineProperty(customUser, 'photoURL', {
+            value: photoURL,
+            writable: true,
+            configurable: true,
+            enumerable: true
+          });
+          setUser(customUser);
         } catch (error) {
           console.error('[FirebaseProvider] Error persisting user data:', error);
+          setUser(user);
         }
+      } else {
+        setUser(null);
       }
+      setLoading(false);
     });
 
     // Subscrição para o logo do app
@@ -128,7 +153,20 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       await updateProfile(auth.currentUser, { displayName: name });
       // Force user object refresh
       await auth.currentUser.reload();
-      setUser({ ...auth.currentUser });
+      
+      const currentUser = auth.currentUser;
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      const photoURL = userDoc.exists() ? (userDoc.data()?.photoURL || currentUser.photoURL) : currentUser.photoURL;
+      
+      const customUser = Object.create(currentUser);
+      Object.defineProperty(customUser, 'photoURL', {
+        value: photoURL,
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+      setUser(customUser);
     } catch (error: any) {
       handleAuthError(error);
       throw error;
@@ -149,36 +187,36 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     if (!auth.currentUser) throw new Error('Usuário não autenticado');
     
     try {
-      if (!storage) {
-        throw new Error('Serviço de Storage não inicializado. Verifique as configurações.');
-      }
-      
       const storageRef = ref(storage, `profiles/${auth.currentUser.uid}/${Date.now()}_${file.name}`);
       const metadata = { contentType: file.type };
       
-      // Use uploadBytesResumable for better feedback and reliability
-      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+      const downloadURL = await uploadFileWithFallback(storageRef, file, metadata);
+      const isBase64 = downloadURL.startsWith('data:');
       
-      const downloadURL = await new Promise<string>((resolve, reject) => {
-        uploadTask.on('state_changed', 
-          null, 
-          (error) => reject(error), 
-          async () => {
-            try {
-              const url = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(url);
-            } catch (err) {
-              reject(err);
-            }
-          }
-        );
-      });
-      
-      await updateProfile(auth.currentUser, { photoURL: downloadURL });
+      if (isBase64) {
+        console.log('[FirebaseProvider] Profile photo is base64, storing directly in Firestore.');
+        const userDocRef = doc(db, 'users', auth.currentUser.uid);
+        await setDoc(userDocRef, { photoURL: downloadURL }, { merge: true });
+        
+        await updateProfile(auth.currentUser, { photoURL: 'firestore:photo' });
+      } else {
+        await updateProfile(auth.currentUser, { photoURL: downloadURL });
+        const userDocRef = doc(db, 'users', auth.currentUser.uid);
+        await setDoc(userDocRef, { photoURL: downloadURL }, { merge: true });
+      }
       
       // Force user object refresh
       await auth.currentUser.reload();
-      setUser({ ...auth.currentUser });
+      
+      const reloadedUser = auth.currentUser;
+      const customUser = Object.create(reloadedUser);
+      Object.defineProperty(customUser, 'photoURL', {
+        value: downloadURL,
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+      setUser(customUser);
       
       return downloadURL;
     } catch (error: any) {
@@ -190,28 +228,10 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
 
   const updateAppLogo = async (file: File): Promise<string> => {
     try {
-      if (!storage) throw new Error('Storage não inicializado.');
-      
       const storageRef = ref(storage, `brand/logo_${Date.now()}_${file.name}`);
       const metadata = { contentType: file.type };
       
-      // Use uploadBytesResumable for better feedback and reliability
-      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
-      
-      const downloadURL = await new Promise<string>((resolve, reject) => {
-        uploadTask.on('state_changed', 
-          null, 
-          (error) => reject(error), 
-          async () => {
-            try {
-              const url = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(url);
-            } catch (err) {
-              reject(err);
-            }
-          }
-        );
-      });
+      const downloadURL = await uploadFileWithFallback(storageRef, file, metadata);
       
       await setDoc(doc(db, 'settings', 'app'), { 
         logoUrl: downloadURL,
@@ -223,6 +243,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       return downloadURL;
     } catch (error: any) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/app');
+      throw error;
     }
   };
 

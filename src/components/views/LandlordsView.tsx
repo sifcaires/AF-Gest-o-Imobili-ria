@@ -21,13 +21,15 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Landlord } from '../../types';
+import { Landlord, AppUser } from '../../types';
+import { getSafeDocumentUrl, viewDocumentSecurely } from '../../lib/documentViewer';
 
 interface LandlordsViewProps {
   user: any;
   landlords: Landlord[];
+  users?: AppUser[];
   searchTerm: string;
   setSearchTerm: (s: string) => void;
   onEdit: (l: Landlord) => void;
@@ -35,9 +37,17 @@ interface LandlordsViewProps {
   onRegisterMe: () => void;
 }
 
-export function LandlordsView({ user, landlords, searchTerm, setSearchTerm, onEdit, onDelete, onRegisterMe }: LandlordsViewProps) {
+export function LandlordsView({ user, landlords, users, searchTerm, setSearchTerm, onEdit, onDelete, onRegisterMe }: LandlordsViewProps) {
   const [filterDoc, setFilterDoc] = useState<'all' | 'with' | 'without'>('all');
   const isAlreadyLandlord = landlords.some(l => l.email === user?.email);
+
+  const getPhoto = (email: string) => {
+    if (email?.toLowerCase() === user?.email?.toLowerCase() && user?.photoURL) {
+      return user.photoURL;
+    }
+    const found = users?.find(u => u.email?.toLowerCase() === email?.toLowerCase());
+    return found?.photoURL || null;
+  };
 
   const filteredLandlords = landlords.filter(l => {
     const s = (searchTerm || '').toLowerCase();
@@ -129,6 +139,9 @@ export function LandlordsView({ user, landlords, searchTerm, setSearchTerm, onEd
                 <TableCell className="py-5 px-8">
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12 border-2 border-white/10 shadow-lg">
+                      {getPhoto(landlord.email) && (
+                        <AvatarImage src={getPhoto(landlord.email) || ''} referrerPolicy="no-referrer" />
+                      )}
                       <AvatarFallback className="bg-gradient-to-br from-indigo-500/20 to-blue-500/20 text-indigo-400 font-bold text-sm italic">
                         {(landlord.name || 'L').substring(0, 2).toUpperCase()}
                       </AvatarFallback>
@@ -155,19 +168,50 @@ export function LandlordsView({ user, landlords, searchTerm, setSearchTerm, onEd
                   <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-300 font-mono text-[10px] px-3 py-1">{landlord.cpfCnpj}</Badge>
                 </TableCell>
                 <TableCell className="py-5 px-8">
-                  {landlord.documentUrl ? (
-                    <a 
-                      href={landlord.documentUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg border border-indigo-500/20 text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-105"
-                    >
-                      <FileText className="h-3 w-3" />
-                      Ver
-                    </a>
-                  ) : (
-                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest italic">Pendente</span>
-                  )}
+                  {(() => {
+                    const allDocs = Array.from(new Set([
+                      ...(landlord.documentUrl ? [landlord.documentUrl] : []),
+                      ...(landlord.documentUrls || [])
+                    ]));
+
+                    if (allDocs.length === 0) {
+                      return (
+                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest italic">Pendente</span>
+                      );
+                    }
+
+                    return (
+                      <div className="flex flex-wrap gap-1.5 max-w-[220px]">
+                        {allDocs.map((url, idx) => {
+                          const decodedUrl = decodeURIComponent(url);
+                          const fileNameWithToken = decodedUrl.substring(decodedUrl.lastIndexOf('/') + 1);
+                          const fileNameParts = fileNameWithToken.split('?')[0].split('_');
+                          const displayFileName = fileNameParts.length > 1 && !isNaN(Number(fileNameParts[0])) 
+                            ? fileNameParts.slice(1).join('_') 
+                            : fileNameParts.join('_');
+
+                          return (
+                            <a 
+                              key={url}
+                              href={getSafeDocumentUrl(url)} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                viewDocumentSecurely(url, displayFileName || `documento_${idx + 1}`);
+                              }}
+                              className="inline-flex items-center justify-center gap-1 w-[105px] px-2 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 hover:text-white rounded-md border border-indigo-500/20 text-[9px] font-bold uppercase tracking-wider transition-all hover:scale-105 min-w-0"
+                              title={displayFileName || `Documento ${idx + 1}`}
+                            >
+                              <FileText className="h-2.5 w-2.5 shrink-0 text-indigo-400" />
+                              <span className="truncate">{displayFileName || `Doc ${idx + 1}`}</span>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </TableCell>
                 <TableCell className="py-5 px-8 text-right">
                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

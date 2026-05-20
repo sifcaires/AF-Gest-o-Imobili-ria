@@ -4,7 +4,9 @@ import {
   LogIn, 
   Search,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -21,6 +23,7 @@ interface AuthUIProps {
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   authLoading: boolean;
   authError: any;
+  appLogo?: string | null;
 }
 
 export function AuthUI({ 
@@ -32,8 +35,10 @@ export function AuthUI({
   signInWithEmail, 
   signUpWithEmail, 
   authLoading,
-  authError 
+  authError,
+  appLogo
 }: AuthUIProps) {
+  const [showPassword, setShowPassword] = React.useState(false);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,27 +60,33 @@ export function AuthUI({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-md relative z-10"
+        className="w-full max-w-sm relative z-10"
       >
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center p-4 bg-indigo-600 rounded-3xl shadow-2xl mb-6 shadow-indigo-500/20 transform hover:scale-105 transition-transform">
-             <Building2 className="h-10 w-10 text-white" />
-          </div>
-          <h1 className="text-5xl font-black text-white tracking-tighter serif italic mb-2 uppercase tracking-tight">Aluga<span className="text-indigo-500">Fácil</span></h1>
-          <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Arquitetando o futuro da gestão imobiliária</p>
+        <div className="text-center mb-8">
+          {appLogo ? (
+            <div className="inline-flex items-center justify-center p-1 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl mb-4 shadow-indigo-500/10 transform hover:scale-105 transition-transform">
+              <img src={appLogo} alt="Logo" className="h-16 w-16 object-contain rounded-xl" referrerPolicy="no-referrer" />
+            </div>
+          ) : (
+            <div className="inline-flex items-center justify-center p-3 bg-indigo-600 rounded-2xl shadow-2xl mb-4 shadow-indigo-500/20 transform hover:scale-105 transition-transform">
+               <Building2 className="h-8 w-8 text-white" />
+            </div>
+          )}
+          <h1 className="text-4xl font-black text-white tracking-tighter serif italic mb-1 uppercase tracking-tight">Aluga<span className="text-indigo-500">Fácil</span></h1>
+          <p className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">Arquitetando o futuro da gestão imobiliária</p>
         </div>
 
-        <Card className="border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl rounded-[40px] overflow-hidden">
-          <CardHeader className="pt-10 px-10">
-            <CardTitle className="text-2xl font-bold text-white serif italic">
+        <Card className="border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl rounded-[32px] overflow-hidden">
+          <CardHeader className="pt-8 px-8">
+            <CardTitle className="text-xl font-bold text-white serif italic">
               {authMode === 'login' ? 'Bem-vindo de volta' : authMode === 'admin' ? 'Acesso Administrativo' : 'Criar Nova Unidade'}
             </CardTitle>
-            <CardDescription className="text-slate-400 font-medium">
+            <CardDescription className="text-slate-400 font-medium text-xs">
               {authMode === 'login' ? 'Conecte-se para gerenciar seus ativos.' : authMode === 'admin' ? 'Insira suas credenciais mestras.' : 'Registre sua agência no ecossistema.'}
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-10 pt-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <CardContent className="p-8 pt-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {authMode === 'register' && (
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Razão Social / Nome</label>
@@ -101,14 +112,28 @@ export function AuthUI({
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Senha de Segurança</label>
-                <Input 
-                  type="password"
-                  placeholder="••••••••" 
-                  className="bg-white/5 border-white/10 text-white h-12 rounded-2xl focus-visible:ring-indigo-500/50 text-xl tracking-widest"
-                  value={authData.password}
-                  onChange={(e) => setAuthData({ ...authData, password: e.target.value })}
-                  required
-                />
+                <div className="relative">
+                  <Input 
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••" 
+                    className={`bg-white/5 border-white/10 text-white h-12 rounded-2xl focus-visible:ring-indigo-500/50 pr-12 ${showPassword ? 'text-sm tracking-normal' : 'text-xl tracking-widest'}`}
+                    value={authData.password}
+                    onChange={(e) => setAuthData({ ...authData, password: e.target.value })}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1"
+                    title={showPassword ? "Ocultar senha" : "Confirmar/Mostrar senha"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {authError && (
@@ -133,28 +158,7 @@ export function AuthUI({
                 )}
               </Button>
 
-              {authMode === 'login' && (
-                <>
-                  <div className="relative py-4">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-white/10"></div>
-                    </div>
-                    <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-widest">
-                      <span className="bg-[#0f172a] px-4 text-slate-500">Ou continue com</span>
-                    </div>
-                  </div>
 
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={signInWithGoogle}
-                    className="w-full h-14 border-white/10 bg-white/5 text-white hover:bg-white/10 rounded-2xl font-bold transition-all flex items-center justify-center gap-4 group"
-                  >
-                     <img src="https://www.google.com/favicon.ico" className="w-5 h-5 grayscale group-hover:grayscale-0 transition-all" alt="Google" />
-                     <span className="text-[10px] uppercase tracking-widest">Acesso Rápido Google</span>
-                  </Button>
-                </>
-              )}
             </form>
 
             <div className="mt-10 text-center space-y-4">

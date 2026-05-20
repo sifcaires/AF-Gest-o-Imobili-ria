@@ -41,7 +41,7 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
     <form onSubmit={handleSubmit} className="space-y-6 py-4">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="name" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Nome Completo</Label>
+          <Label htmlFor="name" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Nome Completo</Label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input
@@ -57,7 +57,7 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">E-mail</Label>
+            <Label htmlFor="email" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">E-mail</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
               <Input
@@ -72,7 +72,7 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="phone" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Telefone / WhatsApp</Label>
+            <Label htmlFor="phone" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Telefone / WhatsApp</Label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
               <Input
@@ -89,7 +89,7 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="cpf" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">CPF</Label>
+            <Label htmlFor="cpf" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">CPF</Label>
             <div className="relative">
               <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
               <Input
@@ -103,7 +103,7 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="rg" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">RG</Label>
+            <Label htmlFor="rg" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">RG</Label>
             <div className="relative">
               <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 opacity-50" />
               <Input
@@ -119,7 +119,7 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="birthDate" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Data de Nascimento</Label>
+            <Label htmlFor="birthDate" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Data de Nascimento</Label>
             <div className="relative">
               <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
               <Input
@@ -132,7 +132,7 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="profession" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Profissão</Label>
+            <Label htmlFor="profession" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Profissão</Label>
             <div className="relative">
               <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
               <Input
@@ -147,7 +147,7 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="monthlyIncome" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Renda Mensal Estimada (R$)</Label>
+          <Label htmlFor="monthlyIncome" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Renda Mensal Estimada (R$)</Label>
           <div className="relative">
             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
             <Input

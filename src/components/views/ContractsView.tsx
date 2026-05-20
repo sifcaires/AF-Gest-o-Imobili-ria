@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Building2, 
   Users, 
-  Clock 
+  Clock,
+  FileText,
+  Download
 } from 'lucide-react';
 import { 
   Card, 
@@ -15,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Contract, Property, Tenant, Payment } from '../../types';
+import { viewDocumentSecurely, getSafeDocumentUrl } from '../../lib/documentViewer';
 
 interface ContractsViewProps {
   contracts: Contract[];
@@ -78,7 +81,7 @@ export function ContractsView({ contracts, properties, tenants, payments, onEdit
                       </div>
                     </CardHeader>
                     <CardContent className="p-10 pt-0">
-                      <div className="grid md:grid-cols-3 gap-12 border-t border-white/5 pt-10 mt-4">
+                      <div className="grid md:grid-cols-4 gap-8 border-t border-white/5 pt-10 mt-4">
                         <div className="space-y-3">
                           <div className="h-10 w-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-5 border border-indigo-500/20 shadow-inner">
                             <Building2 className="h-5 w-5 text-indigo-400" />
@@ -106,6 +109,65 @@ export function ContractsView({ contracts, properties, tenants, payments, onEdit
                             <Badge variant="outline" className="font-mono text-xs bg-white/5 text-slate-300 border-white/10">{new Date(contract.endDate).toLocaleDateString()}</Badge>
                           </div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Pagamento Mensal: DIA {contract.dayOfPayment}</p>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-5 border border-emerald-500/20 shadow-inner">
+                            <FileText className="h-5 w-5 text-emerald-400" />
+                          </div>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Documentos do Contrato</span>
+                          {contract.documentUrls && contract.documentUrls.length > 0 ? (
+                            <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1">
+                              {contract.documentUrls.map((url, idx) => {
+                                const decodedUrl = decodeURIComponent(url);
+                                const fileNameWithToken = decodedUrl.substring(decodedUrl.lastIndexOf('/') + 1);
+                                const fileNameParts = fileNameWithToken.split('?')[0].split('_');
+                                const displayFileName = fileNameParts.length > 1 && !isNaN(Number(fileNameParts[0])) 
+                                  ? fileNameParts.slice(1).join('_') 
+                                  : fileNameParts.join('_');
+                                
+                                return (
+                                  <div 
+                                    key={url} 
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      viewDocumentSecurely(url, displayFileName);
+                                    }}
+                                    className="flex items-center gap-2 p-2 bg-white/5 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/20 rounded-xl transition-all cursor-pointer active:scale-[0.98] group/item"
+                                    title={`Clique para visualizar ${displayFileName}`}
+                                  >
+                                    <FileText className="h-4 w-4 text-emerald-400 group-hover/item:text-emerald-300 transition-colors shrink-0" />
+                                    <p className="text-[10px] font-bold text-slate-300 group-hover/item:text-white truncate leading-tight flex-1">
+                                      {displayFileName || `Documento ${idx + 1}`}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : contract.documentUrl ? (
+                            <div className="space-y-2">
+                              <p className="text-sm font-bold text-emerald-400 truncate leading-tight">Contrato Digital Anexo</p>
+                              <a 
+                                href={getSafeDocumentUrl(contract.documentUrl)} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  viewDocumentSecurely(contract.documentUrl || '', 'contrato_digital');
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-white rounded-lg border border-emerald-500/20 text-[9px] font-bold uppercase tracking-widest transition-all"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                                Visualizar Contrato
+                              </a>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="text-sm font-bold text-slate-400">Nenhum Arquivo</p>
+                              <p className="text-[10px] text-slate-500 uppercase tracking-widest leading-normal">Sem anexos no contrato</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>

@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Contract, Property, Tenant } from '../types';
-import { storage, auth } from '../lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { storage, auth, uploadFileWithFallback } from '../lib/firebase';
+import { ref } from 'firebase/storage';
 import { FileText, Upload, CheckCircle2, Loader2, X, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getSafeDocumentUrl, viewDocumentSecurely } from '../lib/documentViewer';
 
 interface ContractFormProps {
   properties: Property[];
@@ -26,9 +27,10 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
     rentAmount: initialData?.rentAmount || 0,
     dayOfPayment: initialData?.dayOfPayment || 1,
     documentUrl: initialData?.documentUrl || '',
+    documentUrls: initialData?.documentUrls || (initialData?.documentUrl ? [initialData.documentUrl] : []),
   });
 
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -42,29 +44,6 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
     });
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setFileError(null);
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      const validTypes = ['application/pdf', 'image/jpeg', 'image/png'];
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      
-      if (!validTypes.includes(selectedFile.type) && selectedFile.type !== 'image/jpg') {
-        setFileError('Por favor, selecione um arquivo PDF ou Imagem (JPEG/PNG).');
-        return;
-      }
-
-      if (selectedFile.size > maxSize) {
-        setFileError('O arquivo é muito grande. O limite é 5MB.');
-        return;
-      }
-
-      setFile(selectedFile);
-      setUploadProgress(0);
-      toast.success('Documento selecionado: ' + selectedFile.name);
-    }
-  };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
@@ -73,57 +52,44 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
       return;
     }
 
-    let documentUrl = formData.documentUrl;
-    console.log('[ContractForm] Submitting...', { propertyId: formData.propertyId, tenantId: formData.tenantId });
-
     setUploading(true);
+    setUploadProgress(0);
     try {
-      if (file) {
+      let urls: string[] = [];
+      if (files.length > 0) {
         if (!auth.currentUser) {
           throw new Error('Usuário não autenticado para fazer upload.');
         }
 
-        console.log('[ContractForm] Starting file upload...', file.name);
-        const fileExt = file.name.split('.').pop();
-        const fileName = `contracts/${auth.currentUser.uid}/${Date.now()}.${fileExt}`;
-        const storageRef = ref(storage, fileName);
-        
-        // Use uploadBytesResumable for better feedback and reliability
-        const uploadTask = uploadBytesResumable(storageRef, file);
-
-        documentUrl = await new Promise((resolve, reject) => {
-          uploadTask.on('state_changed', 
-            (snapshot) => {
-              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              setUploadProgress(progress);
-              console.log('[ContractForm] Upload progress:', progress.toFixed(2) + '%');
-            }, 
-            (error) => {
-              console.error('[ContractForm] Upload task error:', error);
-              reject(new Error(`Erro no upload: ${error.message || 'Falha na conexão com Storage'}`));
-            }, 
-            async () => {
-              try {
-                const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                console.log('[ContractForm] Upload successful, URL:', downloadUrl);
-                resolve(downloadUrl);
-              } catch (urlError) {
-                reject(urlError);
-              }
-            }
-          );
-        });
-
-        toast.success('Documento enviado com sucesso!');
+        console.log('[ContractForm] Starting files upload...', files.length);
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          const fileExt = f.name.split('.').pop();
+          const fileName = `contracts/${auth.currentUser.uid}/${Date.now()}_${f.name}`;
+          const storageRef = ref(storage, fileName);
+          const metadata = { contentType: f.type };
+          
+          const downloadURL = await uploadFileWithFallback(storageRef, f, metadata, (progress) => {
+            const baseProgress = (i / files.length) * 100;
+            const itemProgress = progress / files.length;
+            setUploadProgress(baseProgress + itemProgress);
+          });
+          urls.push(downloadURL);
+        }
+        toast.success(`${files.length} documento(s) enviado(s) com sucesso!`);
       }
+
+      const updatedUrls = [...(formData.documentUrls || []), ...urls];
+      const primaryUrl = updatedUrls.length > 0 ? updatedUrls[0] : '';
 
       console.log('[ContractForm] Calling onSubmit...');
       await onSubmit({
         ...formData,
-        documentUrl,
+        documentUrl: primaryUrl,
+        documentUrls: updatedUrls,
       });
       console.log('[ContractForm] onSubmit completed successfully');
-      
+      setFiles([]);
     } catch (error: any) {
       console.error('[ContractForm] Error in handleSubmit:', error);
       const errorMessage = error.message || 'Houve um problema ao salvar o contrato.';
@@ -229,83 +195,166 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
       </div>
 
       <div className="space-y-2">
-        <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Documento do Contrato (PDF ou Foto)</Label>
-        <div className="relative">
-          <input
-            type="file"
-            id="document"
-            accept=".pdf,image/jpeg,image/png"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <Label 
-            htmlFor="document" 
-            className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl p-6 bg-white/5 hover:bg-white/10 hover:border-indigo-500/50 transition-all cursor-pointer group"
-          >
-            {file ? (
-              <div className="w-full space-y-4 animate-in fade-in zoom-in duration-300">
-                <div className="flex items-center gap-4 bg-white/10 p-4 rounded-xl border border-white/10 shadow-inner">
-                  <div className="h-12 w-12 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0 border border-indigo-500/20">
-                    <FileText className="h-6 w-6 text-indigo-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <p className="text-white text-base font-bold truncate leading-tight">{file.name}</p>
-                      <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest bg-white/5 py-1 px-2 rounded-md border border-white/5">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                       <span className="text-xs text-indigo-300 font-medium whitespace-nowrap">Documento pronto</span>
-                    </div>
-                  </div>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-10 w-10 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setFile(null);
-                      setUploadProgress(0);
-                    }}
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
-                </div>
+        <div className="flex justify-between items-center bg-white/5 p-1.5 rounded-lg border border-white/5">
+          <Label className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Documentos do Contrato (Máx 5)</Label>
+          <span className="text-[8px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-indigo-500/20">
+            {files.length + (formData.documentUrls?.length || 0)} / 5
+          </span>
+        </div>
 
-                {uploading && (
-                  <div className="space-y-2 px-1">
-                    <div className="flex justify-between items-end">
-                      <div className="flex items-center gap-2 text-indigo-400">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Enviando arquivo...</span>
-                      </div>
-                      <span className="text-2xl font-black text-white italic serif tracking-tighter">
-                        {Math.round(uploadProgress)}%
-                      </span>
-                    </div>
-                    <div className="h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 shadow-inner p-[2px]">
-                      <div 
-                        className="h-full bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-400 rounded-full transition-all duration-300 ease-out shadow-[0_0_12px_rgba(99,102,241,0.5)]" 
-                        style={{ width: `${uploadProgress}%` }}
-                      >
-                         <div className="w-full h-full opacity-30 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:20px_20px] animate-[progress-stripe_1s_linear_infinite]" />
-                      </div>
-                    </div>
-                  </div>
-                )}
+        <div className="grid grid-cols-1 gap-2">
+          {/* File dropzone/button */}
+          {(files.length + (formData.documentUrls?.length || 0) < 5) && (
+            <div 
+              onClick={() => document.getElementById('contractDocuments')?.click()}
+              className="cursor-pointer border-2 border-dashed border-white/10 hover:border-indigo-500/50 bg-white/5 rounded-xl p-2.5 transition-all flex items-center gap-3 group hover:bg-white/10"
+            >
+              <div className="h-7 w-7 rounded-lg bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                <Upload className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-400" />
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-6">
-                <div className="h-16 w-16 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 bg-white/5 border border-white/5 group-hover:border-indigo-500/50 group-hover:bg-indigo-500/20">
-                  <Upload className="h-8 w-8 text-indigo-400" />
+              <div className="text-left min-w-0">
+                <p className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors truncate">
+                  Clique para selecionar documentos do contrato
+                </p>
+                <p className="text-[8px] text-slate-500 uppercase tracking-widest mt-0.5">PDF ou Imagem (Máx 5MB por arquivo)</p>
+              </div>
+              <input 
+                id="contractDocuments"
+                type="file" 
+                className="hidden" 
+                accept=".pdf,image/*" 
+                multiple
+                onChange={(e) => {
+                  setFileError(null);
+                  if (e.target.files) {
+                    const selectedFiles = Array.from(e.target.files);
+                    const currentTotal = files.length + (formData.documentUrls?.length || 0);
+                    
+                    if (currentTotal + selectedFiles.length > 5) {
+                      toast.error('O limite padrão é de no máximo 5 documentos por contrato.');
+                      return;
+                    }
+
+                    const validFiles = selectedFiles.filter((f: File) => {
+                      if (f.size > 5 * 1024 * 1024) {
+                        toast.error(`O arquivo ${f.name} excede o limite de 5MB.`);
+                        return false;
+                      }
+                      return true;
+                    });
+
+                    if (validFiles.length > 0) {
+                      setFiles(prev => [...prev, ...validFiles]);
+                      toast.success(`${validFiles.length} arquivo(s) selecionado(s).`);
+                    }
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {/* Upload progress indicator */}
+          {uploading && (
+            <div className="space-y-2 p-3 bg-white/5 border border-white/10 rounded-xl">
+              <div className="flex justify-between items-end">
+                <div className="flex items-center gap-2 text-indigo-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">Enviando arquivos...</span>
                 </div>
-                <p className="text-white text-base font-bold tracking-tight">Anexar Contrato Assinado</p>
-                <p className="text-slate-400 text-xs mt-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">PDF, JPG ou PNG (Máx 5MB)</p>
+                <span className="text-2xl font-black text-white italic serif tracking-tighter">
+                  {Math.round(uploadProgress)}%
+                </span>
               </div>
-            )}
-          </Label>
+              <div className="h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 p-[2px]">
+                <div 
+                  className="h-full bg-gradient-to-r from-indigo-600 via-purple-500 to-indigo-400 rounded-full transition-all duration-300 ease-out shadow-[0_0_12px_rgba(99,102,241,0.5)]" 
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* List of existing uploaded files */}
+          {formData.documentUrls && formData.documentUrls.length > 0 && (
+            <div className="space-y-1 w-full">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 ml-1">Documentos já salvos:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {formData.documentUrls.map((url, idx) => {
+                  const decodedUrl = decodeURIComponent(url);
+                  const fileNameWithToken = decodedUrl.substring(decodedUrl.lastIndexOf('/') + 1);
+                  const fileNameParts = fileNameWithToken.split('?')[0].split('_');
+                  const displayFileName = fileNameParts.length > 1 && !isNaN(Number(fileNameParts[0])) 
+                    ? fileNameParts.slice(1).join('_') 
+                    : fileNameParts.join('_');
+
+                  return (
+                    <div 
+                      key={url} 
+                      onClick={() => viewDocumentSecurely(url, displayFileName || `documento_${idx + 1}`)}
+                      className="flex items-center justify-between gap-1 bg-white/5 border border-white/10 p-1 rounded-md hover:bg-indigo-500/10 hover:border-indigo-500/30 cursor-pointer active:scale-[0.99] transition-all group/item max-w-[95px] min-w-[75px] flex-grow"
+                    >
+                      <div className="flex items-center gap-0.5 min-w-0">
+                        <FileText className="h-2.5 w-2.5 text-indigo-400 shrink-0 group-hover/item:text-indigo-300 group-hover/item:scale-110 transition-transform" />
+                        <span className="text-[9px] text-slate-200 group-hover/item:text-white truncate font-semibold transition-colors" title={displayFileName}>{displayFileName || `Doc ${idx + 1}`}</span>
+                      </div>
+                      <div className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={isLoading}
+                          className="h-4 w-4 text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 rounded p-0 flex items-center justify-center shrink-0"
+                          onClick={() => {
+                            const updatedUrls = formData.documentUrls.filter(item => item !== url);
+                            setFormData({
+                              ...formData,
+                              documentUrls: updatedUrls,
+                            });
+                            toast.success('Documento removido da lista para exclusão ao salvar.');
+                          }}
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* List of newly selected files */}
+          {files.length > 0 && (
+            <div className="space-y-1 w-full">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-amber-500 ml-1">Novos arquivos p/ enviar (aguardando salvar):</p>
+              <div className="flex flex-wrap gap-1.5">
+                {files.map((f: File, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between gap-1 bg-amber-500/5 border border-amber-500/10 p-1 rounded-md max-w-[95px] min-w-[75px] flex-grow">
+                    <div className="flex items-center gap-0.5 min-w-0">
+                      <FileText className="h-2.5 w-2.5 text-amber-400 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-white truncate font-semibold" title={f.name}>{f.name}</p>
+                        <p className="text-[7px] text-slate-500 font-bold uppercase tracking-wider">{(f.size / 1024 / 1024).toFixed(2)}M</p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 text-slate-400 hover:text-white hover:bg-white/10 rounded shrink-0 flex items-center justify-center p-0"
+                      onClick={() => {
+                        setFiles(prev => prev.filter((_, i) => i !== idx));
+                        toast.success('Removido da seleção.');
+                      }}
+                    >
+                      <X className="h-2 w-2" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
           {fileError && (
             <div className="mt-2 flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 animate-in fade-in slide-in-from-top-1">
               <AlertCircle className="h-4 w-4 shrink-0" />

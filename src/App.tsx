@@ -67,6 +67,7 @@ import { ContractForm } from './components/ContractForm';
 import { PaymentForm } from './components/PaymentForm';
 import { LandlordForm } from './components/LandlordForm';
 import { useFirebase } from './components/FirebaseProvider';
+import { getSafeDocumentUrl } from './lib/documentViewer';
 import { useRealEstateData } from './hooks/useRealEstateData';
 import { db } from './lib/firebase';
 
@@ -101,6 +102,16 @@ export default function App() {
   const [activeForm, setActiveForm] = useState<'none' | 'property' | 'tenant' | 'contract' | 'payment' | 'landlord'>('none');
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'property' | 'tenant' | 'contract' | 'payment' | 'landlord' } | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string } | null>(null);
+
+  useEffect(() => {
+    (window as any).__showDocumentPreview = (url: string, title?: string) => {
+      setPreviewDoc({ url, title: title || 'Visualização do Documento' });
+    };
+    return () => {
+      delete (window as any).__showDocumentPreview;
+    };
+  }, []);
 
   const {
     properties, tenants, contracts, payments, landlords, users, loading, isOperating,
@@ -136,6 +147,7 @@ export default function App() {
           signUpWithEmail={signUpWithEmail}
           authLoading={loading}
           authError={authError}
+          appLogo={appLogo}
         />
         <Toaster position="top-right" richColors />
       </>
@@ -182,6 +194,8 @@ export default function App() {
       case 'tenants':
         return <TenantsView 
           tenants={tenants} 
+          user={user}
+          users={users}
           onEdit={(tenant) => {
             setEditingItem(tenant);
             setActiveForm('tenant');
@@ -219,6 +233,7 @@ export default function App() {
         return <LandlordsView 
           user={user}
           landlords={landlords} 
+          users={users}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           onEdit={(landlord) => {
@@ -270,17 +285,17 @@ export default function App() {
 
         <Sidebar className="border-r border-white/10 bg-white/5 backdrop-blur-xl z-10">
           <SidebarHeader className="p-6">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               {appLogo ? (
-                <img src={appLogo} alt="Logo" className="h-10 w-10 object-contain rounded-xl" referrerPolicy="no-referrer" />
+                <img src={appLogo} alt="Logo" className="h-16 w-16 object-contain rounded-2xl shadow-lg shadow-indigo-500/10 border border-white/10" referrerPolicy="no-referrer" />
               ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 font-bold text-white shadow-lg shadow-indigo-500/20 text-sm">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 font-bold text-white shadow-lg shadow-indigo-500/20 text-lg">
                   AF
                 </div>
               )}
               <div>
-                <h1 className="font-bold tracking-tight text-white text-sm whitespace-nowrap">Portal AF</h1>
-                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') ? 'Painel Administrativo' : 'Área do Locador'}</p>
+                <h1 className="font-bold tracking-tight text-white text-base whitespace-nowrap">Portal AlugaFácil</h1>
+                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Gestão de Locação</p>
               </div>
             </div>
           </SidebarHeader>
@@ -447,14 +462,15 @@ export default function App() {
                     </Button>
                   }
                 />
-                <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-md' : 'sm:max-w-lg'} frosted border-white/10 text-white overflow-hidden`}>
+                <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-sm' : 'sm:max-w-2xl'} frosted border-white/10 text-white overflow-hidden`}>
                   <DialogHeader className="p-4 border-b border-white/5">
-                    <DialogTitle className="serif italic text-2xl text-white">
+                    <DialogTitle className="serif text-2xl text-white">
                       {activeForm === 'none' ? 'Novo Cadastro' : 
                        activeForm === 'property' ? (editingItem ? 'Editar Imóvel' : 'Cadastrar Imóvel') : 
                        activeForm === 'tenant' ? (editingItem ? 'Editar Inquilino' : 'Cadastrar Inquilino') :
                        activeForm === 'contract' ? (editingItem ? 'Editar Contrato' : 'Cadastrar Contrato') :
                        activeForm === 'payment' ? (editingItem ? 'Editar Recibo' : 'Novo Recibo') :
+                       activeForm === 'landlord' ? (editingItem ? 'Editar Locador' : 'Cadastro de Locador') :
                        'Novo Registro'}
                     </DialogTitle>
                     <DialogDescription className="text-slate-400">
@@ -640,6 +656,56 @@ export default function App() {
               >
                 {isOperating ? 'Processando...' : 'Confirmar Exclusão'}
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)}>
+          <DialogContent className="sm:max-w-4xl w-[95vw] h-[85vh] max-h-[85vh] flex flex-col frosted border-white/10 text-white overflow-hidden p-0">
+            <DialogHeader className="p-4 border-b border-white/10 flex flex-row items-center justify-between shrink-0">
+              <div>
+                <DialogTitle className="text-xl font-bold text-white pr-8 truncate">
+                  Visualizar: {previewDoc?.title || 'Documento'}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-400 mt-1">
+                  Visualização protegida direta no sistema, sem baixar arquivo
+                </DialogDescription>
+              </div>
+            </DialogHeader>
+            
+            <div className="flex-1 min-h-0 bg-slate-950 p-4 flex items-center justify-center relative">
+              {previewDoc && (
+                (() => {
+                  const url = previewDoc.url;
+                  const isImg = url.startsWith('data:image/') || 
+                    url.split('?')[0].toLowerCase().endsWith('.png') || 
+                    url.split('?')[0].toLowerCase().endsWith('.jpg') || 
+                    url.split('?')[0].toLowerCase().endsWith('.jpeg') || 
+                    url.split('?')[0].toLowerCase().endsWith('.webp') || 
+                    url.split('?')[0].toLowerCase().endsWith('.gif');
+
+                  if (isImg) {
+                    return (
+                      <div className="w-full h-full flex items-center justify-center overflow-auto">
+                        <img 
+                          src={getSafeDocumentUrl(url)} 
+                          alt={previewDoc.title || 'Documento'} 
+                          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <iframe 
+                      src={`${getSafeDocumentUrl(url)}#toolbar=0`}
+                      title={previewDoc.title || 'Documento'} 
+                      className="w-full h-full rounded-lg border border-white/5 bg-slate-100"
+                    />
+                  );
+                })()
+              )}
             </div>
           </DialogContent>
         </Dialog>

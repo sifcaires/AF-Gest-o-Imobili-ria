@@ -13,8 +13,8 @@ import {
   writeBatch,
   getDocs
 } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { db, storage, handleFirestoreError, OperationType } from '../lib/firebase';
+import { ref } from 'firebase/storage';
+import { db, storage, handleFirestoreError, OperationType, uploadFileWithFallback } from '../lib/firebase';
 import { Property, Tenant, Contract, Payment, Landlord } from '../types';
 import { toast } from 'sonner';
 
@@ -283,32 +283,28 @@ export function useRealEstateData(user: any) {
     setIsOperating(true);
     try {
       const landlordRef = doc(collection(db, 'landlords'));
-      const { file, ...formFields } = data;
+      const { file, files, ...formFields } = data;
       let finalData = { ...formFields };
+      let urls: string[] = [];
       
-      if (file) {
+      if (files && files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          const storageRef = ref(storage, `landlords/${landlordRef.id}/${Date.now()}_${f.name}`);
+          const metadata = { contentType: f.type };
+          const downloadURL = await uploadFileWithFallback(storageRef, f, metadata);
+          urls.push(downloadURL);
+        }
+      } else if (file) {
         const storageRef = ref(storage, `landlords/${landlordRef.id}/${file.name}`);
         const metadata = { contentType: file.type };
-        
-        // Use uploadBytesResumable for better feedback and reliability
-        const uploadTask = uploadBytesResumable(storageRef, file, metadata);
-        
-        const downloadURL = await new Promise<string>((resolve, reject) => {
-          uploadTask.on('state_changed', 
-            null, 
-            (error) => reject(error), 
-            async () => {
-              try {
-                const url = await getDownloadURL(uploadTask.snapshot.ref);
-                resolve(url);
-              } catch (err) {
-                reject(err);
-              }
-            }
-          );
-        });
-        
-        finalData.documentUrl = downloadURL;
+        const downloadURL = await uploadFileWithFallback(storageRef, file, metadata);
+        urls.push(downloadURL);
+      }
+      
+      finalData.documentUrls = [...(finalData.documentUrls || []), ...urls];
+      if (finalData.documentUrls.length > 0) {
+        finalData.documentUrl = finalData.documentUrls[0];
       }
 
       await setDoc(landlordRef, {
@@ -334,32 +330,28 @@ export function useRealEstateData(user: any) {
     }
     setIsOperating(true);
     try {
-      const { file, ...formFields } = data;
+      const { file, files, ...formFields } = data;
       let finalData = { ...formFields };
+      let urls: string[] = [];
       
-      if (file) {
+      if (files && files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          const storageRef = ref(storage, `landlords/${id}/${Date.now()}_${f.name}`);
+          const metadata = { contentType: f.type };
+          const downloadURL = await uploadFileWithFallback(storageRef, f, metadata);
+          urls.push(downloadURL);
+        }
+      } else if (file) {
         const storageRef = ref(storage, `landlords/${id}/${file.name}`);
         const metadata = { contentType: file.type };
-        
-        // Use uploadBytesResumable for better feedback and reliability
-        const uploadTask = uploadBytesResumable(storageRef, file, metadata);
-        
-        const downloadURL = await new Promise<string>((resolve, reject) => {
-          uploadTask.on('state_changed', 
-            null, 
-            (error) => reject(error), 
-            async () => {
-              try {
-                const url = await getDownloadURL(uploadTask.snapshot.ref);
-                resolve(url);
-              } catch (err) {
-                reject(err);
-              }
-            }
-          );
-        });
-        
-        finalData.documentUrl = downloadURL;
+        const downloadURL = await uploadFileWithFallback(storageRef, file, metadata);
+        urls.push(downloadURL);
+      }
+      
+      finalData.documentUrls = [...(finalData.documentUrls || []), ...urls];
+      if (finalData.documentUrls.length > 0) {
+        finalData.documentUrl = finalData.documentUrls[0];
       }
 
       await updateDoc(doc(db, 'landlords', id), {

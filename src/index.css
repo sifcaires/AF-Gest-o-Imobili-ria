@@ -6,10 +6,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: "Cormorant Garamond", serif;
+    --font-heading: Arial, Helvetica, sans-serif;
     --font-sans: "Inter", sans-serif;
     --font-mono: "JetBrains Mono", monospace;
-    --font-serif: "Cormorant Garamond", serif;
+    --font-serif: Arial, Helvetica, sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -118,4 +118,10 @@
   .frosted-dark {
     @apply bg-black/20 backdrop-blur-xl border border-white/10;
   }
+}
+
+/* Global Arial and non-italic overrides */
+.italic, [class*="italic"], em, i {
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-style: normal !important;
 }

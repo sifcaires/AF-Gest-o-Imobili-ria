@@ -8,6 +8,7 @@ export interface Landlord {
   pixKey?: string;
   address?: string;
   documentUrl?: string;
+  documentUrls?: string[];
 }
 
 export interface Property {
@@ -46,6 +47,7 @@ export interface Contract {
   dayOfPayment: number;
   status?: 'active' | 'terminated';
   documentUrl?: string;
+  documentUrls?: string[];
 }
 
 export interface Payment {
