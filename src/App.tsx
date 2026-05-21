@@ -120,6 +120,7 @@ export default function App() {
     addContract, updateContract, deleteContract,
     addPayment, updatePayment, deletePayment,
     addLandlord, updateLandlord, deleteLandlord,
+    updateUser, deleteUser,
     resetDatabase
   } = useRealEstateData(user);
 
@@ -265,7 +266,7 @@ export default function App() {
           }}
         />;
       case 'users':
-        return <UsersView users={users} />;
+        return <UsersView users={users} onUpdateUser={updateUser} onDeleteUser={deleteUser} />;
       default:
         return <DashboardView 
           userName={user?.displayName || 'Gestor'}

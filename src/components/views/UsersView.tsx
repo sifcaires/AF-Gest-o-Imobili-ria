@@ -8,7 +8,9 @@ import {
   Mail,
   Calendar,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { 
   Table, 
@@ -21,14 +23,52 @@ import {
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { AppUser } from '../../types';
 
 interface UsersViewProps {
   users: AppUser[];
+  onUpdateUser?: (uid: string, data: Partial<AppUser>) => Promise<any>;
+  onDeleteUser?: (uid: string) => Promise<any>;
 }
 
-export function UsersView({ users }: UsersViewProps) {
+export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps) {
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [editingUser, setEditingUser] = React.useState<AppUser | null>(null);
+  const [editedName, setEditedName] = React.useState('');
+  const [editedRole, setEditedRole] = React.useState<'director' | 'landlord'>('landlord');
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  const handleStartEdit = (u: AppUser) => {
+    setEditingUser(u);
+    setEditedName(u.displayName || '');
+    setEditedRole(u.role || 'landlord');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingUser || !onUpdateUser) return;
+    setIsSaving(true);
+    try {
+      await onUpdateUser(editingUser.uid, {
+        displayName: editedName,
+        role: editedRole
+      });
+      setEditingUser(null);
+    } catch (e) {
+      console.error('[SaveUserEdit Error]', e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const filteredUsers = users.filter(u => {
     const s = searchTerm.toLowerCase();
@@ -84,13 +124,16 @@ export function UsersView({ users }: UsersViewProps) {
               <TableHead className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Papel / Acesso</TableHead>
               <TableHead className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Data de Cadastro</TableHead>
               <TableHead className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Último Login</TableHead>
-              <TableHead className="text-slate-400 font-bold uppercase tracking-widest text-[10px] text-right pr-8">Status</TableHead>
+              <TableHead className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Status</TableHead>
+              {(onUpdateUser || onDeleteUser) && (
+                <TableHead className="text-slate-400 font-bold uppercase tracking-widest text-[10px] text-right pr-8">Ações</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-64 text-center">
+                <TableCell colSpan={onUpdateUser || onDeleteUser ? 6 : 5} className="h-64 text-center">
                   <div className="flex flex-col items-center justify-center space-y-4">
                     <div className="h-16 w-16 rounded-2xl bg-white/5 flex items-center justify-center">
                       <UsersIcon className="h-8 w-8 text-slate-600" />
@@ -151,18 +194,104 @@ export function UsersView({ users }: UsersViewProps) {
                       <span className="text-xs font-medium">{formatDate(u.lastLogin)}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right pr-8">
+                  <TableCell>
                     <div className="inline-flex items-center gap-2 bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20">
                       <div className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse"></div>
                       <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">Ativo</span>
                     </div>
                   </TableCell>
+                  {(onUpdateUser || onDeleteUser) && (
+                    <TableCell className="text-right pr-8 py-5">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {onUpdateUser && (
+                          <Button 
+                            variant="outline" 
+                            onClick={() => handleStartEdit(u)}
+                            className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-white transition-colors"
+                            title="Editar Usuário"
+                          >
+                            <Pencil className="h-4 w-4 text-indigo-300" />
+                          </Button>
+                        )}
+                        {onDeleteUser && (
+                          <Button 
+                            variant="outline" 
+                            onClick={() => onDeleteUser(u.uid)}
+                            className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
+                            title="Excluir Usuário"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
+
+      {editingUser && (
+        <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+          <DialogContent className="sm:max-w-md bg-[#0a0f1d] border border-white/10 text-white rounded-3xl overflow-hidden p-0 shadow-2xl">
+            <div className="bg-gradient-to-r from-indigo-700 to-indigo-900 text-white p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 animate-pulse"></div>
+              <DialogHeader className="relative z-10">
+                <DialogTitle className="serif italic text-2xl text-white">Editar Usuário</DialogTitle>
+                <DialogDescription className="text-indigo-200/90 mt-1 text-xs font-semibold">
+                  Altere as credenciais e nível de acesso do colaborador.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Nome de Exibição</Label>
+                <Input 
+                  value={editedName} 
+                  onChange={(e) => setEditedName(e.target.value)}
+                  placeholder="Nome Completo"
+                  className="h-12 border-white/10 bg-white/5 text-white placeholder:text-slate-500 rounded-2xl focus-visible:ring-indigo-500/50 transition-all font-semibold"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Papel / Perfil de Acesso</Label>
+                <div className="relative">
+                  <select
+                    value={editedRole}
+                    onChange={(e) => setEditedRole(e.target.value as 'director' | 'landlord')}
+                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-2xl text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="director" className="bg-[#0a0f1d] text-white font-bold">Diretor Geral (Acesso Pleno)</option>
+                    <option value="landlord" className="bg-[#0a0f1d] text-white">Locador Master (Acesso Restrito)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="p-6 border-t border-white/5 bg-white/5 flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setEditingUser(null)}
+                className="h-11 px-5 border-white/10 bg-transparent hover:bg-white/10 text-white font-bold rounded-2xl transition-all"
+                disabled={isSaving}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSaveEdit}
+                disabled={isSaving}
+                className="h-11 px-5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all"
+              >
+                {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

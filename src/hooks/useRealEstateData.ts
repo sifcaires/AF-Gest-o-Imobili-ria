@@ -383,6 +383,53 @@ export function useRealEstateData(user: any) {
     }
   };
 
+  const updateUser = async (uid: string, data: any) => {
+    if (!uid || uid === 'undefined') {
+      console.error('[UpdateUser] Attempted to update user with invalid UID:', uid);
+      toast.error('Erro interno: UID do usuário inválido.');
+      return;
+    }
+    setIsOperating(true);
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Usuário atualizado com sucesso!');
+    } catch (e) {
+      console.error('[UpdateUser Error]', e);
+      handleFirestoreError(e, OperationType.UPDATE, `users/${uid}`);
+    } finally {
+      setIsOperating(false);
+    }
+  };
+
+  const deleteUser = async (uid: string) => {
+    if (!uid || uid === 'undefined') {
+      toast.error('UID inválido para remoção.');
+      return;
+    }
+    
+    // Prevent deleting itself
+    if (user && user.uid === uid) {
+      toast.error('Você não pode excluir a sua própria conta de usuário.');
+      return;
+    }
+
+    if (!window.confirm('Tem certeza de que deseja remover este usuário?')) return;
+
+    setIsOperating(true);
+    try {
+      await deleteDoc(doc(db, 'users', uid));
+      toast.success('Usuário removido com sucesso!');
+    } catch (e) {
+      console.error('[DeleteUser Error]', e);
+      handleFirestoreError(e, OperationType.DELETE, `users/${uid}`);
+    } finally {
+      setIsOperating(false);
+    }
+  };
+
   const resetDatabase = async () => {
     const isAdmin = user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com';
     if (!isAdmin) return;
@@ -411,6 +458,7 @@ export function useRealEstateData(user: any) {
     addContract, updateContract, deleteContract,
     addPayment, updatePayment, deletePayment,
     addLandlord, updateLandlord, deleteLandlord,
+    updateUser, deleteUser,
     resetDatabase
   };
 }
