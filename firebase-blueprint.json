@@ -13,6 +13,10 @@
         "rentAmount": { "type": "number" },
         "status": { "type": "string", "enum": ["available", "rented"] },
         "imageUrl": { "type": "string" },
+        "iptuAmount": { "type": "number", "description": "Monthly IPTU fee amount" },
+        "condoAmount": { "type": "number", "description": "Monthly condominium fee amount" },
+        "requiresGuarantor": { "type": "boolean", "description": "Whether a guarantor (fiador) is required" },
+        "requiresDeposit": { "type": "boolean", "description": "Whether a security deposit (caução) is required" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },

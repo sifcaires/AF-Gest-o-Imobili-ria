@@ -21,6 +21,10 @@ export interface Property {
   rentAmount: number;
   status: 'available' | 'rented';
   imageUrl: string;
+  iptuAmount?: number;
+  condoAmount?: number;
+  requiresGuarantor?: boolean;
+  requiresDeposit?: boolean;
 }
 
 export interface Tenant {
@@ -60,6 +64,12 @@ export interface Payment {
   paymentDate?: string;
   boletoLink?: string;
   createdAt?: string;
+  // Boleto Customization fields
+  title?: string;
+  penaltyPercent?: number;
+  interestPercent?: number;
+  discountAmount?: number;
+  instructions?: string;
 }
 
 export interface AppUser {

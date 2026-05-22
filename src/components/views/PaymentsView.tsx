@@ -3,7 +3,22 @@ import {
   CreditCard, 
   FileDown, 
   FileText, 
-  Trash2 
+  Trash2,
+  Check,
+  CheckCircle2,
+  Share2,
+  Mail,
+  MessageSquare,
+  TrendingUp,
+  AlertTriangle,
+  DollarSign,
+  Clock,
+  Search,
+  ArrowLeft,
+  Loader2,
+  Send,
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
 import { 
   Card, 
@@ -18,10 +33,16 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Dialog, 
   DialogContent, 
   DialogTrigger,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Payment, Contract, Tenant, Property } from '../../types';
 import { boletoService } from '../../services/boletoService';
@@ -34,11 +55,34 @@ interface PaymentsViewProps {
   properties: Property[];
   onEdit: (p: Payment) => void;
   onDelete: (id: string) => void;
+  onUpdatePayment?: (id: string, data: Partial<Payment>) => Promise<void>;
 }
 
-export function PaymentsView({ payments, contracts, tenants, properties, onEdit, onDelete }: PaymentsViewProps) {
+export function PaymentsView({ payments, contracts, tenants, properties, onEdit, onDelete, onUpdatePayment }: PaymentsViewProps) {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
+  const [activeBoletoScreen, setActiveBoletoScreen] = useState<'menu' | 'whatsapp' | 'email'>('menu');
+
+  // Filtering and searching state
+  const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'overdue' | 'paid'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Payoff state ("Baixa de pagamento")
+  const [payoffPayment, setPayoffPayment] = useState<Payment | null>(null);
+  const [payoffDate, setPayoffDate] = useState<string>('');
+  const [payoffAmount, setPayoffAmount] = useState<number>(0);
+  const [payoffMethod, setPayoffMethod] = useState<string>('pix');
+  const [isSubmittingPayoff, setIsSubmittingPayoff] = useState(false);
+
+  // Email state variables
+  const [emailTo, setEmailTo] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+  // WhatsApp state variables
+  const [whatsappPhone, setWhatsappPhone] = useState('');
+  const [whatsappText, setWhatsappText] = useState('');
 
   const getTenantName = (contractId: string) => {
     const contract = contracts.find(c => c.id === contractId);
@@ -46,6 +90,55 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
     const tenant = tenants.find(t => t.id === contract.tenantId);
     return tenant?.name || 'N/A';
   };
+
+  const getTenant = (contractId: string) => {
+    const contract = contracts.find(c => c.id === contractId);
+    if (!contract) return null;
+    return tenants.find(t => t.id === contract.tenantId) || null;
+  };
+
+  const getPropertyAddress = (contractId: string) => {
+    const contract = contracts.find(c => c.id === contractId);
+    if (!contract) return 'N/A';
+    const property = properties.find(p => p.id === contract.propertyId);
+    return property?.address || 'N/A';
+  };
+
+  // Financial Stats calculations
+  const totalReceived = payments
+    .filter(p => p.status === 'paid')
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
+  const totalPending = payments
+    .filter(p => p.status === 'pending')
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
+  const totalOverdue = payments
+    .filter(p => p.status === 'overdue')
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
+  const totalInvoiced = payments.reduce((acc, curr) => acc + curr.amount, 0);
+
+  // Filter payments
+  const filteredPayments = payments.filter(p => {
+    // 1. Status Filter
+    if (activeFilter === 'pending' && p.status !== 'pending') return false;
+    if (activeFilter === 'overdue' && p.status !== 'overdue') return false;
+    if (activeFilter === 'paid' && p.status !== 'paid') return false;
+
+    // 2. Search box matching
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      const tenantName = getTenantName(p.contractId).toLowerCase();
+      const amountStr = p.amount.toString();
+      const idStr = p.id.toLowerCase();
+      const addr = getPropertyAddress(p.contractId).toLowerCase();
+      
+      return tenantName.includes(q) || amountStr.includes(q) || idStr.includes(q) || addr.includes(q);
+    }
+
+    return true;
+  });
 
   const handleGenerateBoleto = async (payment: Payment) => {
     setIsGenerating(payment.id);
@@ -69,18 +162,218 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
     }
   };
 
+  // Open "Dar Baixa" handler
+  const handleOpenPayoff = (payment: Payment) => {
+    setPayoffPayment(payment);
+    setPayoffDate(new Date().toISOString().split('T')[0]);
+    setPayoffAmount(payment.amount);
+    setPayoffMethod('pix');
+  };
+
+  // Confirm Payoff logic (Baixa de pagamento)
+  const handleConfirmPayoff = async () => {
+    if (!payoffPayment) return;
+    setIsSubmittingPayoff(true);
+    try {
+      if (onUpdatePayment) {
+        await onUpdatePayment(payoffPayment.id, {
+          status: 'paid',
+          paymentDate: payoffDate,
+          amount: payoffAmount,
+        });
+        toast.success(`Baixa registrada! Recebido ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payoffAmount)} de ${getTenantName(payoffPayment.contractId)}.`);
+      } else {
+        toast.error('Operação não configurada.');
+      }
+      setPayoffPayment(null);
+    } catch (err) {
+      console.error(err);
+      toast.error('Falha ao registrar a baixa de pagamento.');
+    } finally {
+      setIsSubmittingPayoff(false);
+    }
+  };
+
+  // Initialize Email delivery screen variables
+  const handleTriggerEmailScreen = (payment: Payment) => {
+    const tenant = getTenant(payment.contractId);
+    setEmailTo(tenant?.email || '');
+    setEmailSubject(`AlugaFácil - Fatura de Aluguel Disponível #${payment.id.substring(0, 8)}`);
+    
+    const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount);
+    const formattedDate = new Date(payment.dueDate).toLocaleDateString('pt-BR');
+    
+    setEmailBody(
+      `Prezado(a) ${tenant?.name || 'Inquilino'},\n\n` +
+      `Esperamos que este e-mail o encontre bem.\n\n` +
+      `Comunicamos que a fatura referente ao aluguel mensal já está gerada e disponível. Seguem os detalhes de faturamento:\n\n` +
+      `- Cód Lançamento: #${payment.id}\n` +
+      `- Valor: ${formattedAmount}\n` +
+      `- Data de Vencimento: ${formattedDate}\n` +
+      `- Linha Digitável do Boleto:\n` +
+      `  00190.50095 40144.816069 06809.350314 3 37370000000100\n\n` +
+      `O boleto correspondente foi anexado a esta mensagem em formato PDF.\n\n` +
+      `Caso tenha dúvidas adicionais, ficamos à sua inteira disposição.\n\n` +
+      `Atenciosamente,\n` +
+      `Expediente Financeiro AlugaFácil`
+    );
+    setActiveBoletoScreen('email');
+  };
+
+  const handleSendEmailSimulation = () => {
+    if (!emailTo) {
+      toast.error('Favor inserir um e-mail válido.');
+      return;
+    }
+    setIsSendingEmail(true);
+
+    setTimeout(() => {
+      setIsSendingEmail(false);
+      toast.success(`E-mail de cobrança despachado com sucesso para ${emailTo}!`);
+      setActiveBoletoScreen('menu');
+    }, 1200);
+  };
+
+  const handleOpenNativeMail = () => {
+    const mailtoUrl = `mailto:${encodeURIComponent(emailTo)}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+    window.open(mailtoUrl, '_blank');
+  };
+
+  // Initialize WhatsApp delivery screen variables
+  const handleTriggerWhatsappScreen = (payment: Payment) => {
+    const tenant = getTenant(payment.contractId);
+    setWhatsappPhone(tenant?.phone || '');
+    
+    const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount);
+    const formattedDate = new Date(payment.dueDate).toLocaleDateString('pt-BR');
+    
+    setWhatsappText(
+      `Olá, *${tenant?.name || 'Inquilino'}*! 👋\n\n` +
+      `Seguem os dados do boleto para pagamento do aluguel:\n` +
+      `*ID Cobrança:* #${payment.id.substring(0, 8)}\n` +
+      `*Valor:* ${formattedAmount}\n` +
+      `*Vencimento:* ${formattedDate}\n\n` +
+      `*Linha Digitável para pagar pelo app do banco:*\n` +
+      `00190.50095 40144.816069 06809.350314 3 37370000000100\n\n` +
+      `Agradecemos a sua cooperação.\n` +
+      `*Equipe AlugaFácil Imobiliária*`
+    );
+    setActiveBoletoScreen('whatsapp');
+  };
+
+  const handleSendWhatsappLink = () => {
+    if (!whatsappPhone) {
+      toast.error('Insira o número de WhatsApp.');
+      return;
+    }
+    const cleanPhone = whatsappPhone.replace(/\D/g, '');
+    const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(whatsappText)}`;
+    window.open(url, '_blank');
+    toast.success('Abriu canal de mensagem WhatsApp!');
+    setActiveBoletoScreen('menu');
+  };
+
   return (
     <div className="space-y-10">
        <div className="border-b pb-8 border-white/10 flex flex-col md:flex-row justify-between items-end gap-6">
         <div>
           <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Módulo Financeiro</h2>
-          <p className="text-slate-400 font-medium mt-1">Conciliação de faturas e controle de inadimplência.</p>
+          <p className="text-slate-400 font-medium mt-1">Conciliação de faturas, emissão de boletos de cobrança e controle de recebíveis.</p>
         </div>
-        <div className="flex gap-3 bg-white/5 p-2 rounded-2xl border border-white/10 shadow-xl backdrop-blur-md">
-           <Button variant="ghost" className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-white/10 text-white hover:bg-white/20 transition-all">Todos</Button>
-           <Button variant="ghost" className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest text-slate-400 hover:bg-white/5 transition-all">Pendentes</Button>
-           <Button variant="ghost" className="h-10 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest text-slate-500 hover:bg-emerald-500/10 hover:text-emerald-400 transition-all">Liquidados</Button>
+        
+        {/* Filtros Funcionais por Status */}
+        <div className="flex flex-wrap gap-2 md:gap-3 bg-white/5 p-2 rounded-2xl border border-white/10 shadow-xl backdrop-blur-md">
+           <Button 
+             variant="ghost" 
+             onClick={() => setActiveFilter('all')}
+             className={`h-10 px-5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${activeFilter === 'all' ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5'}`}
+           >
+             Todos
+           </Button>
+           <Button 
+             variant="ghost" 
+             onClick={() => setActiveFilter('pending')}
+             className={`h-10 px-5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${activeFilter === 'pending' ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5'}`}
+           >
+             Pendentes
+           </Button>
+           <Button 
+             variant="ghost" 
+             onClick={() => setActiveFilter('overdue')}
+             className={`h-10 px-5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${activeFilter === 'overdue' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/20' : 'text-slate-400 hover:bg-white/5'}`}
+           >
+             Atrasados
+           </Button>
+           <Button 
+             variant="ghost" 
+             onClick={() => setActiveFilter('paid')}
+             className={`h-10 px-5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all ${activeFilter === 'paid' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-white/5'}`}
+           >
+             Liquidados
+           </Button>
         </div>
+      </div>
+
+      {/* Cards de Métricas Financeiras - Controle Financeiro em Geral */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <Card className="border-white/10 shadow-xl backdrop-blur-md bg-white/5 p-6 rounded-3xl border flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Total Liquidado</span>
+            <p className="text-2xl font-bold text-emerald-400 font-mono tracking-tighter">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalReceived)}
+            </p>
+          </div>
+          <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400">
+            <TrendingUp className="h-6 w-6" />
+          </div>
+        </Card>
+
+        <Card className="border-white/10 shadow-xl backdrop-blur-md bg-white/5 p-6 rounded-3xl border flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Contas a Receber</span>
+            <p className="text-2xl font-bold text-indigo-400 font-mono tracking-tighter">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPending)}
+            </p>
+          </div>
+          <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-400">
+            <Clock className="h-6 w-6" />
+          </div>
+        </Card>
+
+        <Card className="border-white/10 shadow-xl backdrop-blur-md bg-white/5 p-6 rounded-3xl border flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Inadimplência (Atrasados)</span>
+            <p className="text-2xl font-bold text-rose-400 font-mono tracking-tighter">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalOverdue)}
+            </p>
+          </div>
+          <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-400">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+        </Card>
+
+        <Card className="border-white/10 shadow-xl backdrop-blur-md bg-white/5 p-6 rounded-3xl border flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Faturamento Geral</span>
+            <p className="text-2xl font-bold text-slate-300 font-mono tracking-tighter">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalInvoiced)}
+            </p>
+          </div>
+          <div className="p-3 bg-slate-500/10 rounded-2xl text-slate-400">
+            <DollarSign className="h-6 w-6" />
+          </div>
+        </Card>
+      </div>
+
+      {/* Caixa de Pesquisa Interna */}
+      <div className="relative">
+         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+         <Input 
+           placeholder="Procurar lançamentos por inquilino, valor ou código..." 
+           className="pl-12 h-12 border-white/10 bg-white/5 text-white placeholder:text-slate-500 rounded-2xl focus-visible:ring-indigo-500/50" 
+           value={searchQuery}
+           onChange={(e) => setSearchQuery(e.target.value)}
+         />
       </div>
 
       <Card className="border-white/10 shadow-2xl backdrop-blur-md bg-white/5 overflow-hidden rounded-3xl border">
@@ -95,15 +388,28 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
             </TableRow>
           </TableHeader>
           <TableBody>
-            {payments.map((payment) => (
+            {filteredPayments.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={5} className="py-16 text-center text-slate-500 font-medium">
+                  Não foram localizados registros financeiros para o critério selecionado.
+                </TableCell>
+              </TableRow>
+            ) : filteredPayments.map((payment) => (
               <TableRow key={payment.id} className="hover:bg-white/5 transition-all border-b border-white/5 group">
                 <TableCell className="py-8 px-10 text-white">
                   <div className="flex flex-col">
                     <span className="font-bold text-white text-sm tracking-tight">{getTenantName(payment.contractId)}</span>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Cobrança Mensal #{payment.id}</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                      {payment.title || 'Cobrança Mensal'} #{payment.id.substring(0, 8)}
+                    </span>
                   </div>
                 </TableCell>
-                <TableCell className="font-mono text-xs font-bold text-slate-400 italic">{new Date(payment.dueDate).toLocaleDateString()}</TableCell>
+                <TableCell className="font-mono text-xs font-bold text-slate-400 italic">
+                  {new Date(payment.dueDate).toLocaleDateString()}
+                  {payment.paymentDate && (
+                    <span className="block text-[9px] font-semibold text-emerald-400 mt-1 uppercase">Pago em: {new Date(payment.paymentDate).toLocaleDateString()}</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-lg font-bold text-white font-mono tracking-tighter">
                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount)}
                 </TableCell>
@@ -117,70 +423,282 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right px-10">
-                  <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                  <div className="flex justify-end items-center gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                    
+                    {/* Botão de Registro de Baixa Rápida */}
+                    {payment.status !== 'paid' && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleOpenPayoff(payment)}
+                        className="h-10 px-3.5 rounded-xl border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 hover:text-emerald-300 font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-xl shadow-emerald-950/20"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        Baixa
+                      </Button>
+                    )}
+
                     <Button 
                       variant="outline" 
                       onClick={() => onEdit(payment)}
-                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-slate-400 transition-colors"
+                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-slate-400 transition-all"
+                      title="Editar"
                     >
                       <CreditCard className="h-4 w-4" />
                     </Button>
-                    <Dialog open={!!selectedPayment && selectedPayment.id === payment.id} onOpenChange={(open) => !open && setSelectedPayment(null)}>
+
+                    <Dialog 
+                      open={!!selectedPayment && selectedPayment.id === payment.id} 
+                      onOpenChange={(open) => {
+                        if (!open) {
+                          setSelectedPayment(null);
+                          setActiveBoletoScreen('menu');
+                        }
+                      }}
+                    >
                       <DialogTrigger
                         render={
                           <Button 
-                            className="h-11 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase tracking-widest gap-3 shadow-xl shadow-indigo-500/25 transition-all"
-                            onClick={() => setSelectedPayment(payment)}
+                            className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase tracking-widest gap-2 shadow-xl shadow-indigo-500/25 transition-all"
+                            onClick={() => {
+                              setSelectedPayment(payment);
+                              setActiveBoletoScreen('menu');
+                            }}
                           >
                             <FileDown className="h-4 w-4" />
                             Boleto
                           </Button>
                         }
                       />
-                      <DialogContent className="sm:max-w-md overflow-hidden p-0 border-white/10 shadow-2xl rounded-3xl frosted">
-                        <div className="bg-indigo-600 text-white p-10 flex flex-col items-center gap-6 relative overflow-hidden">
-                          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full translate-x-20 -translate-y-20"></div>
-                          <div className="h-20 w-20 rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-2xl scale-110">
-                             <CreditCard className="h-10 w-10 text-white" />
+                      <DialogContent className="sm:max-w-lg overflow-hidden p-0 border-white/10 shadow-2xl rounded-3xl frosted max-h-[90vh] overflow-y-auto">
+                        
+                        {/* HEADER DA COBRANÇA */}
+                        <div className="bg-indigo-600 text-white p-8 flex flex-col items-center gap-4 relative overflow-hidden shrink-0">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16"></div>
+                          <div className="h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-xl">
+                             <CreditCard className="h-8 w-8 text-white" />
                           </div>
+                          
                           <div className="text-center relative z-10">
-                            <h3 className="text-3xl font-bold serif italic">Opções de Cobrança</h3>
-                            <p className="text-indigo-100 text-xs font-bold uppercase tracking-widest opacity-80 mt-2">Referente: {new Date(payment.dueDate).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</p>
+                            {activeBoletoScreen === 'menu' && (
+                              <>
+                                <h3 className="text-2xl font-bold serif italic">Opções de Cobrança</h3>
+                                <p className="text-indigo-100 text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">Vencimento: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}</p>
+                              </>
+                            )}
+                            {activeBoletoScreen === 'whatsapp' && (
+                              <>
+                                <h3 className="text-2xl font-bold serif italic flex items-center justify-center gap-2">
+                                  <MessageSquare className="h-5 w-5" /> Enviar por WhatsApp
+                                </h3>
+                                <p className="text-indigo-100 text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">Inquilino: {getTenantName(payment.contractId)}</p>
+                              </>
+                            )}
+                            {activeBoletoScreen === 'email' && (
+                              <>
+                                <h3 className="text-2xl font-bold serif italic flex items-center justify-center gap-2">
+                                  <Mail className="h-5 w-5" /> Enviar por E-mail
+                                </h3>
+                                <p className="text-indigo-100 text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">Inquilino: {getTenantName(payment.contractId)}</p>
+                              </>
+                            )}
                           </div>
                         </div>
-                        <div className="p-10 space-y-8 bg-white/5">
-                           <div className="grid grid-cols-2 gap-8 border-b border-white/10 pb-8">
-                            <div>
-                               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-2">Sacado</span>
-                               <p className="text-lg font-bold text-white serif italic">{getTenantName(payment.contractId)}</p>
+
+                        {/* CORPO DINÂMICO CONFORME A TELA */}
+                        <div className="p-8 space-y-6 bg-[#0f172a]/95">
+                          
+                          {/* COBRANÇA MENU PRINCIPAL */}
+                          {activeBoletoScreen === 'menu' && (
+                            <>
+                              <div className="grid grid-cols-2 gap-6 border-b border-white/5 pb-6">
+                                <div>
+                                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Inquilino (Sacado)</span>
+                                   <p className="text-base font-bold text-white serif italic">{getTenantName(payment.contractId)}</p>
+                                </div>
+                                <div className="text-right">
+                                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Total Cobrado</span>
+                                   <p className="text-xl font-bold text-white font-mono tracking-tighter">
+                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount)}
+                                   </p>
+                                </div>
+                              </div>
+
+                              <div className="space-y-4">
+                                <Button 
+                                  className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xl transition-all transform hover:-translate-y-0.5 uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                                  onClick={() => handleGenerateBoleto(payment)}
+                                  disabled={isGenerating === payment.id}
+                                >
+                                  {isGenerating === payment.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <FileText className="h-4 w-4" />
+                                  )}
+                                  Baixar PDF do Boleto
+                                </Button>
+
+                                <div className="relative flex items-center py-2">
+                                  <div className="flex-grow border-t border-white/5"></div>
+                                  <span className="flex-shrink mx-4 text-[10px] text-slate-500 font-bold uppercase tracking-widest">Enviar Fatura</span>
+                                  <div className="flex-grow border-t border-white/5"></div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                  <Button 
+                                    variant="outline"
+                                    className="h-12 border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold rounded-xl uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-all shadow-lg"
+                                    onClick={() => handleTriggerWhatsappScreen(payment)}
+                                  >
+                                    <MessageSquare className="h-4 w-4" />
+                                    WhatsApp
+                                  </Button>
+                                  <Button 
+                                    variant="outline"
+                                    className="h-12 border-sky-500/20 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 font-bold rounded-xl uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-all shadow-lg"
+                                    onClick={() => handleTriggerEmailScreen(payment)}
+                                  >
+                                    <Mail className="h-4 w-4" />
+                                    Enviar E-mail
+                                  </Button>
+                                </div>
+                                
+                                <Button 
+                                  variant="ghost" 
+                                  className="w-full text-slate-400 font-bold text-[10px] uppercase tracking-widest h-12 hover:bg-white/5 hover:text-white rounded-xl" 
+                                  onClick={() => setSelectedPayment(null)}
+                                >
+                                  Voltar ao Financeiro
+                                </Button>
+                              </div>
+                            </>
+                          )}
+
+                          {/* ENVIO WHATSAPP */}
+                          {activeBoletoScreen === 'whatsapp' && (
+                            <div className="space-y-4">
+                              <div className="space-y-1.5">
+                                <Label htmlFor="phone" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Número do WhatsApp (Código Pais + DDD)</Label>
+                                <Input 
+                                  id="phone"
+                                  value={whatsappPhone}
+                                  onChange={(e) => setWhatsappPhone(e.target.value)}
+                                  className="border-white/10 bg-white/5 text-white h-11 rounded-lg focus-visible:ring-indigo-500/50 text-xs font-mono"
+                                  placeholder="Ex: 5511999998888"
+                                />
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <Label htmlFor="msg" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Texto Formatar Cobrança</Label>
+                                <textarea 
+                                  id="msg"
+                                  rows={6}
+                                  value={whatsappText}
+                                  onChange={(e) => setWhatsappText(e.target.value)}
+                                  className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-sans resize-none h-44"
+                                />
+                              </div>
+
+                              <div className="pt-4 border-t border-white/5 space-y-3">
+                                <Button 
+                                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                                  onClick={handleSendWhatsappLink}
+                                >
+                                  <Send className="h-4 w-4" />
+                                  Confirmar e Disparar WhatsApp
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  className="w-full h-11 text-slate-400 font-bold uppercase tracking-widest text-[10px]"
+                                  onClick={() => setActiveBoletoScreen('menu')}
+                                >
+                                  <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+                                </Button>
+                              </div>
                             </div>
-                            <div className="text-right">
-                               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-2">Total Recibo</span>
-                               <p className="text-2xl font-bold text-white font-mono tracking-tighter">
-                                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount)}
-                               </p>
+                          )}
+
+                          {/* ENVIO E-MAIL */}
+                          {activeBoletoScreen === 'email' && (
+                            <div className="space-y-4">
+                              <div className="space-y-1.5">
+                                <Label htmlFor="emailTo" className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-medium">E-mail Destinatário</Label>
+                                <Input 
+                                  id="emailTo"
+                                  value={emailTo}
+                                  onChange={(e) => setEmailTo(e.target.value)}
+                                  className="border-white/10 bg-white/5 text-white h-11 rounded-lg focus-visible:ring-indigo-500/50 text-xs text-white"
+                                  placeholder="inquilino@email.com"
+                                  type="email"
+                                />
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <Label htmlFor="emailSub" className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-medium">Assunto da Mensagem</Label>
+                                <Input 
+                                  id="emailSub"
+                                  value={emailSubject}
+                                  onChange={(e) => setEmailSubject(e.target.value)}
+                                  className="border-white/10 bg-white/5 text-white h-11 rounded-lg focus-visible:ring-indigo-500/50 text-xs"
+                                />
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <Label htmlFor="emailBody" className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-medium">Corpo do E-mail</Label>
+                                <textarea 
+                                  id="emailBody"
+                                  rows={5}
+                                  value={emailBody}
+                                  onChange={(e) => setEmailBody(e.target.value)}
+                                  className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 resize-none h-32"
+                                />
+                              </div>
+
+                              <div className="flex items-center gap-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3">
+                                 <FileText className="h-5 w-5 text-indigo-400" />
+                                 <div className="text-left">
+                                   <p className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">Anexo Identificado</p>
+                                   <p className="text-xs text-indigo-100 italic">Boleto_Faturamento.pdf (Gerado dinamicamente)</p>
+                                 </div>
+                              </div>
+
+                              <div className="pt-4 border-t border-white/5 space-y-3">
+                                <Button 
+                                  className="w-full h-12 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-lg uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                                  onClick={handleSendEmailSimulation}
+                                  disabled={isSendingEmail}
+                                >
+                                  {isSendingEmail ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Send className="h-4 w-4" />
+                                  )}
+                                  Simular Envio do Servidor
+                                </Button>
+                                
+                                <Button 
+                                  variant="ghost"
+                                  className="w-full h-11 border border-white/10 bg-transparent hover:bg-white/5 text-slate-300 font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                                  onClick={handleOpenNativeMail}
+                                >
+                                  <Mail className="h-4 w-4" />
+                                  Usar E-mail Local (mailto:)
+                                </Button>
+
+                                <Button 
+                                  variant="ghost" 
+                                  className="w-full h-11 text-slate-400 font-bold uppercase tracking-widest text-[10px]"
+                                  onClick={() => setActiveBoletoScreen('menu')}
+                                >
+                                  <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex flex-col gap-4 pt-6">
-                            <Button 
-                              className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl transition-all transform hover:-translate-y-1 uppercase tracking-widest text-[10px]"
-                              onClick={() => handleGenerateBoleto(payment)}
-                              disabled={isGenerating === payment.id}
-                            >
-                              {isGenerating === payment.id ? (
-                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-                              ) : (
-                                <FileText className="h-4 w-4 mr-2" />
-                              )}
-                              Baixar PDF do Boleto
-                            </Button>
-                            <Button variant="ghost" className="w-full text-slate-400 font-bold text-[10px] uppercase tracking-widest h-12 hover:bg-white/5 hover:text-white" onClick={() => setSelectedPayment(null)}>
-                              Voltar ao Financeiro
-                            </Button>
-                          </div>
+                          )}
+
                         </div>
                       </DialogContent>
                     </Dialog>
+
                     <Button 
                       variant="outline" 
                       onClick={() => onDelete(payment.id)}
@@ -195,6 +713,117 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
           </TableBody>
         </Table>
       </Card>
+
+      {/* DIALOG DE CONFIRMAÇÃO DE BAIXA - CONTROLE FINANCEIRO EM GERAL */}
+      <Dialog open={!!payoffPayment} onOpenChange={(open) => !open && setPayoffPayment(null)}>
+        <DialogContent className="sm:max-w-md frosted border-white/10 text-white rounded-3xl p-8 bg-slate-950/95 max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="mb-4">
+             <div className="mx-auto h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4">
+               <CheckCircle2 className="h-6 w-6" />
+             </div>
+             <DialogTitle className="serif italic text-2xl text-center text-white">Baixa de Recebível</DialogTitle>
+             <DialogDescription className="text-center text-slate-400 text-xs">
+               Confirme as informações abaixo antes de liquidar a cobrança do locatário.
+             </DialogDescription>
+          </DialogHeader>
+
+          {payoffPayment && (
+            <div className="space-y-4 py-2">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 grid grid-cols-2 gap-4">
+                 <div className="col-span-2 border-b border-white/5 pb-2">
+                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Inquilino (Devedor)</span>
+                   <p className="text-sm font-bold text-white leading-tight mt-0.5">{getTenantName(payoffPayment.contractId)}</p>
+                 </div>
+                 <div>
+                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Imóvel Cobrado</span>
+                   <p className="text-xs text-slate-300 font-medium truncate mt-0.5">{getPropertyAddress(payoffPayment.contractId)}</p>
+                 </div>
+                 <div className="text-right">
+                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 font-mono">Total Devido</span>
+                   <p className="text-sm font-bold text-white mt-0.5">
+                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payoffPayment.amount)}
+                   </p>
+                 </div>
+              </div>
+
+              {/* INPUTS DE BAIXA */}
+              <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="payoffAmt" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Valor Recebido (R$)</Label>
+                    <div className="relative">
+                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-emerald-400" />
+                       <Input 
+                         type="number"
+                         id="payoffAmt"
+                         step="0.01"
+                         value={payoffAmount}
+                         onChange={(e) => setPayoffAmount(parseFloat(e.target.value) || 0)}
+                         className="border-white/10 bg-white/5 text-white h-11 pl-9 rounded-xl focus-visible:ring-indigo-500/50 text-xs font-mono"
+                       />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="payoffDt" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Data de Recebimento</Label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <Input 
+                        type="date"
+                        id="payoffDt"
+                        value={payoffDate}
+                        onChange={(e) => setPayoffDate(e.target.value)}
+                        className="border-white/10 bg-white/5 text-white h-11 pl-9 rounded-xl focus-visible:ring-indigo-500/50 text-xs font-mono [color-scheme:dark]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="payoffMthd" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Canal de Liquidação / Pagamento</Label>
+                  <Select value={payoffMethod} onValueChange={setPayoffMethod}>
+                     <SelectTrigger id="payoffMthd" className="border-white/10 bg-white/5 text-white h-11 rounded-xl">
+                       <SelectValue placeholder="Selecione o canal" />
+                     </SelectTrigger>
+                     <SelectContent className="frosted border-white/10 text-white bg-slate-900">
+                       <SelectItem value="pix">PIX instantâneo</SelectItem>
+                       <SelectItem value="boleto">Boleto Compensado</SelectItem>
+                       <SelectItem value="money">Espécie / Dinheiro físico</SelectItem>
+                       <SelectItem value="transfer">TED / DOC / Transferência</SelectItem>
+                       <SelectItem value="credit">Cartão de Crédito</SelectItem>
+                     </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-6 mt-4 border-t border-white/5">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setPayoffPayment(null)}
+                  className="font-bold text-[10px] uppercase tracking-widest text-slate-400 hover:bg-white/5 h-12 hover:text-white rounded-xl"
+                  disabled={isSubmittingPayoff}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleConfirmPayoff}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-widest h-12 rounded-xl shadow-lg border-0 transition-all flex items-center justify-center gap-1.5"
+                  disabled={isSubmittingPayoff}
+                >
+                  {isSubmittingPayoff ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-white" />
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Confirmar Baixa
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -229,6 +229,7 @@ export default function App() {
             setIsRegistryOpen(true);
           }}
           onDelete={(id) => setItemToDelete({ id, type: 'payment' })}
+          onUpdatePayment={updatePayment}
         />;
       case 'landlords':
         return <LandlordsView 
@@ -463,9 +464,9 @@ export default function App() {
                     </Button>
                   }
                 />
-                <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-sm' : 'sm:max-w-2xl'} frosted border-white/10 text-white overflow-hidden`}>
-                  <DialogHeader className="p-4 border-b border-white/5">
-                    <DialogTitle className="serif text-2xl text-white">
+                <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-sm' : 'sm:max-w-2xl'} frosted border-white/10 text-white overflow-hidden max-h-[min(655px,90vh)] md:h-[655px] flex flex-col pl-[7px] pr-[10px] pt-0 pb-0 ml-0 -mt-[21px] mr-0 mb-0 border-0`}>
+                  <DialogHeader className="h-[93px] pt-4 pb-4 pr-4 pl-[16px] ml-0 -mt-[8px] border-b border-white/5 flex flex-col justify-center shrink-0">
+                    <DialogTitle className="serif text-xl md:text-2xl text-white">
                       {activeForm === 'none' ? 'Novo Cadastro' : 
                        activeForm === 'property' ? (editingItem ? 'Editar Imóvel' : 'Cadastrar Imóvel') : 
                        activeForm === 'tenant' ? (editingItem ? 'Editar Inquilino' : 'Cadastrar Inquilino') :
@@ -474,13 +475,13 @@ export default function App() {
                        activeForm === 'landlord' ? (editingItem ? 'Editar Locador' : 'Cadastro de Locador') :
                        'Novo Registro'}
                     </DialogTitle>
-                    <DialogDescription className="text-slate-400">
+                    <DialogDescription className="text-slate-400 text-xs truncate">
                       {activeForm === 'none' ? 'Selecione o tipo de registro que deseja criar no AlugaFácil.' : 
                        editingItem ? 'Atualize os dados do registro selecionado.' : 'Preencha os dados abaixo para salvar o novo registro.'}
                     </DialogDescription>
                   </DialogHeader>
 
-                  <div className="p-4">
+                  <div className="overflow-y-auto flex-1 pl-[16px] pr-4 -ml-[11px] -mr-[11px] -mt-[12px] -mb-[12px] pt-[3px] pb-[3px]">
                     {activeForm === 'none' ? (
                       <div className="grid grid-cols-2 gap-4 py-2">
                         <Button 
@@ -612,7 +613,7 @@ export default function App() {
             </div>
           </header>
 
-          <main className="flex-1 p-8 overflow-auto">
+          <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeView}

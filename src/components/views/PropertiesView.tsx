@@ -43,40 +43,40 @@ export function PropertiesView({
   );
 
   return (
-    <div className="space-y-10">
-       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b pb-8 border-white/10">
+    <div className="space-y-6">
+       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 border-white/10">
         <div>
-          <h2 className="text-4xl font-bold tracking-tight text-white serif italic">Imóveis</h2>
-          <p className="text-slate-400 font-medium mt-1">
+          <h2 className="text-3xl font-bold tracking-tight text-white serif italic">Imóveis</h2>
+          <p className="text-slate-400 font-medium mt-1 text-xs">
             Exibindo todos os imóveis registrados na plataforma.
           </p>
         </div>
-        <div className="relative w-full md:w-96 flex">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+        <div className="relative w-full md:w-80 flex">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
           <Input 
             placeholder="Pesquisar por título ou endereço..." 
-            className="pl-12 h-14 border-white/10 bg-white/5 text-white rounded-2xl shadow-xl shadow-slate-900/40 focus-visible:ring-indigo-500/50 transition-all font-bold placeholder:text-slate-500" 
+            className="pl-11 h-11 border-white/10 bg-white/5 text-white rounded-xl shadow-xl shadow-slate-900/40 focus-visible:ring-indigo-500/50 transition-all text-xs font-bold placeholder:text-slate-500" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredProperties.map((property) => {
           const activeContract = contracts.find(c => c.propertyId === property.id && c.status === 'active');
           const currentTenant = tenants.find(t => t.id === activeContract?.tenantId);
 
           return (
-            <Card key={property.id} className="overflow-hidden border-white/10 shadow-2xl backdrop-blur-md group hover:shadow-indigo-500/10 hover:border-indigo-500/30 transition-all duration-500 rounded-3xl bg-white/5 flex flex-col h-full border">
-              <div className="relative h-64 w-full overflow-hidden">
+            <Card key={property.id} className="overflow-hidden border-white/10 shadow-2xl backdrop-blur-md group hover:shadow-indigo-500/10 hover:border-indigo-500/30 transition-all duration-500 rounded-2xl bg-white/5 flex flex-col h-full border">
+              <div className="relative h-44 w-full overflow-hidden">
                 <img 
                   referrerPolicy="no-referrer"
                   src={property.imageUrl} 
                   alt={property.title} 
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100" 
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-80 group-hover:opacity-100" 
                 />
-                <div className="absolute top-6 right-6 flex gap-2 z-20">
+                <div className="absolute top-4 right-4 flex gap-2 z-20">
                   <Button 
                     size="icon" 
                     variant="ghost" 
@@ -84,54 +84,115 @@ export function PropertiesView({
                       e.stopPropagation();
                       onDelete(property.id);
                     }}
-                    className="bg-rose-500/90 backdrop-blur-sm text-white hover:bg-rose-600 border-none h-9 w-9 rounded-xl shadow-xl transition-all hover:scale-110 active:scale-95"
+                    className="bg-rose-500/90 backdrop-blur-sm text-white hover:bg-rose-600 border-none h-8 w-8 rounded-lg shadow-xl transition-all hover:scale-105 active:scale-95"
                   >
-                    <Trash2 className="h-4.5 w-4.5" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                   <Badge className={
-                    property.status === 'available' ? 'bg-emerald-500/80 text-white border-none font-bold uppercase tracking-widest text-[10px] px-3 py-1 shadow-lg' : 'bg-slate-900/80 text-white border-none font-bold uppercase tracking-widest text-[10px] px-3 py-1 shadow-lg'
+                    property.status === 'available' ? 'bg-emerald-500/80 text-white border-none font-bold uppercase tracking-widest text-[9px] px-2 py-0.5 shadow-lg' : 'bg-slate-900/80 text-white border-none font-bold uppercase tracking-widest text-[9px] px-2 py-0.5 shadow-lg'
                   }>
                     {property.status === 'available' ? 'Disponível' : 'Locado'}
                   </Badge>
                 </div>
               </div>
-              <CardHeader className="p-8 pb-3 text-white">
-                <div className="flex justify-between items-start">
-                  <h3 className="text-2xl font-bold text-white tracking-tight leading-tight group-hover:text-indigo-400 transition-colors uppercase italic serif">{property.title}</h3>
+              <CardHeader className="p-4 pb-1.5 text-white">
+                <div className="flex justify-between items-start gap-2">
+                  <h3 className="text-[13px] leading-[14px] font-bold text-white tracking-tight group-hover:text-indigo-400 transition-colors uppercase italic serif truncate flex-1 min-w-0">{property.title}</h3>
                   {landlords.find(l => l.id === property.landlordId) && (
-                    <Badge variant="outline" className="border-white/20 text-slate-400 text-[9px] uppercase tracking-tighter">
+                    <Badge variant="outline" className="border-white/10 text-slate-400 text-[8px] uppercase tracking-tighter shrink-0">
                       Prop: {landlords.find(l => l.id === property.landlordId)?.name?.split(' ')[0] || 'N/A'}
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-start gap-2 mt-2">
-                  <Home className="h-3 w-3 text-slate-500 mt-1 shrink-0" />
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-loose">{property.address}</p>
+                <div className="flex items-start gap-1.5 mt-1">
+                  <Home className="h-3 w-3 text-slate-500 mt-0.5 shrink-0" />
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{property.address}</p>
                 </div>
               </CardHeader>
-              <CardContent className="px-8 flex-1">
-                <p className="text-sm text-slate-400 font-medium leading-relaxed italic line-clamp-3 mb-6">{property.description}</p>
+              <CardContent className="px-4 pb-2.5 flex-1">
+                <p className="text-xs text-slate-400 font-medium leading-relaxed italic line-clamp-2 mb-2">{property.description}</p>
+                
+                {/* Taxas Adicionais */}
+                {(property.condoAmount || property.iptuAmount) ? (
+                  <div className="grid grid-cols-2 gap-1.5 mb-2.5 border-t border-b border-white/5 py-2">
+                    {property.condoAmount && property.condoAmount > 0 ? (
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Condomínio</p>
+                        <p className="text-xs font-bold text-slate-300 font-mono mt-0.5">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.condoAmount)}
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Condomínio</p>
+                        <p className="text-xs font-semibold text-slate-500 mt-0.5">Incluso</p>
+                      </div>
+                    )}
+                    {property.iptuAmount && property.iptuAmount > 0 ? (
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">IPTU Mensal</p>
+                        <p className="text-xs font-bold text-slate-300 font-mono mt-0.5">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.iptuAmount)}
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">IPTU Mensal</p>
+                        <p className="text-xs font-semibold text-slate-500 mt-0.5">Incluso / Isento</p>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {/* Exigências / Garantias */}
+                {(property.requiresGuarantor || property.requiresDeposit) ? (
+                  <div className="flex flex-wrap gap-1 mb-2.5">
+                    {property.requiresGuarantor && (
+                      <Badge variant="outline" className="border-indigo-500/20 bg-indigo-500/5 text-indigo-300 text-[9px] uppercase font-bold py-0.5 px-1.5 rounded-lg gap-1">
+                        <span>🛡️ Fiador</span>
+                      </Badge>
+                    )}
+                    {property.requiresDeposit && (
+                      <Badge variant="outline" className="border-amber-500/20 bg-amber-500/5 text-amber-300 text-[9px] uppercase font-bold py-0.5 px-1.5 rounded-lg gap-1">
+                        <span>💵 Caução</span>
+                      </Badge>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1 mb-2.5">
+                    <Badge variant="outline" className="border-emerald-500/10 bg-emerald-500/5 text-emerald-400 text-[9px] uppercase font-bold py-0.5 px-1.5 rounded-lg">
+                      <span>✓ Sem Garantia</span>
+                    </Badge>
+                  </div>
+                )}
                 
                 {property.status === 'rented' && currentTenant && (
-                  <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 flex items-center gap-3">
-                    <User className="h-4 w-4 text-indigo-400" />
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Inquilino Atual</p>
-                      <p className="text-xs font-bold text-white">{currentTenant.name}</p>
+                  <div className="p-2 rounded-xl bg-indigo-500/5 border border-indigo-500/10 flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-none">Inquilino Atual</p>
+                      <p className="text-xs font-bold text-white truncate mt-0.5">{currentTenant.name}</p>
                     </div>
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="px-8 py-8 mt-4 border-t border-white/5 flex items-center justify-between">
+              <CardFooter className="px-4 py-3 mt-auto border-t border-white/5 flex items-center justify-between">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Mensalidade</span>
-                  <span className="text-2xl font-bold text-white font-mono tracking-tighter">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.rentAmount)}
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Pacote Mensal</span>
+                  <span className="text-[17px] font-bold text-white font-mono tracking-tighter">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                      property.rentAmount + (property.condoAmount || 0) + (property.iptuAmount || 0)
+                    )}
                   </span>
+                  {(property.condoAmount || property.iptuAmount) ? (
+                    <span className="text-[8px] text-slate-400 font-medium">Aluguel + Taxas</span>
+                  ) : (
+                    <span className="text-[8px] text-slate-400 font-medium">Apenas aluguel</span>
+                  )}
                 </div>
                 <Button 
                   onClick={() => onEdit(property)}
-                  className="h-10 px-6 rounded-full font-bold text-xs uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-lg hover:shadow-indigo-500/25"
+                  className="h-8 px-4 rounded-full font-bold text-[10px] uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-lg hover:shadow-indigo-500/25"
                 >
                   Gerenciar
                 </Button>
