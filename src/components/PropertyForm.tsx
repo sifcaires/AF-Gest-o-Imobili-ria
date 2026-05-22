@@ -84,7 +84,7 @@ export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: Pr
           value={formData.title}
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           required
-          className="border-white/10 bg-white/5 text-white h-10 rounded-xl focus:ring-indigo-500/50"
+          className="border-white/10 bg-white/5 text-white h-10 rounded-xl focus:ring-indigo-500/50 pt-0 pb-0 pr-0 pl-2 ml-0 mt-0 mr-[-2px] mb-[-1px]"
         />
       </div>
 

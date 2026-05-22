@@ -47,7 +47,7 @@ export function TenantsView({ tenants, user, users, onEdit, onDelete }: TenantsV
           <TableHeader className="bg-white/5 border-b border-white/5">
             <TableRow className="border-white/5 hover:bg-transparent">
               <TableHead className="text-[10px] font-bold uppercase tracking-widest py-8 px-10 text-slate-400">Locatário</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest py-8 text-slate-400">Documento</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest py-8 text-slate-400">CPF/CNPJ</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest py-8 text-slate-400">Contato</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest py-8 text-right px-10 text-slate-400">Ações</TableHead>
             </TableRow>

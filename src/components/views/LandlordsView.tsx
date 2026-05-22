@@ -106,8 +106,8 @@ export function LandlordsView({ user, landlords, users, searchTerm, setSearchTer
             <TableRow className="border-b border-white/5 hover:bg-transparent">
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Nome / Razão Social</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Contato</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Documento</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Docus</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">CPF/CNPJ</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Documentos</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>

@@ -307,7 +307,7 @@ export default function App() {
           </SidebarHeader>
           <SidebarContent className="px-3">
             <SidebarGroup>
-              <SidebarGroupLabel className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Painel de Controle</SidebarGroupLabel>
+              <SidebarGroupLabel className="px-4 text-[13px] font-bold uppercase tracking-widest text-slate-500 mb-2">Painel de Controle</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton 
