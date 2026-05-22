@@ -16,8 +16,36 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  ResponsiveContainer, 
+  CartesianGrid,
+  Cell 
+} from 'recharts';
 import { Contract, Property, Tenant, Payment } from '../../types';
 import { viewDocumentSecurely, getSafeDocumentUrl } from '../../lib/documentViewer';
+
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.amount);
+    const statusText = data?.status === 'paid' ? 'Liquidado' : data?.status === 'overdue' ? 'Em Atraso' : 'Aguardando';
+    const statusColor = data?.status === 'paid' ? 'text-emerald-500' : data?.status === 'overdue' ? 'text-rose-500' : 'text-amber-500';
+    
+    return (
+      <div className="bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/15 p-3 rounded-xl shadow-xl backdrop-blur-md text-xs">
+        <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tracking-wider font-sans">{data.name}</p>
+        <p className="text-sm font-semibold text-slate-800 dark:text-white font-mono mt-1">{formattedAmount}</p>
+        <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${statusColor}`}>{statusText}</p>
+      </div>
+    );
+  }
+  return null;
+};
 
 interface ContractsViewProps {
   contracts: Contract[];
@@ -48,6 +76,20 @@ export function ContractsView({ contracts, properties, tenants, payments, onEdit
           {contracts.map((contract, index) => {
             const property = properties.find(p => p.id === contract.propertyId);
             const tenant = tenants.find(t => t.id === contract.tenantId);
+            const contractPayments = payments.filter(p => p.contractId === contract.id);
+            const chartData = contractPayments
+              .slice()
+              .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+              .map(payment => {
+                const date = new Date(payment.dueDate);
+                const month = date.toLocaleDateString('pt-BR', { month: 'short' });
+                const year = date.toLocaleDateString('pt-BR', { year: '2-digit' });
+                return {
+                  name: `${month}/${year}`,
+                  amount: payment.amount,
+                  status: payment.status,
+                };
+              });
             
             return (
               <motion.div
@@ -219,53 +261,124 @@ export function ContractsView({ contracts, properties, tenants, payments, onEdit
                                 Histórico Financeiro
                               </h4>
                               
-                              <div className="space-y-3">
-                                {payments.filter(p => p.contractId === contract.id).length > 0 ? (
-                                  payments
-                                    .filter(p => p.contractId === contract.id)
-                                    .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())
-                                    .map((payment) => (
-                                      <div 
-                                        key={payment.id} 
-                                        className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group/row"
-                                      >
-                                        <div className="flex items-center gap-6">
-                                          <div className={`h-2 w-2 rounded-full ${
-                                            payment.status === 'paid' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
-                                            payment.status === 'overdue' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 
-                                            'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
-                                          }`} />
-                                          <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Vencimento</p>
-                                            <p className="text-sm font-bold text-white font-mono">{new Date(payment.dueDate).toLocaleDateString()}</p>
-                                          </div>
-                                        </div>
-                                        
-                                        <div className="text-right">
-                                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Status</p>
-                                          <Badge className={`uppercase text-[9px] font-bold tracking-widest border-none ${
-                                            payment.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400' : 
-                                            payment.status === 'overdue' ? 'bg-rose-500/10 text-rose-400' : 
-                                            'bg-amber-500/10 text-amber-400'
-                                          }`}>
-                                            {payment.status === 'paid' ? 'Liquidado' : 
-                                             payment.status === 'overdue' ? 'Em Atraso' : 'Aguardando'}
-                                          </Badge>
-                                        </div>
-                                        
-                                        <div className="text-right min-w-[120px]">
-                                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Valor</p>
-                                          <p className="text-lg font-bold text-white font-mono tracking-tighter">
-                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount)}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    ))
-                                ) : (
-                                  <div className="py-10 text-center rounded-3xl bg-white/5 border border-dashed border-white/10">
-                                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest italic">Nenhum registro de pagamento encontrado.</p>
+                              <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mt-4">
+                                {/* Chart Section */}
+                                <div className="lg:col-span-3 flex flex-col justify-between">
+                                  <div className="mb-4">
+                                    <h5 className="text-xs font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-1.5">
+                                      Fluxo de Caixa Mensal
+                                    </h5>
+                                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">
+                                      Vencimentos e históricos do contrato
+                                    </p>
                                   </div>
-                                )}
+                                  
+                                  {contractPayments.length > 0 ? (
+                                    <div className="h-[220px] w-full p-2 bg-slate-500/5 dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 rounded-2xl flex items-center justify-center">
+                                      <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                          data={chartData}
+                                          margin={{ top: 20, right: 10, left: 10, bottom: 5 }}
+                                        >
+                                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148, 163, 184, 0.1)" />
+                                          <XAxis 
+                                            dataKey="name" 
+                                            tickLine={false}
+                                            axisLine={false}
+                                            tick={{ fontSize: 9, fontWeight: 600, fill: '#64748b' }}
+                                          />
+                                          <YAxis 
+                                            tickLine={false}
+                                            axisLine={false}
+                                            tick={{ fontSize: 9, fontWeight: 600, fill: '#64748b' }}
+                                            tickFormatter={(val) => `R$ ${val}`}
+                                          />
+                                          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} />
+                                          <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={38}>
+                                            {contractPayments.map((entry, idx) => {
+                                              const color = entry.status === 'paid' ? '#10b981' : 
+                                                            entry.status === 'overdue' ? '#f43f5e' : 
+                                                            '#f59e0b';
+                                              return <Cell key={`cell-${idx}`} fill={color} />;
+                                            })}
+                                          </Bar>
+                                        </BarChart>
+                                      </ResponsiveContainer>
+                                    </div>
+                                  ) : (
+                                    <div className="h-[220px] flex items-center justify-center rounded-2xl border border-dashed border-slate-200/50 dark:border-white/5 bg-slate-500/5 dark:bg-white/[0.02]">
+                                      <p className="text-slate-500 text-xs font-bold uppercase tracking-widest italic">
+                                        Falta de dados de faturamento
+                                      </p>
+                                    </div>
+                                  )}
+                                  
+                                  {contractPayments.length > 0 && (
+                                    <div className="flex gap-4 items-center justify-end mt-4 text-[9px] font-bold uppercase tracking-widest">
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="h-2 w-2 rounded-full bg-[#10b981]" />
+                                        <span className="text-slate-500">Liquidado</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="h-2 w-2 rounded-full bg-[#f59e0b]" />
+                                        <span className="text-slate-500">Aguardando</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="h-2 w-2 rounded-full bg-[#f43f5e]" />
+                                        <span className="text-slate-500">Em Atraso</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* List Section */}
+                                <div className="lg:col-span-2 flex flex-col justify-between">
+                                  <div className="mb-4">
+                                    <h5 className="text-xs font-bold text-slate-800 dark:text-slate-100 mb-1">
+                                      Detalhamento das Parcelas
+                                    </h5>
+                                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">
+                                      Controle de fluxo de recebíveis
+                                    </p>
+                                  </div>
+                                  
+                                  <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1 flex-1">
+                                    {contractPayments.length > 0 ? (
+                                      contractPayments
+                                        .slice()
+                                        .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())
+                                        .map((payment) => (
+                                          <div 
+                                            key={payment.id} 
+                                            className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group/row"
+                                          >
+                                            <div className="flex items-center gap-4">
+                                              <div className={`h-2 w-2 rounded-full ${
+                                                payment.status === 'paid' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
+                                                payment.status === 'overdue' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 
+                                                'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+                                              }`} />
+                                              <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">Vencimento</p>
+                                                <p className="text-xs font-bold text-slate-800 dark:text-white font-mono">{new Date(payment.dueDate).toLocaleDateString()}</p>
+                                              </div>
+                                            </div>
+                                            
+                                            <div className="text-right min-w-[100px]">
+                                              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">Valor</p>
+                                              <p className="text-sm font-bold text-slate-800 dark:text-white font-mono tracking-tighter">
+                                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount)}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        ))
+                                    ) : (
+                                      <div className="py-10 text-center rounded-3xl bg-white/5 border border-dashed border-white/15">
+                                        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest italic">Nenhum vencimento registrado.</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </motion.div>

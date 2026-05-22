@@ -12,7 +12,9 @@ import {
   Database,
   UserSquare2,
   User,
-  LayoutDashboard
+  LayoutDashboard,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
@@ -67,6 +69,7 @@ import { ContractForm } from './components/ContractForm';
 import { PaymentForm } from './components/PaymentForm';
 import { LandlordForm } from './components/LandlordForm';
 import { useFirebase } from './components/FirebaseProvider';
+import { useTheme } from './components/ThemeProvider';
 import { getSafeDocumentUrl } from './lib/documentViewer';
 import { useRealEstateData } from './hooks/useRealEstateData';
 import { db } from './lib/firebase';
@@ -94,6 +97,7 @@ const chartData = [
 
 export default function App() {
   const { user, loading: authLoading, signInWithGoogle, signInWithEmail, signUpWithEmail, logout, authError, updateUserProfile, updateEmail, appLogo } = useFirebase();
+  const { theme, toggleTheme } = useTheme();
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'admin'>('login');
   const [authData, setAuthData] = useState({ email: '', password: '', name: '' });
@@ -126,7 +130,7 @@ export default function App() {
 
   if (authLoading || (loading && !user)) {
     return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 border-4 border-indigo-500/20 border-t-indigo-500 animate-spin rounded-full"></div>
           <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Autenticando...</p>
@@ -280,24 +284,24 @@ export default function App() {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-[#020617] text-slate-100 overflow-hidden font-sans relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#020617] z-0"></div>
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/20 blur-[120px] rounded-full pointer-events-none"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/20 blur-[150px] rounded-full pointer-events-none"></div>
+      <div className="flex min-h-screen w-full bg-background text-foreground overflow-hidden font-sans relative transition-colors duration-300">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-slate-100 dark:from-[#0f172a] dark:via-[#1e293b] dark:to-[#020617] z-0 transition-all duration-300"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/5 dark:bg-cyan-500/20 blur-[120px] rounded-full pointer-events-none transition-all duration-300"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-500/5 dark:bg-indigo-600/20 blur-[150px] rounded-full pointer-events-none transition-all duration-300"></div>
 
-        <Sidebar className="border-r border-white/10 bg-white/5 backdrop-blur-xl z-10">
+        <Sidebar className="border-r border-slate-200/80 dark:border-white/10 bg-white/60 dark:bg-white/5 backdrop-blur-xl z-10 transition-colors duration-300">
           <SidebarHeader className="p-6">
             <div className="flex items-center gap-4">
               {appLogo ? (
-                <img src={appLogo} alt="Logo" className="h-16 w-16 object-contain rounded-2xl shadow-lg shadow-indigo-500/10 border border-white/10" referrerPolicy="no-referrer" />
+                <img src={appLogo} alt="Logo" className="h-16 w-16 object-contain rounded-2xl shadow-lg shadow-indigo-500/10 border border-slate-200/80 dark:border-white/10" referrerPolicy="no-referrer" />
               ) : (
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 font-bold text-white shadow-lg shadow-indigo-500/20 text-lg">
                   AF
                 </div>
               )}
               <div>
-                <h1 className="font-bold tracking-tight text-white text-base whitespace-nowrap">Portal AlugaFácil</h1>
-                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Gestão de Locação</p>
+                <h1 className="font-bold tracking-tight text-slate-800 dark:text-white text-base whitespace-nowrap">Portal AlugaFácil</h1>
+                <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Gestão de Locação</p>
               </div>
             </div>
           </SidebarHeader>
@@ -309,7 +313,7 @@ export default function App() {
                   <SidebarMenuButton 
                     onClick={() => setActiveView('dashboard')} 
                     isActive={activeView === 'dashboard'}
-                    className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
+                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
                   >
                     <LayoutDashboard className="mr-3 h-5 w-5" />
                     <span className="font-medium text-sm">Visão Geral</span>
@@ -319,7 +323,7 @@ export default function App() {
                   <SidebarMenuButton 
                     onClick={() => setActiveView('profile')} 
                     isActive={activeView === 'profile'}
-                    className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
+                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
                   >
                     <User className="mr-3 h-5 w-5" />
                     <span className="font-medium text-sm">Usuário</span>
@@ -330,7 +334,7 @@ export default function App() {
                     <SidebarMenuButton 
                       onClick={() => setActiveView('users')} 
                       isActive={activeView === 'users'}
-                      className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
+                      className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
                     >
                       <Users className="mr-3 h-5 w-5" />
                       <span className="font-medium text-sm">Usuários</span>
@@ -341,7 +345,7 @@ export default function App() {
                   <SidebarMenuButton 
                     onClick={() => setActiveView('landlords')} 
                     isActive={activeView === 'landlords'}
-                    className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
+                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
                   >
                     <UserSquare2 className="mr-3 h-5 w-5" />
                     <span className="font-medium text-sm">Locadores</span>
@@ -351,7 +355,7 @@ export default function App() {
                   <SidebarMenuButton 
                     onClick={() => setActiveView('properties')} 
                     isActive={activeView === 'properties'}
-                    className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
+                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
                   >
                     <Building2 className="mr-3 h-5 w-5" />
                     <span className="font-medium text-sm">Imóveis</span>
@@ -361,7 +365,7 @@ export default function App() {
                   <SidebarMenuButton 
                     onClick={() => setActiveView('tenants')} 
                     isActive={activeView === 'tenants'}
-                    className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
+                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
                   >
                     <Users className="mr-3 h-5 w-5" />
                     <span className="font-medium text-sm">Inquilinos</span>
@@ -371,7 +375,7 @@ export default function App() {
                   <SidebarMenuButton 
                     onClick={() => setActiveView('contracts')} 
                     isActive={activeView === 'contracts'}
-                    className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
+                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
                   >
                     <FileText className="mr-3 h-5 w-5" />
                     <span className="font-medium text-sm">Contratos</span>
@@ -381,7 +385,7 @@ export default function App() {
                   <SidebarMenuButton 
                     onClick={() => setActiveView('payments')} 
                     isActive={activeView === 'payments'}
-                    className="h-11 px-4 text-slate-400 transition-all hover:bg-white/5 data-[active=true]:bg-white/10 data-[active=true]:text-white rounded-lg"
+                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
                   >
                     <CreditCard className="mr-3 h-5 w-5" />
                     <span className="font-medium text-sm">Financeiro</span>
@@ -390,9 +394,9 @@ export default function App() {
               </SidebarMenu>
             </SidebarGroup>
           </SidebarContent>
-          <SidebarFooter className="p-4 border-t border-white/10">
-            <div className="flex items-center gap-3 px-2 py-3 rounded-lg hover:bg-white/5 transition-colors group">
-              <Avatar className="size-9 border border-white/10 text-slate-100" key={user?.photoURL}>
+          <SidebarFooter className="p-4 border-t border-slate-200/80 dark:border-white/10">
+            <div className="flex items-center gap-3 px-2 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group">
+              <Avatar className="size-9 border border-slate-200 dark:border-white/10 text-foreground" key={user?.photoURL}>
                 <AvatarImage src={user?.photoURL || ''} referrerPolicy="no-referrer" />
                 <AvatarFallback className="bg-white/10 text-white font-semibold text-xs">{user?.displayName?.substring(0, 2).toUpperCase() || 'AF'}</AvatarFallback>
               </Avatar>
@@ -437,18 +441,33 @@ export default function App() {
         </Sidebar>
 
         <SidebarInset className="flex flex-col bg-transparent z-10">
-          <header className="flex h-16 items-center justify-between border-b border-white/10 px-8 sticky top-0 bg-white/5 backdrop-blur-md z-10">
+          <header className="flex h-16 items-center justify-between border-b border-slate-200/80 dark:border-white/10 px-8 sticky top-0 bg-white/30 dark:bg-white/5 backdrop-blur-md z-10 transition-colors duration-300">
             <div className="flex items-center gap-4">
-              <SidebarTrigger className="lg:hidden text-white" />
+              <SidebarTrigger className="lg:hidden text-slate-700 dark:text-white" />
               <div className="relative w-72 max-md:hidden items-center flex">
-                 <Search className="absolute left-3 h-4 w-4 text-slate-400" />
+                 <Search className="absolute left-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
                  <Input 
                    placeholder="Pesquisar..." 
-                   className="pl-10 h-10 border-white/10 bg-white/5 text-white placeholder:text-slate-500 transition-all shadow-none rounded-full focus-visible:ring-indigo-500/50" 
+                   className="pl-10 h-10 border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all shadow-none rounded-full focus-visible:ring-indigo-500/50" 
                  />
               </div>
             </div>
             <div className="flex items-center gap-4">
+              {/* Theme Toggle Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="h-10 w-10 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-amber-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full border border-slate-200 dark:border-white/10 shrink-0 transition-colors"
+                title={theme === 'dark' ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'}
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-5 w-5 text-amber-400" />
+                ) : (
+                  <Moon className="h-5 w-5 text-indigo-600" />
+                )}
+              </Button>
+
               <Dialog open={isRegistryOpen} onOpenChange={(open) => {
                 setIsRegistryOpen(open);
                 if (!open) {
@@ -464,9 +483,9 @@ export default function App() {
                     </Button>
                   }
                 />
-                <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-sm' : 'sm:max-w-2xl'} frosted border-white/10 text-white overflow-hidden max-h-[min(655px,90vh)] md:h-[655px] flex flex-col pl-[7px] pr-[10px] pt-0 pb-0 ml-0 -mt-[21px] mr-0 mb-0 border-0`}>
-                  <DialogHeader className="h-[93px] pt-4 pb-4 pr-4 pl-[16px] ml-0 -mt-[8px] border-b border-white/5 flex flex-col justify-center shrink-0">
-                    <DialogTitle className="serif text-xl md:text-2xl text-white">
+                <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-sm' : 'sm:max-w-2xl'} frosted border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 overflow-hidden max-h-[min(655px,90vh)] md:h-[655px] flex flex-col pl-[7px] pr-[10px] pt-0 pb-0 ml-0 -mt-[21px] mr-0 mb-0 border`}>
+                  <DialogHeader className="h-[93px] pt-4 pb-4 pr-4 pl-[16px] ml-0 -mt-[8px] border-b border-slate-150 dark:border-white/5 flex flex-col justify-center shrink-0">
+                    <DialogTitle className="serif text-xl md:text-2xl text-slate-800 dark:text-white">
                       {activeForm === 'none' ? 'Novo Cadastro' : 
                        activeForm === 'property' ? (editingItem ? 'Editar Imóvel' : 'Cadastrar Imóvel') : 
                        activeForm === 'tenant' ? (editingItem ? 'Editar Inquilino' : 'Cadastrar Inquilino') :
@@ -475,7 +494,7 @@ export default function App() {
                        activeForm === 'landlord' ? (editingItem ? 'Editar Locador' : 'Cadastro de Locador') :
                        'Novo Registro'}
                     </DialogTitle>
-                    <DialogDescription className="text-slate-400 text-xs truncate">
+                    <DialogDescription className="text-slate-500 dark:text-slate-400 text-xs truncate">
                       {activeForm === 'none' ? 'Selecione o tipo de registro que deseja criar no AlugaFácil.' : 
                        editingItem ? 'Atualize os dados do registro selecionado.' : 'Preencha os dados abaixo para salvar o novo registro.'}
                     </DialogDescription>

@@ -38,16 +38,16 @@ interface DashboardViewProps {
 export function DashboardView({ userName, stats, recentPayments, chartData }: DashboardViewProps) {
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 border-white/10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 border-slate-200/80 dark:border-white/10">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white serif italic">Olá, {(userName || '').split(' ')[0] || 'Gestor'}</h2>
-          <p className="text-slate-400 font-medium mt-1 text-xs">
+          <h2 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-white serif italic">Olá, {(userName || '').split(' ')[0] || 'Gestor'}</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium mt-1 text-xs">
             {userName === 'Administrador' ? 'Visão global de todos os imóveis e locações do sistema.' : 'Este é o seu panorama operacional e financeiro.'}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 bg-white/5 p-1.5 rounded-full border border-white/10 backdrop-blur-md px-3 shrink-0">
+        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 p-1.5 rounded-full border border-slate-200/80 dark:border-white/10 backdrop-blur-md px-3 shrink-0">
           <Clock className="h-3.5 w-3.5 text-indigo-400" />
-          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Atualizado: Agora</span>
+          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest">Atualizado: Agora</span>
         </div>
       </div>
 
@@ -85,14 +85,14 @@ export function DashboardView({ userName, stats, recentPayments, chartData }: Da
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2 border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl">
-          <CardHeader className="bg-white/5 border-b border-white/0 pb-4 px-6">
+        <Card className="lg:col-span-2 border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl">
+          <CardHeader className="bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/0 pb-4 px-6">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-xl font-bold text-white tracking-tight serif italic">Recebimentos Acumulados</CardTitle>
-                <CardDescription className="text-slate-400 text-[9px] font-bold mt-1 uppercase tracking-widest">Performance semestral das locações</CardDescription>
+                <CardTitle className="text-xl font-bold text-slate-800 dark:text-white tracking-tight serif italic">Recebimentos Acumulados</CardTitle>
+                <CardDescription className="text-slate-500 dark:text-slate-400 text-[9px] font-bold mt-1 uppercase tracking-widest">Performance semestral das locações</CardDescription>
               </div>
-              <div className="h-9 w-9 rounded-xl bg-white/10 border border-white/10 shadow-sm flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-white/10 border border-slate-200/80 dark:border-white/10 shadow-sm flex items-center justify-center">
                 <TrendingUp className="h-4 w-4 text-indigo-400" />
               </div>
             </div>
@@ -136,41 +136,41 @@ export function DashboardView({ userName, stats, recentPayments, chartData }: Da
           </CardContent>
         </Card>
 
-        <Card className="border-white/10 bg-white/5 backdrop-blur-md overflow-hidden flex flex-col shadow-2xl">
-          <CardHeader className="bg-white/5 border-b border-white/5 py-4 px-6">
+        <Card className="border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-white/5 backdrop-blur-md overflow-hidden flex flex-col shadow-2xl">
+          <CardHeader className="bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5 py-4 px-6">
             <div className="flex items-center justify-between col-span-1">
               <div>
-                <CardTitle className="text-xl font-bold text-white tracking-tight serif italic">Pagamentos</CardTitle>
-                <CardDescription className="text-slate-400 text-[9px] font-bold mt-1 uppercase tracking-widest">Atividade Recente</CardDescription>
+                <CardTitle className="text-xl font-bold text-slate-800 dark:text-white tracking-tight serif italic">Pagamentos</CardTitle>
+                <CardDescription className="text-slate-500 dark:text-slate-400 text-[9px] font-bold mt-1 uppercase tracking-widest">Atividade Recente</CardDescription>
               </div>
-              <Button variant="ghost" className="h-8 text-[9px] font-bold text-indigo-400 hover:bg-white/10 border border-white/10 uppercase bg-transparent px-3 rounded-lg">Histórico</Button>
+              <Button variant="ghost" className="h-8 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 uppercase bg-transparent px-3 rounded-lg">Histórico</Button>
             </div>
           </CardHeader>
           <CardContent className="p-0 flex-1 overflow-auto max-h-[250px]">
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-slate-100 dark:divide-white/5">
               {recentPayments.map((payment) => (
-                <div key={payment.id} className="p-3.5 hover:bg-white/5 transition-colors flex items-center justify-between group">
+                <div key={payment.id} className="p-3.5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center justify-between group">
                   <div className="flex items-center gap-3">
                     <div className={`h-8 w-8 rounded-full flex items-center justify-center border shrink-0 ${
-                      payment.status === 'paid' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                      payment.status === 'overdue' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
-                      'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                      payment.status === 'paid' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 dark:text-emerald-400' :
+                      payment.status === 'overdue' ? 'bg-rose-500/10 border-rose-500/20 text-rose-500 dark:text-rose-400' :
+                      'bg-amber-500/10 border-amber-500/20 text-amber-500 dark:text-amber-400'
                     }`}>
                       {payment.status === 'paid' ? <CheckCircle2 className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-white tracking-tight truncate">Recibo #{payment.id}</p>
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Vence em: {new Date(payment.dueDate).toLocaleDateString()}</p>
+                      <p className="text-xs font-bold text-slate-800 dark:text-white tracking-tight truncate">Recibo #{payment.id}</p>
+                      <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Vence em: {new Date(payment.dueDate).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs font-bold text-white font-mono tracking-tighter">
+                    <p className="text-xs font-bold text-slate-800 dark:text-white font-mono tracking-tighter">
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount)}
                     </p>
                     <p className={`text-[9px] font-bold uppercase tracking-widest ${
-                      payment.status === 'paid' ? 'text-emerald-400' :
-                      payment.status === 'overdue' ? 'text-rose-400' :
-                      'text-amber-400'
+                      payment.status === 'paid' ? 'text-emerald-500 dark:text-emerald-400' :
+                      payment.status === 'overdue' ? 'text-rose-500 dark:text-rose-400' :
+                      'text-amber-500 dark:text-amber-400'
                     }`}>
                       {payment.status === 'paid' ? 'Pago' : payment.status === 'overdue' ? 'Atrasado' : 'Pendente'}
                     </p>
@@ -179,8 +179,8 @@ export function DashboardView({ userName, stats, recentPayments, chartData }: Da
               ))}
             </div>
           </CardContent>
-          <CardFooter className="p-3 bg-white/5 border-t border-white/5 shadow-sm">
-            <Button variant="ghost" className="w-full text-slate-400 font-bold text-[10px] uppercase tracking-widest hover:bg-white/5 hover:text-white transition-all h-8">Ver Relatório Completo</Button>
+          <CardFooter className="p-3 bg-slate-50/50 dark:bg-white/5 border-t border-slate-100 dark:border-white/5 shadow-sm">
+            <Button variant="ghost" className="w-full text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-white transition-all h-8">Ver Relatório Completo</Button>
           </CardFooter>
         </Card>
       </div>
@@ -198,18 +198,18 @@ function StatCard({ title, value, subValue, icon, color, trend }: { title: strin
   };
 
   return (
-    <Card className="border-white/10 bg-white/5 backdrop-blur-md relative overflow-hidden group shadow-2xl">
+    <Card className="border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-white/5 backdrop-blur-md relative overflow-hidden group shadow-2xl">
       <CardHeader className="flex flex-row items-center justify-between pb-4 space-y-0">
-        <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{title}</CardTitle>
+        <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{title}</CardTitle>
         <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-white ${colors[color]} shadow-lg transition-transform group-hover:scale-110`}>
           {icon}
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-3xl font-bold font-mono tracking-tighter text-white">{value}</div>
+        <div className="text-3xl font-bold font-mono tracking-tighter text-slate-800 dark:text-white">{value}</div>
         <div className="flex items-center mt-2">
-          {trend === 'up' && <ArrowUpRight className="h-3 w-3 text-emerald-400 mr-1" />}
-          <span className={`text-[11px] font-bold tracking-tight ${trend === 'up' ? 'text-emerald-400' : trend === 'down' ? 'text-rose-400' : 'text-slate-400'}`}>
+          {trend === 'up' && <ArrowUpRight className="h-3 w-3 text-emerald-500 dark:text-emerald-400 mr-1" />}
+          <span className={`text-[11px] font-bold tracking-tight ${trend === 'up' ? 'text-emerald-500 dark:text-emerald-400' : trend === 'down' ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}`}>
             {subValue}
           </span>
         </div>

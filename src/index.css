@@ -56,6 +56,41 @@
 
 
 :root {
+    --background: oklch(0.985 0.005 260); /* Off-white background */
+    --foreground: oklch(0.25 0.02 260); /* Slate 900 text */
+    --card: oklch(1 0 0); /* Pure white cards */
+    --card-foreground: oklch(0.25 0.02 260);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.25 0.02 260);
+    --primary: oklch(0.55 0.18 260); /* Brand Indigo */
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.96 0.01 260);
+    --secondary-foreground: oklch(0.3 0.02 260);
+    --muted: oklch(0.96 0.01 260);
+    --muted-foreground: oklch(0.5 0.02 260);
+    --accent: oklch(0.96 0.01 260);
+    --accent-foreground: oklch(0.25 0.02 260);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.91 0.01 260); /* Slate-200 border */
+    --input: oklch(0.91 0.01 260);
+    --ring: oklch(0.55 0.18 260 / 30%);
+    --chart-1: oklch(0.55 0.18 260);
+    --chart-2: oklch(0.5 0.2 190);
+    --chart-3: oklch(0.8 0.1 150);
+    --chart-4: oklch(0.7 0.15 40);
+    --chart-5: oklch(0.6 0.2 20);
+    --radius: 1rem;
+    --sidebar: oklch(0.975 0.005 260); /* Soft light sidebar */
+    --sidebar-foreground: oklch(0.35 0.02 260);
+    --sidebar-primary: oklch(0.55 0.18 260);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.94 0.01 260);
+    --sidebar-accent-foreground: oklch(0.25 0.02 260);
+    --sidebar-border: oklch(0.91 0.01 260);
+    --sidebar-ring: oklch(0.55 0.18 260 / 30%);
+}
+
+.dark {
     --background: oklch(0.12 0.02 260); /* Slate 950 roughly */
     --foreground: oklch(0.98 0.01 260);
     --card: oklch(1 0 0 / 5%);
@@ -74,12 +109,6 @@
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.55 0.18 260 / 50%);
-    --chart-1: oklch(0.55 0.18 260);
-    --chart-2: oklch(0.5 0.2 190);
-    --chart-3: oklch(0.8 0.1 150);
-    --chart-4: oklch(0.7 0.15 40);
-    --chart-5: oklch(0.6 0.2 20);
-    --radius: 1rem;
     --sidebar: oklch(1 0 0 / 5%);
     --sidebar-foreground: oklch(0.9 0.02 260);
     --sidebar-primary: oklch(0.55 0.18 260);
@@ -88,10 +117,6 @@
     --sidebar-accent-foreground: oklch(1 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.55 0.18 260 / 50%);
-}
-
-.dark {
-    /* Since we are already dark by default in root, we can just ensure dark mode looks same or slightly adjusted */
 }
 
 @keyframes progress-stripe {
@@ -113,10 +138,10 @@
 
 @layer utilities {
   .frosted {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+    @apply bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-slate-200/80 dark:border-white/10;
   }
   .frosted-dark {
-    @apply bg-black/20 backdrop-blur-xl border border-white/10;
+    @apply bg-slate-900/80 dark:bg-black/20 backdrop-blur-xl border border-slate-700/80 dark:border-white/10;
   }
 }
 
@@ -124,4 +149,74 @@
 .italic, [class*="italic"], em, i {
   font-family: Arial, Helvetica, sans-serif !important;
   font-style: normal !important;
+}
+
+/* Light mode specific overrides for hardcoded dark classes */
+html:not(.dark) input,
+html:not(.dark) textarea,
+html:not(.dark) select,
+html:not(.dark) [role="combobox"],
+html:not(.dark) button[role="combobox"],
+html:not(.dark) button.SelectTrigger {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #64748b !important;
+}
+
+html:not(.dark) .SelectContent {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .SelectContent * {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .frosted {
+  background-color: rgb(255 255 255 / 90%) !important;
+  color: #1e293b !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .frosted h1,
+html:not(.dark) .frosted h2,
+html:not(.dark) .frosted h3,
+html:not(.dark) .frosted h4,
+html:not(.dark) .frosted div,
+html:not(.dark) .frosted p,
+html:not(.dark) .frosted label,
+html:not(.dark) .frosted span:not(.font-bold) {
+  color: #1e293b !important;
+}
+
+html:not(.dark) .frosted .text-slate-400,
+html:not(.dark) .frosted .text-slate-500 {
+  color: #64748b !important;
+}
+
+html:not(.dark) td .text-white,
+html:not(.dark) th .text-white,
+html:not(.dark) .CardTitle.text-white,
+html:not(.dark) .DialogTitle.text-white,
+html:not(.dark) h2.text-white,
+html:not(.dark) h3.text-white {
+  color: #1e293b !important;
+}
+
+html:not(.dark) .bg-white\/5 {
+  background-color: #f1f5f9 !important;
+}
+
+html:not(.dark) .border-white\/10 {
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) .border-white\/5 {
+  border-color: #e2e8f0 !important;
 }
