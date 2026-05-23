@@ -476,7 +476,7 @@ export default function App() {
                        activeForm === 'property' ? (editingItem ? 'Editar Imóvel' : 'Cadastrar Imóvel') : 
                        activeForm === 'tenant' ? (editingItem ? 'Editar Inquilino' : 'Cadastrar Inquilino') :
                        activeForm === 'contract' ? (editingItem ? 'Editar Contrato' : 'Cadastrar Contrato') :
-                       activeForm === 'payment' ? (editingItem ? 'Editar Recibo' : 'Novo Recibo') :
+                       activeForm === 'payment' ? (editingItem ? 'Editar Boleto' : 'Novo Boleto') :
                        activeForm === 'landlord' ? (editingItem ? 'Editar Locador' : 'Cadastro de Locador') :
                        'Novo Registro'}
                     </DialogTitle>
@@ -527,7 +527,7 @@ export default function App() {
                            <div className="h-10 w-10 rounded-full bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500/20">
                             <CreditCard className="h-5 w-5 text-orange-400" />
                           </div>
-                          <span className="font-bold text-xs uppercase tracking-widest">Recibo</span>
+                          <span className="font-bold text-xs uppercase tracking-widest">Boleto</span>
                         </Button>
                         <Button 
                           variant="outline" 

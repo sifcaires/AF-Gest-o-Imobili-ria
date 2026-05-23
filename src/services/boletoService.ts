@@ -105,7 +105,34 @@ export const generateBoletoPDF = async (data: BoletoData) => {
     format: 'a4'
   });
   
-  const pixCode = generatePixCode(data.amount, data.id, data.tenantName, data.beneficiaryPixKey);
+  // Dynamic calculation of finalAmount according to date
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const limitDate = new Date(data.dueDate);
+  limitDate.setHours(23, 59, 59, 999);
+  const isOverdue = today > limitDate;
+
+  const discount = data.discountAmount || 0;
+  let finalAmount = data.amount;
+
+  if (isOverdue) {
+    const timeDiff = today.getTime() - limitDate.getTime();
+    const daysPast = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    const penaltyPercent = data.penaltyPercent !== undefined ? data.penaltyPercent : 10;
+    const penaltyAmount = data.amount * (penaltyPercent / 100);
+    
+    const interestPercent = data.interestPercent !== undefined ? data.interestPercent : 1;
+    const dailyInterestVal = (data.amount * (interestPercent / 100)) / 30;
+    const totalInterest = dailyInterestVal * daysPast;
+    
+    finalAmount = data.amount + penaltyAmount + totalInterest;
+  } else {
+    // Up to the due date, apply spot payment discount
+    finalAmount = Math.max(0, data.amount - discount);
+  }
+
+  const pixCode = generatePixCode(finalAmount, data.id, data.tenantName, data.beneficiaryPixKey);
   
   // Generate QR Code as high-res PNG Base64
   let qrCodeDataUrl = '';
@@ -157,9 +184,19 @@ export const generateBoletoPDF = async (data: BoletoData) => {
   doc.setTextColor(199, 210, 254);
   doc.text('GESTÃO INTELIGENTE DE CONTRATOS E RECEBIMENTOS', 16, 28);
   
-  const cnpj = data.beneficiaryCpfCnpj || '12.345.678/0001-90';
-  const email = data.beneficiaryEmail || 'contato@alugafacil.com.br';
-  doc.text(`CPF/CNPJ: ${cnpj} | E-mail: ${email}`, 16, 33);
+  const beneficiaryDoc = data.beneficiaryCpfCnpj ? data.beneficiaryCpfCnpj.trim() : '';
+  const docDigits = beneficiaryDoc.replace(/\D/g, '');
+  const isPF = docDigits.length === 11;
+
+  let docInfo = '';
+  if (!isPF) {
+    const cnpj = beneficiaryDoc || '12.345.678/0001-90';
+    docInfo = `CNPJ: ${cnpj}`;
+  }
+
+  if (docInfo) {
+    doc.text(docInfo, 16, 33);
+  }
   
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(11);
@@ -204,12 +241,12 @@ export const generateBoletoPDF = async (data: BoletoData) => {
   autoTable(doc, {
     startY: currentY,
     margin: { left: 10, right: 10 },
-    head: [['Rubrica / Descrição', 'Vencimento', 'Condições Moratórias', 'Subtotal Cobrado']],
+    head: [['Rubrica / Descrição', 'Vencimento', 'Multa / Juros', 'Valor']],
     body: [[
       data.title || 'Aluguel Residencial/Comercial Mensal',
       format(new Date(data.dueDate), 'dd/MM/yyyy'),
-      (data.penaltyPercent ? `Multa de ${data.penaltyPercent}% após venc.\n` : '') +
-      (data.interestPercent ? `Mora de ${data.interestPercent}% ao mês (juros diários)` : 'Sem juros extras'),
+      (data.penaltyPercent ? `Multa: ${data.penaltyPercent}%\n` : '') +
+      (data.interestPercent ? `Mora: ${data.interestPercent}%/mês` : 'Sem juros'),
       data.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     ]],
     theme: 'grid',
@@ -228,9 +265,19 @@ export const generateBoletoPDF = async (data: BoletoData) => {
 
   // Title within Pix box
   doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setTextColor(79, 70, 229);
   doc.text('PAGAMENTO EXPRESSO VIA PIX', 16, currentY + 7);
+
+  doc.setFont('Helvetica', 'normal');
+  doc.setFontSize(8);
+  if (isOverdue) {
+    doc.setTextColor(239, 68, 68); // Red color for visual alert
+    doc.text('PIX ATUALIZADO: Inclui multa e mora por atraso', 192, currentY + 12, { align: 'right' });
+  } else if (discount === 0) {
+    doc.setTextColor(71, 85, 105);
+    doc.text('Valor nominal sem acréscimos ou descontos adicionais', 192, currentY + 12, { align: 'right' });
+  }
 
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(8.5);
@@ -296,9 +343,6 @@ export const generateBoletoPDF = async (data: BoletoData) => {
     const dailyInterest = (data.amount * (data.interestPercent / 100)) / 30;
     instructionsList.push(`- Encargos diários pós-vencimento: Taxa mensal de ${data.interestPercent}% (equivalente a R$ ${dailyInterest.toFixed(2)} por dia).`);
   }
-  if (data.discountAmount && data.discountAmount > 0) {
-    instructionsList.push(`- Bonificação: Desconto de Pontualidade de ${data.discountAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} concedido automaticamente para pagamentos liquidados até a data de vencimento correspondente.`);
-  }
   if (data.instructions) {
     instructionsList.push(`- Observações da Administração Imobiliária: ${data.instructions}`);
   }
@@ -349,7 +393,25 @@ export const boletoService = {
       amount: payment.amount,
       dueDate: payment.dueDate,
       barcode: payment.id, // Reused fields
-      digitableLine: generatePixCode(payment.amount, payment.id, tenant.name, beneficiary?.pixKey),
+      digitableLine: (() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const limitDate = new Date(payment.dueDate);
+        limitDate.setHours(23, 59, 59, 999);
+        const isOverdue = today > limitDate;
+        if (isOverdue) {
+          const timeDiff = today.getTime() - limitDate.getTime();
+          const daysPast = Math.ceil(timeDiff / (1000 * 3600 * 24));
+          const penaltyPercent = payment.penaltyPercent !== undefined ? payment.penaltyPercent : 10;
+          const penaltyAmount = payment.amount * (penaltyPercent / 100);
+          const interestPercent = payment.interestPercent !== undefined ? payment.interestPercent : 1;
+          const dailyInterestVal = (payment.amount * (interestPercent / 100)) / 30;
+          const totalInterest = dailyInterestVal * daysPast;
+          return generatePixCode(payment.amount + penaltyAmount + totalInterest, payment.id, tenant.name, beneficiary?.pixKey);
+        } else {
+          return generatePixCode(Math.max(0, payment.amount - (payment.discountAmount || 0)), payment.id, tenant.name, beneficiary?.pixKey);
+        }
+      })(),
       title: payment.title || fallbackTitle,
       penaltyPercent: payment.penaltyPercent !== undefined ? payment.penaltyPercent : 10,
       interestPercent: payment.interestPercent !== undefined ? payment.interestPercent : 1,

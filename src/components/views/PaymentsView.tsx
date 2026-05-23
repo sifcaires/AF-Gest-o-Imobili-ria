@@ -85,11 +85,58 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
     return beneficiary?.pixKey || '';
   };
 
+  const getPaymentCalculationDetails = (payment: Payment) => {
+    const limitDate = new Date(payment.dueDate);
+    limitDate.setHours(23, 59, 59, 999);
+    const isOverdue = payment.status === 'overdue' || new Date() > limitDate;
+    
+    const discount = payment.discountAmount || 0;
+    
+    if (isOverdue) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const timeDiff = today.getTime() - limitDate.getTime();
+      const daysPast = Math.max(0, Math.ceil(timeDiff / (1000 * 3600 * 24)));
+      const penaltyPercent = payment.penaltyPercent !== undefined ? payment.penaltyPercent : 10;
+      const penaltyAmount = payment.amount * (penaltyPercent / 100);
+      const interestPercent = payment.interestPercent !== undefined ? payment.interestPercent : 1;
+      const dailyInterestVal = (payment.amount * (interestPercent / 100)) / 30;
+      const totalInterest = dailyInterestVal * daysPast;
+      const finalVal = payment.amount + penaltyAmount + totalInterest;
+      
+      return {
+        isOverdue: true,
+        finalAmount: finalVal,
+        discount: 0,
+        penaltyAmount,
+        totalInterest,
+        daysPast,
+        text: `Valor Nominal: ${payment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n` +
+              `Multa (${penaltyPercent}%): ${penaltyAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n` +
+              `Juros de Mora (${daysPast} dias): ${totalInterest.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+      };
+    } else {
+      const finalVal = Math.max(0, payment.amount - discount);
+      return {
+        isOverdue: false,
+        finalAmount: finalVal,
+        discount,
+        penaltyAmount: 0,
+        totalInterest: 0,
+        daysPast: 0,
+        text: discount > 0 
+          ? `Desconto de Pontualidade: ${discount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+          : 'Valor nominal sem descontos'
+      };
+    }
+  };
+
   React.useEffect(() => {
     if (selectedPayment) {
       const tenant = getTenant(selectedPayment.contractId);
       const pixKey = getBeneficiaryPixKey(selectedPayment.contractId);
-      const code = generatePixCode(selectedPayment.amount, selectedPayment.id, tenant?.name || 'Inquilino', pixKey);
+      const { finalAmount } = getPaymentCalculationDetails(selectedPayment);
+      const code = generatePixCode(finalAmount, selectedPayment.id, tenant?.name || 'Inquilino', pixKey);
       QRCode.toDataURL(code, { width: 256, margin: 1 })
         .then(url => setScreenQrCodeUrl(url))
         .catch(err => console.error('Error generating screen QR Code', err));
@@ -243,17 +290,36 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
     setEmailTo(tenant?.email || '');
     setEmailSubject(`AlugaFácil - Fatura de Aluguel via Pix Disponível #${payment.id.substring(0, 8)}`);
     
+    const { finalAmount, isOverdue, discount, penaltyAmount, totalInterest, daysPast } = getPaymentCalculationDetails(payment);
+
     const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount);
     const formattedDate = new Date(payment.dueDate).toLocaleDateString('pt-BR');
     const pixKey = getBeneficiaryPixKey(payment.contractId);
-    const pixCode = generatePixCode(payment.amount, payment.id, tenant?.name || 'Inquilino', pixKey);
+    const pixCode = generatePixCode(finalAmount, payment.id, tenant?.name || 'Inquilino', pixKey);
+
+    const formattedDiscount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(discount);
+    const formattedPenalty = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(penaltyAmount);
+    const formattedInterest = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalInterest);
+    const formattedFinalAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalAmount);
+    
+    let billingDetailsText = `- Valor Nominal: ${formattedAmount}\n`;
+    if (isOverdue) {
+      billingDetailsText += `- Multa por Atraso: ${formattedPenalty}\n` +
+                          `- Juros por Atraso (${daysPast} dias): ${formattedInterest}\n` +
+                          `- VALOR TOTAL ATUALIZADO: ${formattedFinalAmount}\n`;
+    } else if (discount > 0) {
+      billingDetailsText += `- Desconto de Pontualidade: ${formattedDiscount}\n` +
+                          `- VALOR LÍQUIDO A PAGAR (até o vencimento): ${formattedFinalAmount}\n`;
+    } else {
+      billingDetailsText += `- VALOR TOTAL A PAGAR: ${formattedFinalAmount}\n`;
+    }
     
     setEmailBody(
       `Prezado(a) ${tenant?.name || 'Inquilino'},\n\n` +
       `Esperamos que este e-mail o encontre bem.\n\n` +
       `Comunicamos que a fatura referente ao aluguel mensal já está gerada e disponível via pagamento Pix. Seguem os detalhes de faturamento:\n\n` +
       `- Cód Lançamento: #${payment.id}\n` +
-      `- Valor: ${formattedAmount}\n` +
+      `${billingDetailsText}` +
       `- Data de Vencimento: ${formattedDate}\n` +
       `- Código Pix Copia e Cola:\n` +
       `  ${pixCode}\n\n` +
@@ -289,16 +355,35 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
     const tenant = getTenant(payment.contractId);
     setWhatsappPhone(tenant?.phone || '');
     
+    const { finalAmount, isOverdue, discount, penaltyAmount, totalInterest, daysPast } = getPaymentCalculationDetails(payment);
+
     const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount);
     const formattedDate = new Date(payment.dueDate).toLocaleDateString('pt-BR');
     const pixKey = getBeneficiaryPixKey(payment.contractId);
-    const pixCode = generatePixCode(payment.amount, payment.id, tenant?.name || 'Inquilino', pixKey);
+    const pixCode = generatePixCode(finalAmount, payment.id, tenant?.name || 'Inquilino', pixKey);
+
+    const formattedDiscount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(discount);
+    const formattedPenalty = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(penaltyAmount);
+    const formattedInterest = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalInterest);
+    const formattedFinalAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalAmount);
+    
+    let billingDetailsText = `*Valor Nominal:* ${formattedAmount}\n`;
+    if (isOverdue) {
+      billingDetailsText += `*Multa por Atraso:* ${formattedPenalty}\n` +
+                            `*Juros por Atraso (${daysPast} d):* ${formattedInterest}\n` +
+                            `*VALOR TOTAL ATUALIZADO:* ${formattedFinalAmount}\n`;
+    } else if (discount > 0) {
+      billingDetailsText += `*Desconto Pontualidade:* ${formattedDiscount}\n` +
+                            `*VALOR LÍQUIDO A PAGAR:* ${formattedFinalAmount}\n`;
+    } else {
+      billingDetailsText += `*VALOR A PAGAR:* ${formattedFinalAmount}\n`;
+    }
     
     setWhatsappText(
       `Olá, *${tenant?.name || 'Inquilino'}*! 👋\n\n` +
       `Seguem os dados da fatura para pagamento do aluguel via Pix:\n` +
       `*ID Cobrança:* #${payment.id.substring(0, 8)}\n` +
-      `*Valor:* ${formattedAmount}\n` +
+      `${billingDetailsText}` +
       `*Vencimento:* ${formattedDate}\n\n` +
       `*Código Pix Copia e Cola para pagar pelo aplicativo do banco:*\n` +
       `${pixCode}\n\n` +
@@ -493,6 +578,20 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                       <CreditCard className="h-4 w-4" />
                     </Button>
 
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleGenerateBoleto(payment)}
+                      disabled={isGenerating === payment.id}
+                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-indigo-500/10 text-indigo-400 border hover:border-indigo-500/30 transition-all"
+                      title="Baixar PDF da Fatura"
+                    >
+                      {isGenerating === payment.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+                      ) : (
+                        <FileDown className="h-4 w-4" />
+                      )}
+                    </Button>
+
                     <Dialog 
                       open={!!selectedPayment && selectedPayment.id === payment.id} 
                       onOpenChange={(open) => {
@@ -560,9 +659,11 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                                    <p className="text-sm font-bold text-white serif italic truncate">{getTenantName(payment.contractId)}</p>
                                 </div>
                                 <div className="text-right">
-                                   <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 block mb-0.5">Total Cobrado</span>
-                                   <p className="text-base font-bold text-white font-mono tracking-tighter">
-                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount)}
+                                   <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 block mb-0.5">Total Deste Pix</span>
+                                   <p className="text-base font-bold text-indigo-400 font-mono tracking-tighter">
+                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                       getPaymentCalculationDetails(payment).finalAmount
+                                     )}
                                    </p>
                                 </div>
                               </div>
@@ -582,12 +683,30 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                                     </div>
                                   )}
                                   
+                                  <div className="text-xs text-slate-400 text-center font-mono space-y-0.5 mt-1 border-b border-t border-white/5 py-2 w-full max-w-xs">
+                                    {getPaymentCalculationDetails(payment).isOverdue ? (
+                                      <span className="text-rose-400 font-bold block">Atrasado (Inclui multa e juros)</span>
+                                    ) : getPaymentCalculationDetails(payment).discount > 0 ? (
+                                      <span className="text-emerald-400 font-bold block">Com desconto pontual aplicado</span>
+                                    ) : (
+                                      <span className="text-slate-450 block">Valor nominal</span>
+                                    )}
+                                    <span className="text-[10px] text-slate-500 block whitespace-pre-line leading-relaxed mt-1">
+                                      {getPaymentCalculationDetails(payment).text}
+                                    </span>
+                                  </div>
+
                                   <div className="w-full space-y-1.5">
                                     <p className="text-[9px] text-slate-450 font-medium">Escaneie o QR Code ou use a chave copia e cola abaixo:</p>
                                     
                                     <div className="flex items-center gap-2 bg-black/40 border border-white/10 px-3 py-1.5 rounded-xl overflow-hidden">
                                       <span className="text-[8.5px] font-mono text-slate-400 truncate flex-grow text-left select-all">
-                                        {generatePixCode(payment.amount, payment.id, getTenant(payment.contractId)?.name || 'Inquilino', getBeneficiaryPixKey(payment.contractId))}
+                                        {generatePixCode(
+                                          getPaymentCalculationDetails(payment).finalAmount,
+                                          payment.id,
+                                          getTenant(payment.contractId)?.name || 'Inquilino',
+                                          getBeneficiaryPixKey(payment.contractId)
+                                        )}
                                       </span>
                                       <Button
                                         size="icon"
@@ -597,7 +716,8 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                                         title="Copiar Pix"
                                         onClick={() => {
                                           const pixKey = getBeneficiaryPixKey(payment.contractId);
-                                          const code = generatePixCode(payment.amount, payment.id, getTenant(payment.contractId)?.name || 'Inquilino', pixKey);
+                                          const { finalAmount } = getPaymentCalculationDetails(payment);
+                                          const code = generatePixCode(finalAmount, payment.id, getTenant(payment.contractId)?.name || 'Inquilino', pixKey);
                                           navigator.clipboard.writeText(code);
                                           setIsCopied(true);
                                           toast.success('Código Pix Copia e Cola copiado com sucesso!');
