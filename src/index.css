@@ -56,23 +56,23 @@
 
 
 :root {
-    --background: oklch(0.50 0.025 245); /* Sophisticated Slate Gray with 50% luminosity */
+    --background: oklch(0.60 0.025 245); /* Sophisticated Slate Gray with 60% luminosity */
     --foreground: oklch(0.98 0.01 245); /* Maximum readability off-white */
-    --card: oklch(0.45 0.025 245); /* Slightly darker gray for card elevations */
+    --card: oklch(0.55 0.025 245); /* Slightly darker gray for card elevations */
     --card-foreground: oklch(0.98 0.01 245);
-    --popover: oklch(0.45 0.025 245);
+    --popover: oklch(0.55 0.025 245);
     --popover-foreground: oklch(0.98 0.01 245);
     --primary: oklch(0.58 0.16 245); /* Sophisticated Slate-accent Indigo */
     --primary-foreground: oklch(1 0 0);
-    --secondary: oklch(0.45 0.025 245);
+    --secondary: oklch(0.55 0.025 245);
     --secondary-foreground: oklch(0.98 0.01 245);
-    --muted: oklch(0.42 0.025 245);
+    --muted: oklch(0.52 0.025 245);
     --muted-foreground: oklch(0.85 0.01 245);
-    --accent: oklch(0.45 0.025 245);
+    --accent: oklch(0.55 0.025 245);
     --accent-foreground: oklch(0.98 0.01 245);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.55 0.025 245); /* Borders with proper contrast */
-    --input: oklch(0.55 0.025 245);
+    --border: oklch(0.65 0.025 245); /* Borders with proper contrast */
+    --input: oklch(0.65 0.025 245);
     --ring: oklch(0.58 0.16 245 / 30%);
     --chart-1: oklch(0.58 0.16 245);
     --chart-2: oklch(0.5 0.2 190);
@@ -80,13 +80,13 @@
     --chart-4: oklch(0.7 0.15 40);
     --chart-5: oklch(0.6 0.2 20);
     --radius: 1rem;
-    --sidebar: oklch(0.40 0.025 245); /* Sleek darker side rail in Slate Gray */
+    --sidebar: oklch(0.50 0.025 245); /* Sleek darker side rail in Slate Gray */
     --sidebar-foreground: oklch(0.95 0.01 245);
     --sidebar-primary: oklch(0.58 0.16 245);
     --sidebar-primary-foreground: oklch(1 0 0);
-    --sidebar-accent: oklch(0.45 0.025 245);
+    --sidebar-accent: oklch(0.55 0.025 245);
     --sidebar-accent-foreground: oklch(0.98 0.01 245);
-    --sidebar-border: oklch(0.45 0.025 245);
+    --sidebar-border: oklch(0.55 0.025 245);
     --sidebar-ring: oklch(0.58 0.16 245 / 30%);
 }
 
@@ -151,16 +151,16 @@
   font-style: normal !important;
 }
 
-/* Light mode specific overrides for hardcoded dark classes - adapted for Day Mode 50% slate gray */
+/* Light mode specific overrides for hardcoded dark classes - adapted for Day Mode 60% slate gray */
 html:not(.dark) input,
 html:not(.dark) textarea,
 html:not(.dark) select,
 html:not(.dark) [role="combobox"],
 html:not(.dark) button[role="combobox"],
 html:not(.dark) button.SelectTrigger {
-  background-color: oklch(0.45 0.025 245) !important;
+  background-color: oklch(0.55 0.025 245) !important;
   color: #ffffff !important;
-  border-color: oklch(0.55 0.025 245) !important;
+  border-color: oklch(0.65 0.025 245) !important;
 }
 
 html:not(.dark) input::placeholder,
@@ -169,9 +169,9 @@ html:not(.dark) textarea::placeholder {
 }
 
 html:not(.dark) .SelectContent {
-  background-color: oklch(0.45 0.025 245) !important;
+  background-color: oklch(0.55 0.025 245) !important;
   color: #ffffff !important;
-  border-color: oklch(0.55 0.025 245) !important;
+  border-color: oklch(0.65 0.025 245) !important;
 }
 
 html:not(.dark) .SelectContent * {
@@ -181,7 +181,7 @@ html:not(.dark) .SelectContent * {
 html:not(.dark) .frosted {
   background-color: rgb(255 255 255 / 10%) !important;
   color: #ffffff !important;
-  border-color: oklch(0.55 0.025 245) !important;
+  border-color: oklch(0.65 0.025 245) !important;
 }
 
 html:not(.dark) .frosted h1,
@@ -223,9 +223,9 @@ html:not(.dark) .bg-white\/5 {
 }
 
 html:not(.dark) .border-white\/10 {
-  border-color: oklch(0.55 0.025 245) !important;
+  border-color: oklch(0.65 0.025 245) !important;
 }
 
 html:not(.dark) .border-white\/5 {
-  border-color: oklch(0.42 0.025 245) !important;
+  border-color: oklch(0.52 0.025 245) !important;
 }

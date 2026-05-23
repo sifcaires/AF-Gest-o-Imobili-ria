@@ -453,21 +453,6 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {/* Theme Toggle Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleTheme}
-                className="h-10 w-10 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-amber-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full border border-slate-200 dark:border-white/10 shrink-0 transition-colors"
-                title={theme === 'dark' ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'}
-              >
-                {theme === 'dark' ? (
-                  <Sun className="h-5 w-5 text-amber-400" />
-                ) : (
-                  <Moon className="h-5 w-5 text-indigo-600" />
-                )}
-              </Button>
-
               <Dialog open={isRegistryOpen} onOpenChange={(open) => {
                 setIsRegistryOpen(open);
                 if (!open) {

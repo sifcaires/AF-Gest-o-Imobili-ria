@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
+import QRCode from 'qrcode';
 
 export interface BoletoData {
   id: string;
@@ -18,328 +19,270 @@ export interface BoletoData {
   instructions?: string;
 }
 
-export const generateBoletoPDF = (data: BoletoData) => {
+// CRC16 Calculation for EMV/BRCode standard Pix payload validation
+function calculateCRC16(str: string): string {
+  let crc = 0xFFFF;
+  for (let i = 0; i < str.length; i++) {
+    const charCode = str.charCodeAt(i);
+    crc ^= (charCode << 8);
+    for (let j = 0; j < 8; j++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+      } else {
+        crc = (crc << 1) & 0xFFFF;
+      }
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+/**
+ * Generates an EMV compliant Pix Copy and Paste string dynamically
+ */
+export function generatePixCode(amount: number, paymentId: string, tenantName: string): string {
+  const amountStr = amount.toFixed(2);
+  // Alphanumeric txid restricted to 25 chars
+  const txid = `ALUGA${paymentId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 15).toUpperCase()}`;
+  
+  const elPayloadFormat = '000201';
+  // Chave Pix: financeiro@alugafacil.com.br
+  const elMerchantAccount = `26580014br.gov.bcb.pix0124financeiro@alugafacil.com.br0208ALUGAFAC`;
+  const elCategoryCode = '52040000';
+  const elCurrency = '5303986';
+  const elAmount = `54${String(amountStr.length).padStart(2, '0')}${amountStr}`;
+  const elCountry = '5802BR';
+  // Standard upper-case ASCII merchant name
+  const rawName = tenantName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9\s]/g, '');
+  const cleanName = (rawName.substring(0, 15) || 'ALUGAFACIL GESTAO').trim();
+  const elMerchantName = `59${String(cleanName.length).padStart(2, '0')}${cleanName}`;
+  const elMerchantCity = '6009SAO PAULO';
+  const elAdditionalData = `62${String(4 + txid.length).padStart(2, '0')}05${String(txid.length).padStart(2, '0')}${txid}`;
+  
+  const incompleteCode = `${elPayloadFormat}${elMerchantAccount}${elCategoryCode}${elCurrency}${elAmount}${elCountry}${elMerchantName}${elMerchantCity}${elAdditionalData}6304`;
+  const crc = calculateCRC16(incompleteCode);
+  return `${incompleteCode}${crc}`;
+}
+
+export const generateBoletoPDF = async (data: BoletoData) => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4'
   });
   
-  // Outer margin boundaries: x=10 to x=200 (width=190mm)
+  const pixCode = generatePixCode(data.amount, data.id, data.tenantName);
   
-  // FIRST PART: Recibo do Pagador (Holder receipt)
+  // Generate QR Code as high-res PNG Base64
+  let qrCodeDataUrl = '';
+  try {
+    qrCodeDataUrl = await QRCode.toDataURL(pixCode, {
+      margin: 1,
+      width: 300,
+      color: {
+        dark: '#4f46e5', // Deep elegant Indigo brand accent color
+        light: '#ffffff'
+      }
+    });
+  } catch (err) {
+    console.error('Error generating QR Code for PDF', err);
+  }
+
+  // Visual header: Indigo colored premium banner
+  doc.setFillColor(79, 70, 229); // Brand Indigo: oklch(0.58 0.16 245)
+  doc.rect(10, 10, 190, 32, 'F');
+  
+  // Header Text
   doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(20, 30, 48); // Navy blue accent
-  doc.text('BANCO ALUGAFÁCIL', 10, 15);
+  doc.setFontSize(20);
+  doc.setTextColor(255, 255, 255);
+  doc.text('ALUGAFÁCIL', 16, 22);
+  
   doc.setFont('Helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(100, 100, 100);
-  doc.text('|  001-9', 58, 15);
-  doc.text('RECIBO DO PAGADOR', 150, 15);
+  doc.setFontSize(9);
+  doc.setTextColor(199, 210, 254);
+  doc.text('GESTÃO INTELIGENTE DE CONTRATOS E RECEBIMENTOS', 16, 28);
+  doc.text('CNPJ: 12.345.678/0001-90 | contato@alugafacil.com.br', 16, 33);
   
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
-  doc.line(10, 18, 200, 18);
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(255, 255, 255);
+  doc.text('FATURA DIGITAL SINALIZADA VIA PIX', 135, 22, { align: 'right' });
+  doc.setFont('Helvetica', 'normal');
+  doc.text(`VENCIMENTO: ${format(new Date(data.dueDate), 'dd/MM/yyyy')}`, 135, 28, { align: 'right' });
+  doc.text(`NÚMERO: #${data.id.substring(0, 8).toUpperCase()}`, 135, 33, { align: 'right' });
+
+  // Spacer
+  let currentY = 50;
+
+  // Title section
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(30, 41, 59);
+  doc.text('Demonstrativo de Cobrança de Aluguel', 10, currentY);
   
-  // Pagador details
+  doc.setDrawColor(226, 232, 240); // slate-200 border
+  doc.setLineWidth(0.5);
+  doc.line(10, currentY + 3, 200, currentY + 3);
+  
+  currentY += 8;
+
+  // Beneficiary and payer details grid
   autoTable(doc, {
-    startY: 20,
+    startY: currentY,
     margin: { left: 10, right: 10 },
-    head: [['Beneficiário', 'Espécie', 'Vencimento', 'Valor cobrado']],
+    head: [['Identificação do Locatário / Pagador', 'Imóvel Referente']],
     body: [[
-      'AlugaFácil Gestão Imobiliária LTDA - CNPJ: 12.345.678/0001-90\nAgência/Cód: 1234-5 / 67890-1',
-      data.title || 'Aluguel Mensal',
+      `Nome: ${data.tenantName}\nDocumento CPF: ${data.tenantCpf}\nE-mail: cadastrado@sistema.alugafacil`,
+      `${data.propertyAddress}`
+    ]],
+    theme: 'grid',
+    styles: { fontSize: 8.5, font: 'Helvetica', textColor: [30, 41, 59], cellPadding: 3 },
+    headStyles: { fillColor: [248, 250, 252], textColor: [71, 85, 105], fontStyle: 'bold', lineWidth: 0.3 }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 6;
+
+  // Payment Values Detail Block
+  autoTable(doc, {
+    startY: currentY,
+    margin: { left: 10, right: 10 },
+    head: [['Rubrica / Descrição', 'Vencimento', 'Condições Moratórias', 'Subtotal Cobrado']],
+    body: [[
+      data.title || 'Aluguel Residencial/Comercial Mensal',
       format(new Date(data.dueDate), 'dd/MM/yyyy'),
+      (data.penaltyPercent ? `Multa de ${data.penaltyPercent}% após venc.\n` : '') +
+      (data.interestPercent ? `Mora de ${data.interestPercent}% ao mês (juros diários)` : 'Sem juros extras'),
       data.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     ]],
     theme: 'grid',
-    styles: { fontSize: 8, font: 'Helvetica', textColor: [40, 40, 40] },
-    headStyles: { fillColor: [245, 247, 250], textColor: [70, 80, 95], fontStyle: 'bold' }
-  });
-  
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 2,
-    margin: { left: 10, right: 10 },
-    head: [['Pagador / Sacado', 'Imóvel de Referência', 'Nosso Número']],
-    body: [[
-      `${data.tenantName} - CPF: ${data.tenantCpf}`,
-      data.propertyAddress,
-      `${data.id.substring(0, 8).toUpperCase()}-${Math.floor(Math.random() * 9)}`
-    ]],
-    theme: 'grid',
-    styles: { fontSize: 8, font: 'Helvetica', textColor: [40, 40, 40] },
-    headStyles: { fillColor: [245, 247, 250], textColor: [70, 80, 95], fontStyle: 'bold' }
+    styles: { fontSize: 8.5, font: 'Helvetica', textColor: [30, 41, 59], cellPadding: 3.5 },
+    headStyles: { fillColor: [248, 250, 252], textColor: [71, 85, 105], fontStyle: 'bold', lineWidth: 0.3 }
   });
 
-  const instructionsList: string[] = [];
-  instructionsList.push(`Referente a: ${data.title || 'Aluguel Residencial/Comercial'}`);
-  instructionsList.push(`Imóvel: ${data.propertyAddress}`);
-  
-  if (data.penaltyPercent && data.penaltyPercent > 0) {
-    instructionsList.push(`APÓS VENCIMENTO: Cobrar multa de ${data.penaltyPercent}%`);
-  }
-  if (data.interestPercent && data.interestPercent > 0) {
-    const dailyInterest = (data.amount * (data.interestPercent / 100)) / 30;
-    instructionsList.push(`APÓS VENCIMENTO: Cobrar juros de ${data.interestPercent}% ao mês (R$ ${dailyInterest.toFixed(2)} por dia de atraso)`);
-  }
-  if (data.discountAmount && data.discountAmount > 0) {
-    instructionsList.push(`ATÉ O VENCIMENTO: Conceder desconto pontualidade de ${data.discountAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`);
-  }
-  if (data.instructions) {
-    instructionsList.push(`Instruções Adicionais: ${data.instructions}`);
-  }
+  currentY = (doc as any).lastAutoTable.finalY + 8;
 
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 2,
-    margin: { left: 10, right: 10 },
-    head: [['Instruções e Demonstrativos']],
-    body: instructionsList.map(inst => [inst]),
-    theme: 'grid',
-    styles: { fontSize: 8, font: 'Helvetica', textColor: [60, 60, 60] },
-    headStyles: { fillColor: [245, 247, 250], textColor: [70, 80, 95], fontStyle: 'bold' }
-  });
-  
-  // Cut line
-  const cutY = (doc as any).lastAutoTable.finalY + 10;
-  doc.setLineWidth(0.3);
-  doc.setLineDashPattern([2, 2], 0);
-  doc.line(10, cutY, 200, cutY);
-  doc.setFontSize(7);
-  doc.setTextColor(120, 120, 120);
-  doc.setFont('Helvetica', 'normal');
-  doc.text('Corte na linha pontilhada para pagamento em lotéricas ou caixas eletrônicos', 10, cutY - 2);
-  doc.text('✁ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -', 10, cutY + 3);
-  
-  // SECOND PART: Ficha de Compensação (Bank copy slip)
-  doc.setLineDashPattern([], 0); // Reset dash style
-  
-  const slipStartY = cutY + 12;
-  
-  // Bank Logo & Details
+  // DEDICATED PIX PAYMENT SECTION (Modern elegant visual card container)
+  doc.setDrawColor(79, 70, 229); // Purple/indigo border
+  doc.setLineWidth(0.8);
+  // Rounded rectangle background or framed box (W: 190mm, H: 85mm)
+  doc.setFillColor(250, 251, 254);
+  doc.rect(10, currentY, 190, 80, 'FD');
+
+  // Title within Pix box
   doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(20, 30, 48);
-  doc.text('BANCO ALUGAFÁCIL', 10, slipStartY);
-  doc.text('001-9', 65, slipStartY);
-  
-  // Vertical bold line dividers for Bank slip standard layout
-  doc.setLineWidth(1.2);
-  doc.line(60, slipStartY - 4, 60, slipStartY + 2);
-  doc.line(80, slipStartY - 4, 80, slipStartY + 2);
-  
-  // Digitable line on top right
+  doc.setFontSize(12);
+  doc.setTextColor(79, 70, 229);
+  doc.text('PAGAMENTO EXPRESSO VIA PIX', 16, currentY + 7);
+
+  doc.setFont('Helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Esta fatura está integrada com a rede Pix do Banco Central do Brasil. Pague a tempo e evite multas.', 16, currentY + 12);
+
+  // Print QR Code if available
+  if (qrCodeDataUrl) {
+    // Drawn at center left (x=20, y=currentY+18, size=48mm)
+    doc.addImage(qrCodeDataUrl, 'PNG', 20, currentY + 18, 48, 48);
+  } else {
+    // Fallback QR card background box
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(20, currentY + 18, 48, 48);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(148, 163, 184);
+    doc.text('QR Code Indisponível\nUtilize o Pix Copia e Cola', 44, currentY + 40, { align: 'center' });
+  }
+
+  // Contextual Pix Instructions at right of QR Code
+  const instrX = 75;
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(30, 41, 59);
+  doc.text('COMO FAZER O PAGAMENTO:', instrX, currentY + 23);
+
+  doc.setFont('Helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(51, 65, 85);
+  doc.text('1. Acesse o aplicativo do seu banco de preferência.', instrX, currentY + 29);
+  doc.text('2. Escolha a opção de pagar através de Pix / "Ler QR Code".', instrX, currentY + 34);
+  doc.text('3. Aponte a câmera do celular para o código QR à esquerda ou...', instrX, currentY + 39);
+  doc.text('4. Se estiver no celular, copie a linha abaixo correspondente ao Copia e Cola.', instrX, currentY + 44);
+
+  // Copy-paste block Title
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(79, 70, 229);
+  doc.text('PIX COPIA E COLA (CHAVE DINÂMICA):', instrX, currentY + 52);
+
+  // Multi-line Copy-Paste TextBox background
+  doc.setFillColor(241, 245, 249);
+  doc.setLineWidth(0.2);
+  doc.setDrawColor(203, 213, 225);
+  doc.rect(instrX, currentY + 55, 115, 20, 'FD');
+
+  // Draw Pix Copy & Paste string wrapped beautifully inside the grey text box
   doc.setFont('Courier', 'bold');
-  doc.setFontSize(9.5);
-  doc.setTextColor(0, 0, 0);
-  doc.text(data.digitableLine, 83, slipStartY);
-  
-  // Standard grid for bank slip
-  autoTable(doc, {
-    startY: slipStartY + 4,
-    margin: { left: 10, right: 10 },
-    theme: 'grid',
-    styles: { fontSize: 7, font: 'Helvetica', cellPadding: 1.5 },
-    headStyles: { fillColor: [245, 247, 250], textColor: [100, 100, 100], fontStyle: 'bold', fontSize: 6 },
-    columns: [
-      { header: 'Local de Pagamento', dataKey: 'local' },
-      { header: 'Vencimento', dataKey: 'vencimento' }
-    ],
-    body: [[
-      'PAGÁVEL EM QUALQUER AGÊNCIA BANCÁRIA OU CANAL DIGITAL ATÉ O VENCIMENTO', 
-      format(new Date(data.dueDate), 'dd/MM/yyyy')
-    ]],
-    columnStyles: {
-      local: { cellWidth: 140 },
-      vencimento: { cellWidth: 50, fontStyle: 'bold', fontSize: 9, textColor: [0, 0, 0], halign: 'right' }
-    }
-  });
+  doc.setFontSize(6.5);
+  doc.setTextColor(30, 41, 59);
+  const splitPixCode = doc.splitTextToSize(pixCode, 111);
+  doc.text(splitPixCode, instrX + 2, currentY + 59);
 
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY,
-    margin: { left: 10, right: 10 },
-    theme: 'grid',
-    styles: { fontSize: 7, font: 'Helvetica', cellPadding: 1.5 },
-    headStyles: { fillColor: [245, 247, 250], textColor: [100, 100, 100], fontStyle: 'bold', fontSize: 6 },
-    columns: [
-      { header: 'Beneficiário', dataKey: 'beneficiary' },
-      { header: 'Agência / Código Beneficiário', dataKey: 'agency' }
-    ],
-    body: [[
-      'AlugaFácil Gestão Imobiliária LTDA - CNPJ: 12.345.678/0001-90',
-      '1234-5 / 67890-1'
-    ]],
-    columnStyles: {
-      beneficiary: { cellWidth: 140 },
-      agency: { cellWidth: 50, halign: 'right' }
-    }
-  });
+  currentY += 88;
 
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY,
-    margin: { left: 10, right: 10 },
-    theme: 'grid',
-    styles: { fontSize: 7, font: 'Helvetica', cellPadding: 1.5 },
-    headStyles: { fillColor: [245, 247, 250], textColor: [100, 100, 100], fontStyle: 'bold', fontSize: 6 },
-    columns: [
-      { header: 'Data do Doc.', dataKey: 'dateDoc' },
-      { header: 'Nº do Documento', dataKey: 'numDoc' },
-      { header: 'Espécie Doc.', dataKey: 'espDoc' },
-      { header: 'Aceite', dataKey: 'aceite' },
-      { header: 'Data Proc.', dataKey: 'dateProc' },
-      { header: 'Carteira / Nosso Número', dataKey: 'nossoNum' }
-    ],
-    body: [[
-      format(new Date(), 'dd/MM/yyyy'),
-      data.id.substring(0, 8).toUpperCase(),
-      'RC',
-      'N',
-      format(new Date(), 'dd/MM/yyyy'),
-      `17 / ${data.id.substring(0, 8).toUpperCase()}`
-    ]],
-    columnStyles: {
-      dateDoc: { cellWidth: 25 },
-      numDoc: { cellWidth: 35 },
-      espDoc: { cellWidth: 20 },
-      aceite: { cellWidth: 15 },
-      dateProc: { cellWidth: 25 },
-      nossoNum: { cellWidth: 70, halign: 'right', fontStyle: 'bold' }
-    }
-  });
-
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY,
-    margin: { left: 10, right: 10 },
-    theme: 'grid',
-    styles: { fontSize: 7, font: 'Helvetica', cellPadding: 1.5 },
-    headStyles: { fillColor: [245, 247, 250], textColor: [100, 100, 100], fontStyle: 'bold', fontSize: 6 },
-    columns: [
-      { header: 'Uso do Banco', dataKey: 'uso' },
-      { header: 'Carteira', dataKey: 'carteira' },
-      { header: 'Espécie', dataKey: 'especie' },
-      { header: 'Quantidade', dataKey: 'quantidade' },
-      { header: 'Valor Unitário', dataKey: 'unitario' },
-      { header: '(=) Valor do Documento', dataKey: 'documentAmount' }
-    ],
-    body: [[
-      '',
-      '17',
-      'R$',
-      '',
-      '',
-      data.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-    ]],
-    columnStyles: {
-      uso: { cellWidth: 30 },
-      carteira: { cellWidth: 20 },
-      especie: { cellWidth: 20 },
-      quantidade: { cellWidth: 25 },
-      unitario: { cellWidth: 45 },
-      documentAmount: { cellWidth: 50, halign: 'right', fontStyle: 'bold', fontSize: 9, textColor: [0, 0, 0] }
-    }
-  });
-
-  // Instructions & calculations grid
-  const mainInstructions: string[] = [
-    `SACADO: ${data.tenantName} - CPF: ${data.tenantCpf}`,
-    `REFERENTE À LOCAÇÃO DO IMÓVEL: ${data.propertyAddress}`,
-    `SR. CAIXA, NÃO RECEBER APÓS O VENCIMENTO.`
-  ];
-  
+  // Custom landlord instructions sheet
+  const instructionsList: string[] = [];
   if (data.penaltyPercent && data.penaltyPercent > 0) {
-    mainInstructions.push(`MANDATÓRIO: APÓS O VENCIMENTO COBRAR MULTA DE ${data.penaltyPercent}% (R$ ${(data.amount * (data.penaltyPercent / 100)).toFixed(2)})`);
+    instructionsList.push(`- Cobrança automática de Multa Moratória de ${data.penaltyPercent}% caso ocorra inadimplência de prazo.`);
   }
   if (data.interestPercent && data.interestPercent > 0) {
     const dailyInterest = (data.amount * (data.interestPercent / 100)) / 30;
-    mainInstructions.push(`MANDATÓRIO: COBRAR JUROS DE MORA DE ${data.interestPercent}% AO MÊS (R$ ${dailyInterest.toFixed(2)} POR DIA DE ATRASO)`);
+    instructionsList.push(`- Encargos diários pós-vencimento: Taxa mensal de ${data.interestPercent}% (equivalente a R$ ${dailyInterest.toFixed(2)} por dia).`);
   }
   if (data.discountAmount && data.discountAmount > 0) {
-    mainInstructions.push(`DESCONTO: CONCEDER DESCONTO DE ${data.discountAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} SE PAGO ATÉ O VENCIMENTO`);
+    instructionsList.push(`- Bonificação: Desconto de Pontualidade de ${data.discountAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} concedido automaticamente para pagamentos liquidados até a data de vencimento correspondente.`);
   }
   if (data.instructions) {
-    mainInstructions.push(`INSTRUÇÕES ADICIONAIS: ${data.instructions}`);
+    instructionsList.push(`- Observações da Administração Imobiliária: ${data.instructions}`);
   }
 
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY,
-    margin: { left: 10, right: 10 },
-    theme: 'grid',
-    styles: { fontSize: 7, font: 'Helvetica', cellPadding: 1.5 },
-    headStyles: { fillColor: [245, 247, 250], textColor: [100, 100, 100], fontStyle: 'bold', fontSize: 6 },
-    columns: [
-      { header: 'Instruções (Todas as informações deste bloqueto são de exclusiva responsabilidade do beneficiário)', dataKey: 'insts' },
-      { header: 'Demonstrativo de Valores Adicionais', dataKey: 'vals' }
-    ],
-    body: [
-      [mainInstructions.join('\n'), '(-) Desconto / Abatimento: \n\n(+) Mora / Multa: \n\n(=) Valor Cobrado: ']
-    ],
-    columnStyles: {
-      insts: { cellWidth: 140, fontSize: 6.5, textColor: [50, 50, 50] },
-      vals: { cellWidth: 50, fontSize: 6.5, textColor: [120, 120, 120] }
-    }
-  });
+  if (instructionsList.length > 0) {
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Observações Adicionais e Política de Recebimentos:', 10, currentY);
 
-  // Pagador Box
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY,
-    margin: { left: 10, right: 10 },
-    theme: 'grid',
-    styles: { fontSize: 7, font: 'Helvetica', cellPadding: 1.2 },
-    headStyles: { fillColor: [245, 247, 250], textColor: [100, 100, 100], fontStyle: 'bold', fontSize: 6 },
-    columns: [
-      { header: 'Pagador', dataKey: 'pagadorInfo' }
-    ],
-    body: [[
-      `${data.tenantName} - CPF/CNPJ: ${data.tenantCpf}\nEnderêço: Logradouro cadastrado, nº 123 - CEP: 00000-000 - Célula Habitacional Referenciada`
-    ]],
-    columnStyles: {
-      pagadorInfo: { cellWidth: 190, fontSize: 7, textColor: [30, 30, 30] }
-    }
-  });
-  
-  // REALISTIC BARCODE GENERATION
-  // Standard bar code width in mm: 160mm, starting from x=15mm. Height: 15mm.
-  const barcodeX = 15;
-  const barcodeY = (doc as any).lastAutoTable.finalY + 6;
-  const barcodeHeight = 15;
-  
-  doc.setFillColor(0, 0, 0); // Black fill
-  
-  // We'll generate a realistic-looking Code-128 / Interleaved 2 of 5 style barcode structure
-  // by looping and drawing stripes of varying widths:
-  // narrow = 0.3mm, wide = 0.8mm, gaps are also narrow or wide.
-  let currentX = barcodeX;
-  const stripeSchema = [
-    1, 2, 1, 1, 3, 1, 2, 1, 1, 2, 4, 1, 1, 2, 1, 3, 1, 1, 2, 1, 1, 4, 2, 1, 1,
-    3, 1, 2, 1, 2, 1, 4, 1, 1, 3, 1, 2, 1, 1, 3, 4, 1, 1, 2, 1, 2, 1, 3, 1, 2,
-    1, 1, 4, 1, 2, 1, 1, 3, 1, 2, 1, 4, 2, 1, 1, 3, 1, 1, 2, 1, 2, 4, 1, 1, 3,
-    1, 2, 1, 1, 3, 1, 2, 1, 4, 2, 1, 1, 3, 1, 1, 2, 1, 2, 4, 1, 1, 3, 1, 2, 1,
-    1, 3, 1, 2, 1, 4, 2, 1, 1, 3, 1, 1, 2, 1, 3, 1, 2, 1, 4, 2, 1, 1, 3, 1, 1,
-  ];
-
-  for (let i = 0; i < stripeSchema.length; i++) {
-    const spaceWidth = stripeSchema[i] * 0.4;
-    const barWidth = stripeSchema[(i + 3) % stripeSchema.length] * 0.45;
-    
-    // Draw Bar
-    doc.rect(currentX, barcodeY, barWidth, barcodeHeight, 'F');
-    currentX += barWidth + spaceWidth;
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(115, 115, 115);
+    let lineOffsetY = currentY + 4;
+    instructionsList.forEach((inst) => {
+      // split to avoid overflow
+      const splitInst = doc.splitTextToSize(inst, 190);
+      doc.text(splitInst, 10, lineOffsetY);
+      lineOffsetY += (splitInst.length * 3.5);
+    });
   }
+
+  // Footer visual clean signature
+  doc.setDrawColor(241, 245, 249);
+  doc.setLineWidth(0.5);
+  doc.line(10, 275, 200, 275);
   
-  // Barcode numbers under barcode
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(7.5);
-  doc.setTextColor(0, 0, 0);
-  doc.text(data.barcode, 15, barcodeY + barcodeHeight + 4);
-  
-  // Save Document
-  doc.save(`Boleto_${data.tenantName.replace(/\s/g, '_')}_${data.id.substring(0, 8)}.pdf`);
+  doc.setTextColor(148, 163, 184);
+  doc.text('Esta é uma fatura 100% ecológica e segura. Realizada no ecossistema integrado Pix Banco Central do Brasil.', 10, 280);
+  doc.text('AlugaFácil Tecnologia Ltda. Soluções e Relacionamentos Imobiliários e Residenciais S/A.', 10, 284);
+  doc.text('PÁGINA 1/1 DE DOCUMENTAÇÃO DE COBRANÇA', 200, 280, { align: 'right' });
+
+  // Save Document with customized title reflecting Pix
+  doc.save(`Fatura_Pix_${data.tenantName.replace(/\s/g, '_')}_${data.id.substring(0, 8)}.pdf`);
 };
 
 export const boletoService = {
+  // Keep same method interface to prevent compilation/import errors downstream
   async generateForPayment(payment: any, tenant: any, property: any) {
     const fallbackTitle = 'Aluguel Mensal';
-    // Incorporate expanded boleto parameters
     const data: BoletoData = {
       id: payment.id,
       tenantName: tenant.name,
@@ -347,8 +290,8 @@ export const boletoService = {
       propertyAddress: property.address,
       amount: payment.amount,
       dueDate: payment.dueDate,
-      barcode: '00190500954014481606906809350314337370000000100',
-      digitableLine: '00190.50095 40144.816069 06809.350314 3 37370000000100',
+      barcode: payment.id, // Reused fields
+      digitableLine: generatePixCode(payment.amount, payment.id, tenant.name),
       title: payment.title || fallbackTitle,
       penaltyPercent: payment.penaltyPercent !== undefined ? payment.penaltyPercent : 10,
       interestPercent: payment.interestPercent !== undefined ? payment.interestPercent : 1,
@@ -356,6 +299,6 @@ export const boletoService = {
       instructions: payment.instructions || ''
     };
     
-    generateBoletoPDF(data);
+    await generateBoletoPDF(data);
   }
 };

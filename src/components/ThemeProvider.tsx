@@ -11,33 +11,17 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Let's default to 'dark' to preserve the original premium slate appearance as the default,
-  // but allow instant toggling and local storage persistence.
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem('alugafacil-theme');
-    if (saved === 'light' || saved === 'dark') {
-      return saved;
-    }
-    return 'dark'; // Keep dark as default to protect the gorgeous dark identity!
-  });
-
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem('alugafacil-theme', newTheme);
-  };
-
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  };
+  // Lock the theme permanently to 'dark' to remove the light mode option.
+  const theme = 'dark';
+  
+  const setTheme = () => {};
+  const toggleTheme = () => {};
 
   useEffect(() => {
     const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-  }, [theme]);
+    root.classList.add('dark');
+    root.classList.remove('light');
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>

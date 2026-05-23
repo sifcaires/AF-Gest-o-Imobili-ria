@@ -136,7 +136,7 @@ export function ContractsView({ contracts, properties, tenants, payments, onEdit
                            <div className="h-10 w-10 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-5 border border-purple-500/20 shadow-inner">
                             <Users className="h-5 w-5 text-purple-500 dark:text-purple-400" />
                           </div>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Parte Locatária</span>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Nome do Inquilino</span>
                           <p className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">{tenant?.name}</p>
                           <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Documento: {tenant?.cpf}</p>
                         </div>

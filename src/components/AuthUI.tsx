@@ -55,23 +55,6 @@ export function AuthUI({
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden font-sans transition-colors duration-300">
-      {/* Floating Theme Toggle in top-right */}
-      <div className="absolute top-6 right-6 z-50">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleTheme}
-          className="h-10 w-10 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-amber-400 bg-slate-100 dark:bg-white/5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full border border-slate-200 dark:border-white/10 shrink-0 transition-colors"
-          title={theme === 'dark' ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'}
-        >
-          {theme === 'dark' ? (
-            <Sun className="h-5 w-5 text-amber-400" />
-          ) : (
-            <Moon className="h-5 w-5 text-indigo-600" />
-          )}
-        </Button>
-      </div>
-
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-[120px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/5 dark:bg-purple-500/10 rounded-full blur-[120px]"></div>

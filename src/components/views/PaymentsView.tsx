@@ -18,7 +18,9 @@ import {
   Loader2,
   Send,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  QrCode,
+  Copy
 } from 'lucide-react';
 import { 
   Card, 
@@ -45,7 +47,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Payment, Contract, Tenant, Property } from '../../types';
-import { boletoService } from '../../services/boletoService';
+import { boletoService, generatePixCode } from '../../services/boletoService';
+import QRCode from 'qrcode';
 import { toast } from 'sonner';
 
 interface PaymentsViewProps {
@@ -62,6 +65,22 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
   const [activeBoletoScreen, setActiveBoletoScreen] = useState<'menu' | 'whatsapp' | 'email'>('menu');
+  const [screenQrCodeUrl, setScreenQrCodeUrl] = useState<string>('');
+  const [isCopied, setIsCopied] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (selectedPayment) {
+      const tenant = getTenant(selectedPayment.contractId);
+      const code = generatePixCode(selectedPayment.amount, selectedPayment.id, tenant?.name || 'Inquilino');
+      QRCode.toDataURL(code, { width: 256, margin: 1 })
+        .then(url => setScreenQrCodeUrl(url))
+        .catch(err => console.error('Error generating screen QR Code', err));
+      setIsCopied(false);
+    } else {
+      setScreenQrCodeUrl('');
+      setIsCopied(false);
+    }
+  }, [selectedPayment]);
 
   // Filtering and searching state
   const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'overdue' | 'paid'>('all');
@@ -198,21 +217,22 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
   const handleTriggerEmailScreen = (payment: Payment) => {
     const tenant = getTenant(payment.contractId);
     setEmailTo(tenant?.email || '');
-    setEmailSubject(`AlugaFácil - Fatura de Aluguel Disponível #${payment.id.substring(0, 8)}`);
+    setEmailSubject(`AlugaFácil - Fatura de Aluguel via Pix Disponível #${payment.id.substring(0, 8)}`);
     
     const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount);
     const formattedDate = new Date(payment.dueDate).toLocaleDateString('pt-BR');
+    const pixCode = generatePixCode(payment.amount, payment.id, tenant?.name || 'Inquilino');
     
     setEmailBody(
       `Prezado(a) ${tenant?.name || 'Inquilino'},\n\n` +
       `Esperamos que este e-mail o encontre bem.\n\n` +
-      `Comunicamos que a fatura referente ao aluguel mensal já está gerada e disponível. Seguem os detalhes de faturamento:\n\n` +
+      `Comunicamos que a fatura referente ao aluguel mensal já está gerada e disponível via pagamento Pix. Seguem os detalhes de faturamento:\n\n` +
       `- Cód Lançamento: #${payment.id}\n` +
       `- Valor: ${formattedAmount}\n` +
       `- Data de Vencimento: ${formattedDate}\n` +
-      `- Linha Digitável do Boleto:\n` +
-      `  00190.50095 40144.816069 06809.350314 3 37370000000100\n\n` +
-      `O boleto correspondente foi anexado a esta mensagem em formato PDF.\n\n` +
+      `- Código Pix Copia e Cola:\n` +
+      `  ${pixCode}\n\n` +
+      `A fatura correspondente foi anexada a esta mensagem em formato PDF contendo o QR Code de digitalização.\n\n` +
       `Caso tenha dúvidas adicionais, ficamos à sua inteira disposição.\n\n` +
       `Atenciosamente,\n` +
       `Expediente Financeiro AlugaFácil`
@@ -246,15 +266,16 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
     
     const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount);
     const formattedDate = new Date(payment.dueDate).toLocaleDateString('pt-BR');
+    const pixCode = generatePixCode(payment.amount, payment.id, tenant?.name || 'Inquilino');
     
     setWhatsappText(
       `Olá, *${tenant?.name || 'Inquilino'}*! 👋\n\n` +
-      `Seguem os dados do boleto para pagamento do aluguel:\n` +
+      `Seguem os dados da fatura para pagamento do aluguel via Pix:\n` +
       `*ID Cobrança:* #${payment.id.substring(0, 8)}\n` +
       `*Valor:* ${formattedAmount}\n` +
       `*Vencimento:* ${formattedDate}\n\n` +
-      `*Linha Digitável para pagar pelo app do banco:*\n` +
-      `00190.50095 40144.816069 06809.350314 3 37370000000100\n\n` +
+      `*Código Pix Copia e Cola para pagar pelo aplicativo do banco:*\n` +
+      `${pixCode}\n\n` +
       `Agradecemos a sua cooperação.\n` +
       `*Equipe AlugaFácil Imobiliária*`
     );
@@ -464,107 +485,148 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
                               setActiveBoletoScreen('menu');
                             }}
                           >
-                            <FileDown className="h-4 w-4" />
-                            Boleto
+                            <QrCode className="h-4 w-4" />
+                            Cobrança Pix
                           </Button>
                         }
                       />
-                      <DialogContent className="sm:max-w-lg overflow-hidden p-0 border-white/10 shadow-2xl rounded-3xl frosted max-h-[90vh] overflow-y-auto">
+                      <DialogContent className="sm:max-w-[1100px] overflow-hidden p-0 border-white/10 shadow-2xl rounded-3xl frosted max-h-[92vh] overflow-y-auto">
                         
                         {/* HEADER DA COBRANÇA */}
-                        <div className="bg-indigo-600 text-white p-8 flex flex-col items-center gap-4 relative overflow-hidden shrink-0">
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16"></div>
-                          <div className="h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-xl">
-                             <CreditCard className="h-8 w-8 text-white" />
-                          </div>
+                        <div className="bg-indigo-600 text-white py-5 px-6 flex flex-col items-center gap-2 relative overflow-hidden shrink-0">
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full translate-x-12 -translate-y-12"></div>
                           
                           <div className="text-center relative z-10">
                             {activeBoletoScreen === 'menu' && (
                               <>
-                                <h3 className="text-2xl font-bold serif italic">Opções de Cobrança</h3>
-                                <p className="text-indigo-100 text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">Vencimento: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}</p>
+                                <h3 className="text-xl font-bold serif italic">Opções de Cobrança</h3>
+                                <p className="text-indigo-100 text-[9px] font-bold uppercase tracking-widest opacity-80 mt-0.5">Vencimento: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}</p>
                               </>
                             )}
                             {activeBoletoScreen === 'whatsapp' && (
                               <>
-                                <h3 className="text-2xl font-bold serif italic flex items-center justify-center gap-2">
-                                  <MessageSquare className="h-5 w-5" /> Enviar por WhatsApp
+                                <h3 className="text-xl font-bold serif italic flex items-center justify-center gap-2">
+                                  <MessageSquare className="h-4 w-4" /> Enviar por WhatsApp
                                 </h3>
-                                <p className="text-indigo-100 text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">Inquilino: {getTenantName(payment.contractId)}</p>
+                                <p className="text-indigo-100 text-[9px] font-bold uppercase tracking-widest opacity-80 mt-0.5">Inquilino: {getTenantName(payment.contractId)}</p>
                               </>
                             )}
                             {activeBoletoScreen === 'email' && (
                               <>
-                                <h3 className="text-2xl font-bold serif italic flex items-center justify-center gap-2">
-                                  <Mail className="h-5 w-5" /> Enviar por E-mail
+                                <h3 className="text-xl font-bold serif italic flex items-center justify-center gap-2">
+                                  <Mail className="h-4 w-4" /> Enviar por E-mail
                                 </h3>
-                                <p className="text-indigo-100 text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">Inquilino: {getTenantName(payment.contractId)}</p>
+                                <p className="text-indigo-100 text-[9px] font-bold uppercase tracking-widest opacity-80 mt-0.5">Inquilino: {getTenantName(payment.contractId)}</p>
                               </>
                             )}
                           </div>
                         </div>
 
                         {/* CORPO DINÂMICO CONFORME A TELA */}
-                        <div className="p-8 space-y-6 bg-[#0f172a]/95">
+                        <div className="p-6 space-y-4 bg-[#0f171c]">
                           
                           {/* COBRANÇA MENU PRINCIPAL */}
                           {activeBoletoScreen === 'menu' && (
                             <>
-                              <div className="grid grid-cols-2 gap-6 border-b border-white/5 pb-6">
+                              <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4">
                                 <div>
-                                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Inquilino (Sacado)</span>
-                                   <p className="text-base font-bold text-white serif italic">{getTenantName(payment.contractId)}</p>
+                                   <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 block mb-0.5">Inquilino (Sacado)</span>
+                                   <p className="text-sm font-bold text-white serif italic truncate">{getTenantName(payment.contractId)}</p>
                                 </div>
                                 <div className="text-right">
-                                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Total Cobrado</span>
-                                   <p className="text-xl font-bold text-white font-mono tracking-tighter">
+                                   <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 block mb-0.5">Total Cobrado</span>
+                                   <p className="text-base font-bold text-white font-mono tracking-tighter">
                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount)}
                                    </p>
                                 </div>
                               </div>
 
-                              <div className="space-y-4">
+                              <div className="space-y-3">
+                                {/* Visual Interactive QR Code Widget */}
+                                <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center text-center gap-3">
+                                  <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-400 font-bold">Pagamento Imediato via Pix</span>
+                                  
+                                  {screenQrCodeUrl ? (
+                                    <div className="bg-white p-2 rounded-xl shadow-inner border border-indigo-500/20 max-w-[140px] aspect-square">
+                                      <img src={screenQrCodeUrl} alt="Visual Pix QR Code" className="w-[120px] h-[120px] object-contain" />
+                                    </div>
+                                  ) : (
+                                    <div className="h-[140px] w-[140px] rounded-xl bg-white/5 flex items-center justify-center animate-pulse border border-white/10 text-slate-500 text-xs">
+                                      Carregando QR Code...
+                                    </div>
+                                  )}
+                                  
+                                  <div className="w-full space-y-1.5">
+                                    <p className="text-[9px] text-slate-450 font-medium">Escaneie o QR Code ou use a chave copia e cola abaixo:</p>
+                                    
+                                    <div className="flex items-center gap-2 bg-black/40 border border-white/10 px-3 py-1.5 rounded-xl overflow-hidden">
+                                      <span className="text-[8.5px] font-mono text-slate-400 truncate flex-grow text-left select-all">
+                                        {generatePixCode(payment.amount, payment.id, getTenant(payment.contractId)?.name || 'Inquilino')}
+                                      </span>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        type="button"
+                                        className="h-7 w-7 text-indigo-404 hover:text-white hover:bg-indigo-600/20 rounded-lg shrink-0"
+                                        title="Copiar Pix"
+                                        onClick={() => {
+                                          const code = generatePixCode(payment.amount, payment.id, getTenant(payment.contractId)?.name || 'Inquilino');
+                                          navigator.clipboard.writeText(code);
+                                          setIsCopied(true);
+                                          toast.success('Código Pix Copia e Cola copiado com sucesso!');
+                                        }}
+                                      >
+                                        {isCopied ? (
+                                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 animate-bounce" />
+                                        ) : (
+                                          <Copy className="h-3.5 w-3.5" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+
                                 <Button 
-                                  className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xl transition-all transform hover:-translate-y-0.5 uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+                                  className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:-translate-y-0.5 uppercase tracking-widest text-[9px] flex items-center justify-center gap-2"
                                   onClick={() => handleGenerateBoleto(payment)}
                                   disabled={isGenerating === payment.id}
                                 >
                                   {isGenerating === payment.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                   ) : (
-                                    <FileText className="h-4 w-4" />
+                                    <FileText className="h-3.5 w-3.5" />
                                   )}
-                                  Baixar PDF do Boleto
+                                  Baixar Fatura Pix (PDF)
                                 </Button>
 
-                                <div className="relative flex items-center py-2">
+                                <div className="relative flex items-center py-1">
                                   <div className="flex-grow border-t border-white/5"></div>
-                                  <span className="flex-shrink mx-4 text-[10px] text-slate-500 font-bold uppercase tracking-widest">Enviar Fatura</span>
+                                  <span className="flex-shrink mx-3 text-[9px] text-slate-500 font-bold uppercase tracking-widest">Enviar Fatura</span>
                                   <div className="flex-grow border-t border-white/5"></div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 gap-3">
                                   <Button 
                                     variant="outline"
-                                    className="h-12 border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold rounded-xl uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-all shadow-lg"
+                                    className="h-11 border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold rounded-xl uppercase tracking-widest text-[9px] flex items-center justify-center gap-2 transition-all shadow-md"
                                     onClick={() => handleTriggerWhatsappScreen(payment)}
                                   >
-                                    <MessageSquare className="h-4 w-4" />
+                                    <MessageSquare className="h-3.5 w-3.5" />
                                     WhatsApp
                                   </Button>
                                   <Button 
                                     variant="outline"
-                                    className="h-12 border-sky-500/20 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 font-bold rounded-xl uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transition-all shadow-lg"
+                                    className="h-11 border-sky-500/20 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 font-bold rounded-xl uppercase tracking-widest text-[9px] flex items-center justify-center gap-2 transition-all shadow-md"
                                     onClick={() => handleTriggerEmailScreen(payment)}
                                   >
-                                    <Mail className="h-4 w-4" />
+                                    <Mail className="h-3.5 w-3.5" />
                                     Enviar E-mail
                                   </Button>
                                 </div>
                                 
                                 <Button 
                                   variant="ghost" 
-                                  className="w-full text-slate-400 font-bold text-[10px] uppercase tracking-widest h-12 hover:bg-white/5 hover:text-white rounded-xl" 
+                                  className="w-full text-slate-400 font-bold text-[9px] uppercase tracking-widest h-10 hover:bg-white/5 hover:text-white rounded-xl" 
                                   onClick={() => setSelectedPayment(null)}
                                 >
                                   Voltar ao Financeiro
