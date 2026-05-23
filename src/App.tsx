@@ -227,6 +227,7 @@ export default function App() {
           contracts={contracts} 
           tenants={tenants} 
           properties={properties} 
+          landlords={landlords}
           onEdit={(payment) => {
             setEditingItem(payment);
             setActiveForm('payment');
@@ -571,6 +572,8 @@ export default function App() {
                         initialData={editingItem} 
                         properties={properties} 
                         tenants={tenants} 
+                        landlords={landlords}
+                        users={users}
                         onSubmit={editingItem ? async (data) => {
                           await updateContract(editingItem.id, data);
                           setIsRegistryOpen(false);

@@ -46,7 +46,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Payment, Contract, Tenant, Property } from '../../types';
+import { Payment, Contract, Tenant, Property, Landlord } from '../../types';
 import { boletoService, generatePixCode } from '../../services/boletoService';
 import QRCode from 'qrcode';
 import { toast } from 'sonner';
@@ -56,22 +56,40 @@ interface PaymentsViewProps {
   contracts: Contract[];
   tenants: Tenant[];
   properties: Property[];
+  landlords?: Landlord[];
   onEdit: (p: Payment) => void;
   onDelete: (id: string) => void;
   onUpdatePayment?: (id: string, data: Partial<Payment>) => Promise<void>;
 }
 
-export function PaymentsView({ payments, contracts, tenants, properties, onEdit, onDelete, onUpdatePayment }: PaymentsViewProps) {
+export function PaymentsView({ payments, contracts, tenants, properties, landlords = [], onEdit, onDelete, onUpdatePayment }: PaymentsViewProps) {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
   const [activeBoletoScreen, setActiveBoletoScreen] = useState<'menu' | 'whatsapp' | 'email'>('menu');
   const [screenQrCodeUrl, setScreenQrCodeUrl] = useState<string>('');
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
+  const getBeneficiaryPixKey = (contractId: string) => {
+    const contract = contracts.find(c => c.id === contractId);
+    if (!contract) return '';
+    
+    // Look up landlord from beneficiaryId
+    let beneficiary = landlords.find(l => l.id === contract.beneficiaryId || l.ownerId === contract.beneficiaryId);
+    if (!beneficiary) {
+      // Fallback to property landlord
+      const property = properties.find(p => p.id === contract.propertyId);
+      if (property) {
+        beneficiary = landlords.find(l => l.id === property.landlordId);
+      }
+    }
+    return beneficiary?.pixKey || '';
+  };
+
   React.useEffect(() => {
     if (selectedPayment) {
       const tenant = getTenant(selectedPayment.contractId);
-      const code = generatePixCode(selectedPayment.amount, selectedPayment.id, tenant?.name || 'Inquilino');
+      const pixKey = getBeneficiaryPixKey(selectedPayment.contractId);
+      const code = generatePixCode(selectedPayment.amount, selectedPayment.id, tenant?.name || 'Inquilino', pixKey);
       QRCode.toDataURL(code, { width: 256, margin: 1 })
         .then(url => setScreenQrCodeUrl(url))
         .catch(err => console.error('Error generating screen QR Code', err));
@@ -80,7 +98,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
       setScreenQrCodeUrl('');
       setIsCopied(false);
     }
-  }, [selectedPayment]);
+  }, [selectedPayment, landlords]);
 
   // Filtering and searching state
   const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'overdue' | 'paid'>('all');
@@ -171,7 +189,13 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
         return;
       }
 
-      await boletoService.generateForPayment(payment, tenant, property);
+      // Resolve the selected beneficiary or fallback to property owner
+      let beneficiary = landlords?.find(l => l.id === contract.beneficiaryId || l.ownerId === contract.beneficiaryId);
+      if (!beneficiary) {
+        beneficiary = landlords?.find(l => l.id === property.landlordId);
+      }
+
+      await boletoService.generateForPayment(payment, tenant, property, beneficiary);
       toast.success('Boleto gerado com sucesso!');
     } catch (error) {
       console.error(error);
@@ -221,7 +245,8 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
     
     const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount);
     const formattedDate = new Date(payment.dueDate).toLocaleDateString('pt-BR');
-    const pixCode = generatePixCode(payment.amount, payment.id, tenant?.name || 'Inquilino');
+    const pixKey = getBeneficiaryPixKey(payment.contractId);
+    const pixCode = generatePixCode(payment.amount, payment.id, tenant?.name || 'Inquilino', pixKey);
     
     setEmailBody(
       `Prezado(a) ${tenant?.name || 'Inquilino'},\n\n` +
@@ -266,7 +291,8 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
     
     const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount);
     const formattedDate = new Date(payment.dueDate).toLocaleDateString('pt-BR');
-    const pixCode = generatePixCode(payment.amount, payment.id, tenant?.name || 'Inquilino');
+    const pixKey = getBeneficiaryPixKey(payment.contractId);
+    const pixCode = generatePixCode(payment.amount, payment.id, tenant?.name || 'Inquilino', pixKey);
     
     setWhatsappText(
       `Olá, *${tenant?.name || 'Inquilino'}*! 👋\n\n` +
@@ -561,7 +587,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
                                     
                                     <div className="flex items-center gap-2 bg-black/40 border border-white/10 px-3 py-1.5 rounded-xl overflow-hidden">
                                       <span className="text-[8.5px] font-mono text-slate-400 truncate flex-grow text-left select-all">
-                                        {generatePixCode(payment.amount, payment.id, getTenant(payment.contractId)?.name || 'Inquilino')}
+                                        {generatePixCode(payment.amount, payment.id, getTenant(payment.contractId)?.name || 'Inquilino', getBeneficiaryPixKey(payment.contractId))}
                                       </span>
                                       <Button
                                         size="icon"
@@ -570,7 +596,8 @@ export function PaymentsView({ payments, contracts, tenants, properties, onEdit,
                                         className="h-7 w-7 text-indigo-404 hover:text-white hover:bg-indigo-600/20 rounded-lg shrink-0"
                                         title="Copiar Pix"
                                         onClick={() => {
-                                          const code = generatePixCode(payment.amount, payment.id, getTenant(payment.contractId)?.name || 'Inquilino');
+                                          const pixKey = getBeneficiaryPixKey(payment.contractId);
+                                          const code = generatePixCode(payment.amount, payment.id, getTenant(payment.contractId)?.name || 'Inquilino', pixKey);
                                           navigator.clipboard.writeText(code);
                                           setIsCopied(true);
                                           toast.success('Código Pix Copia e Cola copiado com sucesso!');

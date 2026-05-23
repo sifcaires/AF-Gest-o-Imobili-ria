@@ -45,6 +45,7 @@ export interface Contract {
   ownerId?: string;
   propertyId: string;
   tenantId: string;
+  beneficiaryId?: string;
   startDate: string;
   endDate: string;
   rentAmount: number;

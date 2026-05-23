@@ -3,25 +3,28 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Contract, Property, Tenant } from '../types';
+import { Contract, Property, Tenant, Landlord } from '../types';
 import { storage, auth, uploadFileWithFallback } from '../lib/firebase';
 import { ref } from 'firebase/storage';
 import { FileText, Upload, CheckCircle2, Loader2, X, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { getSafeDocumentUrl, viewDocumentSecurely } from '../lib/documentViewer';
-
+ 
 interface ContractFormProps {
   properties: Property[];
   tenants: Tenant[];
+  landlords: Landlord[];
+  users?: any[];
   onSubmit: (data: Omit<Contract, 'id'>) => Promise<void>;
   isLoading?: boolean;
   initialData?: Partial<Contract>;
 }
-
-export function ContractForm({ properties, tenants, onSubmit, isLoading, initialData }: ContractFormProps) {
+ 
+export function ContractForm({ properties, tenants, landlords, users = [], onSubmit, isLoading, initialData }: ContractFormProps) {
   const [formData, setFormData] = useState({
     propertyId: initialData?.propertyId || '',
     tenantId: initialData?.tenantId || '',
+    beneficiaryId: initialData?.beneficiaryId || '',
     startDate: initialData?.startDate || '',
     endDate: initialData?.endDate || '',
     rentAmount: initialData?.rentAmount || 0,
@@ -29,18 +32,19 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
     documentUrl: initialData?.documentUrl || '',
     documentUrls: initialData?.documentUrls || (initialData?.documentUrl ? [initialData.documentUrl] : []),
   });
-
+ 
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-
+ 
   const handlePropertyChange = (propertyId: string) => {
     const property = properties.find(p => p.id === propertyId);
     setFormData({ 
       ...formData, 
       propertyId, 
-      rentAmount: property?.rentAmount || 0 
+      rentAmount: property?.rentAmount || 0,
+      beneficiaryId: property?.landlordId || ''
     });
   };
 
@@ -138,6 +142,54 @@ export function ContractForm({ properties, tenants, onSubmit, isLoading, initial
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Beneficiário</Label>
+        <Select 
+          value={formData.beneficiaryId} 
+          onValueChange={(value) => setFormData({ ...formData, beneficiaryId: value })}
+          required
+        >
+          <SelectTrigger className="border-white/10 bg-white/5 text-white h-12 rounded-xl pl-[17px] pt-[5px] pr-[90px]">
+            <SelectValue placeholder="Selecione o beneficiário" />
+          </SelectTrigger>
+          <SelectContent className="bg-[#1e293b] border-white/10 text-white rounded-xl">
+            {(() => {
+              const selectedProperty = properties.find(p => p.id === formData.propertyId);
+              if (!selectedProperty) {
+                return (
+                  <SelectItem value="none" disabled>
+                    Selecione um imóvel primeiro
+                  </SelectItem>
+                );
+              }
+              const propertyOwner = landlords.find(l => l.id === selectedProperty.landlordId);
+              const creatorId = propertyOwner?.ownerId || selectedProperty?.ownerId;
+              const masterUser = creatorId ? users?.find(u => u.uid === creatorId || u.id === creatorId) : null;
+
+              return (
+                <>
+                  {propertyOwner && (
+                    <SelectItem key={propertyOwner.id} value={propertyOwner.id}>
+                      {propertyOwner.name} (Proprietário)
+                    </SelectItem>
+                  )}
+                  {creatorId && (
+                    <SelectItem key={creatorId} value={creatorId}>
+                      {masterUser ? (masterUser.displayName || masterUser.email) : 'Locador Master'} (Locador Master que Cadastrou)
+                    </SelectItem>
+                  )}
+                  {!propertyOwner && !creatorId && (
+                    <SelectItem value="none" disabled>
+                      Nenhum beneficiário encontrado para este imóvel
+                    </SelectItem>
+                  )}
+                </>
+              );
+            })()}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

@@ -17,6 +17,10 @@ export interface BoletoData {
   interestPercent?: number;
   discountAmount?: number;
   instructions?: string;
+  beneficiaryName?: string;
+  beneficiaryCpfCnpj?: string;
+  beneficiaryEmail?: string;
+  beneficiaryPixKey?: string;
 }
 
 // CRC16 Calculation for EMV/BRCode standard Pix payload validation
@@ -36,17 +40,48 @@ function calculateCRC16(str: string): string {
   return crc.toString(16).toUpperCase().padStart(4, '0');
 }
 
+function cleanPixKey(key: string): string {
+  const trimmed = key.trim();
+  if (trimmed.includes('@')) {
+    return trimmed; // Email
+  }
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return trimmed; // UUID
+  }
+  const clean = trimmed.replace(/[^a-zA-Z0-9+]/g, '');
+  if (clean.startsWith('+')) {
+    return clean;
+  }
+  if (/^\d+$/.test(clean) && (clean.length === 11 || clean.length === 14)) {
+    return clean; // CPF/CNPJ
+  }
+  if (/^\d{10,11}$/.test(clean)) {
+    return `+55${clean}`; // Phone
+  }
+  return clean;
+}
+
+function buildMerchantAccount(pixKey: string): string {
+  const cleanedKey = cleanPixKey(pixKey || 'financeiro@alugafacil.com.br');
+  const partGui = '0014br.gov.bcb.pix';
+  const partKey = `01${String(cleanedKey.length).padStart(2, '0')}${cleanedKey}`;
+  const partDesc = '0208ALUGAFAC';
+  
+  const content = `${partGui}${partKey}${partDesc}`;
+  return `26${String(content.length).padStart(2, '0')}${content}`;
+}
+
 /**
  * Generates an EMV compliant Pix Copy and Paste string dynamically
  */
-export function generatePixCode(amount: number, paymentId: string, tenantName: string): string {
+export function generatePixCode(amount: number, paymentId: string, tenantName: string, pixKey?: string): string {
   const amountStr = amount.toFixed(2);
   // Alphanumeric txid restricted to 25 chars
   const txid = `ALUGA${paymentId.replace(/[^a-zA-Z0-9]/g, '').substring(0, 15).toUpperCase()}`;
   
   const elPayloadFormat = '000201';
-  // Chave Pix: financeiro@alugafacil.com.br
-  const elMerchantAccount = `26580014br.gov.bcb.pix0124financeiro@alugafacil.com.br0208ALUGAFAC`;
+  // Chave Pix customizada ou fallback do sistema
+  const elMerchantAccount = buildMerchantAccount(pixKey || 'financeiro@alugafacil.com.br');
   const elCategoryCode = '52040000';
   const elCurrency = '5303986';
   const elAmount = `54${String(amountStr.length).padStart(2, '0')}${amountStr}`;
@@ -70,7 +105,7 @@ export const generateBoletoPDF = async (data: BoletoData) => {
     format: 'a4'
   });
   
-  const pixCode = generatePixCode(data.amount, data.id, data.tenantName);
+  const pixCode = generatePixCode(data.amount, data.id, data.tenantName, data.beneficiaryPixKey);
   
   // Generate QR Code as high-res PNG Base64
   let qrCodeDataUrl = '';
@@ -93,23 +128,46 @@ export const generateBoletoPDF = async (data: BoletoData) => {
   
   // Header Text
   doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(20);
+  let fontSize = 15;
+  doc.setFontSize(fontSize);
   doc.setTextColor(255, 255, 255);
-  doc.text('ALUGAFÁCIL', 16, 22);
+  
+  let displayBeneficiary = data.beneficiaryName || '';
+  let headerName = displayBeneficiary ? `ALUGAFÁCIL | ${displayBeneficiary.toUpperCase()}` : 'ALUGAFÁCIL';
+  
+  // Dynamically shrink the font size first from 15 down to 10 to fit the available space (95 mm max)
+  while (fontSize > 10 && doc.getTextWidth(headerName) > 95) {
+    fontSize -= 0.5;
+    doc.setFontSize(fontSize);
+  }
+  
+  // If even at size 10 it's too wide, truncate the beneficiary name character by character until it fits
+  if (doc.getTextWidth(headerName) > 95 && displayBeneficiary) {
+    while (displayBeneficiary.length > 3 && doc.getTextWidth(headerName) > 95) {
+      displayBeneficiary = displayBeneficiary.slice(0, -1);
+      headerName = `ALUGAFÁCIL | ${displayBeneficiary.toUpperCase()}...`;
+    }
+  }
+  
+  // Draw the perfectly adjusted text
+  doc.text(headerName, 16, 22);
   
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(199, 210, 254);
   doc.text('GESTÃO INTELIGENTE DE CONTRATOS E RECEBIMENTOS', 16, 28);
-  doc.text('CNPJ: 12.345.678/0001-90 | contato@alugafacil.com.br', 16, 33);
+  
+  const cnpj = data.beneficiaryCpfCnpj || '12.345.678/0001-90';
+  const email = data.beneficiaryEmail || 'contato@alugafacil.com.br';
+  doc.text(`CPF/CNPJ: ${cnpj} | E-mail: ${email}`, 16, 33);
   
   doc.setFont('Helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
-  doc.text('FATURA DIGITAL SINALIZADA VIA PIX', 135, 22, { align: 'right' });
+  doc.text('FATURA DIGITAL SINALIZADA VIA PIX', 192, 22, { align: 'right' });
   doc.setFont('Helvetica', 'normal');
-  doc.text(`VENCIMENTO: ${format(new Date(data.dueDate), 'dd/MM/yyyy')}`, 135, 28, { align: 'right' });
-  doc.text(`NÚMERO: #${data.id.substring(0, 8).toUpperCase()}`, 135, 33, { align: 'right' });
+  doc.text(`VENCIMENTO: ${format(new Date(data.dueDate), 'dd/MM/yyyy')}`, 192, 28, { align: 'right' });
+  doc.text(`NÚMERO: #${data.id.substring(0, 8).toUpperCase()}`, 192, 33, { align: 'right' });
 
   // Spacer
   let currentY = 50;
@@ -280,8 +338,8 @@ export const generateBoletoPDF = async (data: BoletoData) => {
 };
 
 export const boletoService = {
-  // Keep same method interface to prevent compilation/import errors downstream
-  async generateForPayment(payment: any, tenant: any, property: any) {
+  // Keep same method interface with optional beneficiary parameter to support customization
+  async generateForPayment(payment: any, tenant: any, property: any, beneficiary?: any) {
     const fallbackTitle = 'Aluguel Mensal';
     const data: BoletoData = {
       id: payment.id,
@@ -291,12 +349,16 @@ export const boletoService = {
       amount: payment.amount,
       dueDate: payment.dueDate,
       barcode: payment.id, // Reused fields
-      digitableLine: generatePixCode(payment.amount, payment.id, tenant.name),
+      digitableLine: generatePixCode(payment.amount, payment.id, tenant.name, beneficiary?.pixKey),
       title: payment.title || fallbackTitle,
       penaltyPercent: payment.penaltyPercent !== undefined ? payment.penaltyPercent : 10,
       interestPercent: payment.interestPercent !== undefined ? payment.interestPercent : 1,
       discountAmount: payment.discountAmount !== undefined ? payment.discountAmount : 0,
-      instructions: payment.instructions || ''
+      instructions: payment.instructions || '',
+      beneficiaryName: beneficiary?.name,
+      beneficiaryCpfCnpj: beneficiary?.cpfCnpj,
+      beneficiaryEmail: beneficiary?.email,
+      beneficiaryPixKey: beneficiary?.pixKey
     };
     
     await generateBoletoPDF(data);
