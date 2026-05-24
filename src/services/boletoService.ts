@@ -16,6 +16,8 @@ export interface BoletoData {
   penaltyPercent?: number;
   interestPercent?: number;
   discountAmount?: number;
+  discountStartDate?: string;
+  discountEndDate?: string;
   instructions?: string;
   beneficiaryName?: string;
   beneficiaryCpfCnpj?: string;
@@ -112,7 +114,36 @@ export const generateBoletoPDF = async (data: BoletoData) => {
   limitDate.setHours(23, 59, 59, 999);
   const isOverdue = today > limitDate;
 
-  const discount = data.discountAmount || 0;
+  // Determine active discount if today falls within validity period
+  let activeDiscount = 0;
+  if (data.discountAmount && data.discountAmount > 0) {
+    let isDiscountCurrentlyActive = true;
+    
+    if (data.discountStartDate) {
+      const start = new Date(data.discountStartDate);
+      start.setHours(0, 0, 0, 0);
+      if (today < start) {
+        isDiscountCurrentlyActive = false;
+      }
+    }
+    
+    if (data.discountEndDate) {
+      const end = new Date(data.discountEndDate);
+      end.setHours(23, 59, 59, 999);
+      if (today > end) {
+        isDiscountCurrentlyActive = false;
+      }
+    } else {
+      if (today > limitDate) {
+        isDiscountCurrentlyActive = false;
+      }
+    }
+    
+    if (isDiscountCurrentlyActive) {
+      activeDiscount = data.discountAmount;
+    }
+  }
+
   let finalAmount = data.amount;
 
   if (isOverdue) {
@@ -128,8 +159,8 @@ export const generateBoletoPDF = async (data: BoletoData) => {
     
     finalAmount = data.amount + penaltyAmount + totalInterest;
   } else {
-    // Up to the due date, apply spot payment discount
-    finalAmount = Math.max(0, data.amount - discount);
+    // Up to the expiration threshold/due date, apply the active spot payment discount
+    finalAmount = Math.max(0, data.amount - activeDiscount);
   }
 
   const pixCode = generatePixCode(finalAmount, data.id, data.tenantName, data.beneficiaryPixKey);
@@ -274,7 +305,7 @@ export const generateBoletoPDF = async (data: BoletoData) => {
   if (isOverdue) {
     doc.setTextColor(239, 68, 68); // Red color for visual alert
     doc.text('PIX ATUALIZADO: Inclui multa e mora por atraso', 192, currentY + 12, { align: 'right' });
-  } else if (discount === 0) {
+  } else if (activeDiscount === 0) {
     doc.setTextColor(71, 85, 105);
     doc.text('Valor nominal sem acréscimos ou descontos adicionais', 192, currentY + 12, { align: 'right' });
   }
@@ -399,6 +430,28 @@ export const boletoService = {
         const limitDate = new Date(payment.dueDate);
         limitDate.setHours(23, 59, 59, 999);
         const isOverdue = today > limitDate;
+        
+        let activeDiscount = 0;
+        if (payment.discountAmount && payment.discountAmount > 0) {
+          let isDiscountCurrentlyActive = true;
+          if (payment.discountStartDate) {
+            const start = new Date(payment.discountStartDate);
+            start.setHours(0, 0, 0, 0);
+            if (today < start) isDiscountCurrentlyActive = false;
+          }
+          if (payment.discountEndDate) {
+            const end = new Date(payment.discountEndDate);
+            end.setHours(23, 59, 59, 999);
+            if (today > end) isDiscountCurrentlyActive = false;
+          } else {
+            if (today > limitDate) isDiscountCurrentlyActive = false;
+          }
+          
+          if (isDiscountCurrentlyActive) {
+            activeDiscount = payment.discountAmount;
+          }
+        }
+
         if (isOverdue) {
           const timeDiff = today.getTime() - limitDate.getTime();
           const daysPast = Math.ceil(timeDiff / (1000 * 3600 * 24));
@@ -409,13 +462,15 @@ export const boletoService = {
           const totalInterest = dailyInterestVal * daysPast;
           return generatePixCode(payment.amount + penaltyAmount + totalInterest, payment.id, tenant.name, beneficiary?.pixKey);
         } else {
-          return generatePixCode(Math.max(0, payment.amount - (payment.discountAmount || 0)), payment.id, tenant.name, beneficiary?.pixKey);
+          return generatePixCode(Math.max(0, payment.amount - activeDiscount), payment.id, tenant.name, beneficiary?.pixKey);
         }
       })(),
       title: payment.title || fallbackTitle,
       penaltyPercent: payment.penaltyPercent !== undefined ? payment.penaltyPercent : 10,
       interestPercent: payment.interestPercent !== undefined ? payment.interestPercent : 1,
       discountAmount: payment.discountAmount !== undefined ? payment.discountAmount : 0,
+      discountStartDate: payment.discountStartDate,
+      discountEndDate: payment.discountEndDate,
       instructions: payment.instructions || '',
       beneficiaryName: beneficiary?.name,
       beneficiaryCpfCnpj: beneficiary?.cpfCnpj,

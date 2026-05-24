@@ -70,6 +70,8 @@ export interface Payment {
   penaltyPercent?: number;
   interestPercent?: number;
   discountAmount?: number;
+  discountStartDate?: string;
+  discountEndDate?: string;
   instructions?: string;
 }
 

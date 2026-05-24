@@ -86,15 +86,47 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
   };
 
   const getPaymentCalculationDetails = (payment: Payment) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const limitDate = new Date(payment.dueDate);
     limitDate.setHours(23, 59, 59, 999);
-    const isOverdue = payment.status === 'overdue' || new Date() > limitDate;
+    const isOverdue = payment.status === 'overdue' || today > limitDate;
     
-    const discount = payment.discountAmount || 0;
+    let activeDiscount = 0;
+    let isDiscountCurrentlyActive = false;
+    
+    if (payment.discountAmount && payment.discountAmount > 0) {
+      isDiscountCurrentlyActive = true;
+      
+      // Check start date limit
+      if (payment.discountStartDate) {
+        const start = new Date(payment.discountStartDate);
+        start.setHours(0, 0, 0, 0);
+        if (today < start) {
+          isDiscountCurrentlyActive = false;
+        }
+      }
+      
+      // Check end date limit
+      if (payment.discountEndDate) {
+        const end = new Date(payment.discountEndDate);
+        end.setHours(23, 59, 59, 999);
+        if (today > end) {
+          isDiscountCurrentlyActive = false;
+        }
+      } else {
+        // Fallback to dueDate
+        if (today > limitDate) {
+          isDiscountCurrentlyActive = false;
+        }
+      }
+      
+      if (isDiscountCurrentlyActive) {
+        activeDiscount = payment.discountAmount;
+      }
+    }
     
     if (isOverdue) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const timeDiff = today.getTime() - limitDate.getTime();
       const daysPast = Math.max(0, Math.ceil(timeDiff / (1000 * 3600 * 24)));
       const penaltyPercent = payment.penaltyPercent !== undefined ? payment.penaltyPercent : 10;
@@ -116,17 +148,35 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
               `Juros de Mora (${daysPast} dias): ${totalInterest.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
       };
     } else {
-      const finalVal = Math.max(0, payment.amount - discount);
+      const finalVal = Math.max(0, payment.amount - activeDiscount);
+      
+      // Create detailed description about discount validity
+      let discountText = 'Valor nominal sem descontos';
+      if (payment.discountAmount && payment.discountAmount > 0) {
+        if (isDiscountCurrentlyActive) {
+          discountText = `Desconto de Pontualidade Ativo: ${activeDiscount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+          if (payment.discountEndDate) {
+            const formattedEnd = new Date(payment.discountEndDate).toLocaleDateString('pt-BR');
+            discountText += ` (Válido até ${formattedEnd})`;
+          }
+        } else {
+          if (payment.discountStartDate && today < new Date(payment.discountStartDate)) {
+            const formattedStart = new Date(payment.discountStartDate).toLocaleDateString('pt-BR');
+            discountText = `Desconto programado para iniciar em ${formattedStart}`;
+          } else {
+            discountText = 'Período de desconto expirado. Valor nominal devido.';
+          }
+        }
+      }
+      
       return {
         isOverdue: false,
         finalAmount: finalVal,
-        discount,
+        discount: activeDiscount,
         penaltyAmount: 0,
         totalInterest: 0,
         daysPast: 0,
-        text: discount > 0 
-          ? `Desconto de Pontualidade: ${discount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
-          : 'Valor nominal sem descontos'
+        text: discountText
       };
     }
   };
