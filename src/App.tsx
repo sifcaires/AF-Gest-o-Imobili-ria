@@ -163,6 +163,11 @@ export default function App() {
     .filter(p => p.status === 'rented')
     .reduce((acc, curr) => acc + curr.rentAmount, 0);
 
+  const rentedPropertiesCount = properties.filter(p => p.status === 'rented').length;
+  const occupancyRate = properties.length > 0
+    ? Math.round((rentedPropertiesCount / properties.length) * 100)
+    : 0;
+
   const pendingPaymentsCount = payments.filter(p => p.status === 'pending').length;
   const overduePaymentsCount = payments.filter(p => p.status === 'overdue').length;
 
@@ -174,6 +179,7 @@ export default function App() {
           stats={{
             income: totalMonthlyIncome,
             propertiesCount: properties.length,
+            occupancyRate,
             tenantsCount: tenants.length,
             pendingPayments: pendingPaymentsCount,
             overduePayments: overduePaymentsCount
@@ -214,6 +220,7 @@ export default function App() {
           properties={properties} 
           tenants={tenants} 
           payments={payments}
+          landlords={landlords}
           onEdit={(contract) => {
             setEditingItem(contract);
             setActiveForm('contract');
@@ -276,7 +283,7 @@ export default function App() {
       default:
         return <DashboardView 
           userName={user?.displayName || 'Gestor'}
-          stats={{ income: 0, propertiesCount: 0, tenantsCount: 0, pendingPayments: 0, overduePayments: 0 }} 
+          stats={{ income: 0, propertiesCount: 0, occupancyRate: 0, tenantsCount: 0, pendingPayments: 0, overduePayments: 0 }} 
           recentPayments={[]} 
           chartData={chartData}
         />;
@@ -541,78 +548,88 @@ export default function App() {
                         </Button>
                       </div>
                     ) : activeForm === 'property' ? (
-                      <PropertyForm 
-                        initialData={editingItem} 
-                        landlords={landlords}
-                        onSubmit={editingItem ? async (data) => {
-                          await updateProperty(editingItem.id, data);
-                          setIsRegistryOpen(false);
-                          setEditingItem(null);
-                        } : async (data) => {
-                          await addProperty(data);
-                          setIsRegistryOpen(false);
-                        }} 
-                        isLoading={isOperating} 
-                      />
+                      <div key={editingItem?.id || 'new'}>
+                        <PropertyForm 
+                          initialData={editingItem} 
+                          landlords={landlords}
+                          onSubmit={editingItem ? async (data) => {
+                            await updateProperty(editingItem.id, data);
+                            setIsRegistryOpen(false);
+                            setEditingItem(null);
+                          } : async (data) => {
+                            await addProperty(data);
+                            setIsRegistryOpen(false);
+                          }} 
+                          isLoading={isOperating} 
+                        />
+                      </div>
                     ) : activeForm === 'tenant' ? (
-                      <TenantForm 
-                        initialData={editingItem} 
-                        onSubmit={editingItem ? async (data) => {
-                          await updateTenant(editingItem.id, data);
-                          setIsRegistryOpen(false);
-                          setEditingItem(null);
-                        } : async (data) => {
-                          await addTenant(data);
-                          setIsRegistryOpen(false);
-                        }} 
-                        isLoading={isOperating} 
-                      />
+                      <div key={editingItem?.id || 'new'}>
+                        <TenantForm 
+                          initialData={editingItem} 
+                          onSubmit={editingItem ? async (data) => {
+                            await updateTenant(editingItem.id, data);
+                            setIsRegistryOpen(false);
+                            setEditingItem(null);
+                          } : async (data) => {
+                            await addTenant(data);
+                            setIsRegistryOpen(false);
+                          }} 
+                          isLoading={isOperating} 
+                        />
+                      </div>
                     ) : activeForm === 'contract' ? (
-                      <ContractForm 
-                        initialData={editingItem} 
-                        properties={properties} 
-                        tenants={tenants} 
-                        landlords={landlords}
-                        users={users}
-                        onSubmit={editingItem ? async (data) => {
-                          await updateContract(editingItem.id, data);
-                          setIsRegistryOpen(false);
-                          setEditingItem(null);
-                        } : async (data) => {
-                          await addContract(data);
-                          setIsRegistryOpen(false);
-                        }} 
-                        isLoading={isOperating} 
-                      />
+                      <div key={editingItem?.id || 'new'}>
+                        <ContractForm 
+                          initialData={editingItem} 
+                          properties={properties} 
+                          tenants={tenants} 
+                          landlords={landlords}
+                          users={users}
+                          onSubmit={editingItem ? async (data) => {
+                            await updateContract(editingItem.id, data);
+                            setIsRegistryOpen(false);
+                            setEditingItem(null);
+                          } : async (data) => {
+                            await addContract(data);
+                            setIsRegistryOpen(false);
+                          }} 
+                          isLoading={isOperating} 
+                        />
+                      </div>
                     ) : activeForm === 'payment' ? (
-                      <PaymentForm 
-                        initialData={editingItem} 
-                        contracts={contracts} 
-                        tenants={tenants} 
-                        properties={properties} 
-                        onSubmit={editingItem ? async (data) => {
-                          await updatePayment(editingItem.id, data);
-                          setIsRegistryOpen(false);
-                          setEditingItem(null);
-                        } : async (data) => {
-                          await addPayment(data);
-                          setIsRegistryOpen(false);
-                        }} 
-                        isLoading={isOperating} 
-                      />
+                      <div key={editingItem?.id || 'new'}>
+                        <PaymentForm 
+                          initialData={editingItem} 
+                          contracts={contracts} 
+                          tenants={tenants} 
+                          properties={properties} 
+                          onSubmit={editingItem ? async (data) => {
+                            await updatePayment(editingItem.id, data);
+                            setIsRegistryOpen(false);
+                            setEditingItem(null);
+                          } : async (data) => {
+                            await addPayment(data);
+                            setIsRegistryOpen(false);
+                          }} 
+                          isLoading={isOperating} 
+                        />
+                      </div>
                     ) : activeForm === 'landlord' ? (
-                      <LandlordForm 
-                        initialData={editingItem} 
-                        onSubmit={(editingItem && editingItem.id) ? async (data) => {
-                          await updateLandlord(editingItem.id, data);
-                          setIsRegistryOpen(false);
-                          setEditingItem(null);
-                        } : async (data) => {
-                          await addLandlord(data);
-                          setIsRegistryOpen(false);
-                        }} 
-                        isLoading={isOperating} 
-                      />
+                      <div key={editingItem?.id || 'new'}>
+                        <LandlordForm 
+                          initialData={editingItem} 
+                          onSubmit={(editingItem && editingItem.id) ? async (data) => {
+                            await updateLandlord(editingItem.id, data);
+                            setIsRegistryOpen(false);
+                            setEditingItem(null);
+                          } : async (data) => {
+                            await addLandlord(data);
+                            setIsRegistryOpen(false);
+                          }} 
+                          isLoading={isOperating} 
+                        />
+                      </div>
                     ) : null}
                   </div>
                 </DialogContent>

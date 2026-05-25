@@ -90,6 +90,30 @@ export function PaymentForm({ contracts, tenants, properties, onSubmit, isLoadin
               </SelectContent>
             </Select>
           </div>
+          {/* Apresentar o nome do inquilino + o título do imóvel */}
+          {formData.contractId && (() => {
+            const selectedContract = contracts.find(c => c.id === formData.contractId);
+            const selectedTenant = selectedContract ? tenants.find(t => t.id === selectedContract.tenantId) : null;
+            const selectedProperty = selectedContract ? properties.find(p => p.id === selectedContract.propertyId) : null;
+            if (!selectedTenant && !selectedProperty) return null;
+            return (
+              <div className="mt-2 text-xs text-slate-300 font-medium flex flex-col gap-1.5 bg-white/5 border border-white/10 px-3 py-2.5 rounded-xl">
+                {selectedTenant && (
+                  <div className="flex items-center gap-1.5 border-b border-white/5 pb-1.5 last:border-0 last:pb-0">
+                    <span className="font-bold uppercase text-[9px] tracking-wider text-indigo-450 text-indigo-400">Inquilino:</span>
+                    <span className="font-bold text-white text-sm">{selectedTenant.name}</span>
+                  </div>
+                )}
+                {selectedProperty && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold uppercase text-[9px] tracking-wider text-emerald-400">Imóvel:</span>
+                    <span className="font-semibold text-white/90">{selectedProperty.title}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
         </div>
 
         {/* Título do Boleto/Cobrança */}
@@ -239,7 +263,11 @@ export function PaymentForm({ contracts, tenants, properties, onSubmit, isLoadin
                 onValueChange={(val) => setFormData({ ...formData, status: val as any })}
               >
                 <SelectTrigger id="status" className="border-white/10 bg-white/5 text-white h-10 pl-10 rounded-xl focus:ring-indigo-500/50">
-                  <SelectValue placeholder="Status" />
+                  <SelectValue placeholder="Status">
+                    {formData.status === 'pending' ? 'Pendente (Normal)' :
+                     formData.status === 'paid' ? 'Pago (Baixado no Servidor)' :
+                     formData.status === 'overdue' ? 'Atrasado / Inadimplente' : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="frosted border-white/10 text-white bg-slate-900">
                   <SelectItem value="pending" className="hover:bg-white/10">Pendente (Normal)</SelectItem>

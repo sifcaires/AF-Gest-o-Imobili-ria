@@ -26,7 +26,7 @@ import {
   CartesianGrid,
   Cell 
 } from 'recharts';
-import { Contract, Property, Tenant, Payment } from '../../types';
+import { Contract, Property, Tenant, Payment, Landlord } from '../../types';
 import { viewDocumentSecurely, getSafeDocumentUrl } from '../../lib/documentViewer';
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -52,11 +52,12 @@ interface ContractsViewProps {
   properties: Property[];
   tenants: Tenant[];
   payments: Payment[];
+  landlords?: Landlord[];
   onEdit: (c: Contract) => void;
   onDelete: (id: string) => void;
 }
 
-export function ContractsView({ contracts, properties, tenants, payments, onEdit, onDelete }: ContractsViewProps) {
+export function ContractsView({ contracts, properties, tenants, payments, landlords = [], onEdit, onDelete }: ContractsViewProps) {
   const [expandedContractId, setExpandedContractId] = React.useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
@@ -113,11 +114,16 @@ export function ContractsView({ contracts, properties, tenants, payments, onEdit
                     <CardHeader className="p-10 pb-6 flex flex-row items-center justify-between">
                       <div>
                         <Badge className="bg-slate-100 dark:bg-white/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 font-bold uppercase tracking-widest text-[9px] mb-4 shadow-sm px-3">Status: Ativo</Badge>
-                        <CardTitle className="text-3xl font-bold text-slate-800 dark:text-white serif italic tracking-tight">Acordo #{contract.id}</CardTitle>
+                        {property && (
+                          <div className="text-[15px] font-sans font-normal text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1.5">
+                            Locador: {landlords.find(l => l.id === property.landlordId)?.name || 'Não informado'}
+                          </div>
+                        )}
+                        <CardTitle className="text-[15px] font-normal text-slate-800 dark:text-white serif italic tracking-tight">Acordo #{contract.id}</CardTitle>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right text-[15px] font-normal text-slate-500">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Taxa de Locação</p>
-                        <p className="text-4xl font-bold text-slate-800 dark:text-white font-mono tracking-tighter">
+                        <p className="text-[25px] font-bold text-slate-800 dark:text-white font-mono tracking-tighter">
                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(contract.rentAmount)}
                         </p>
                       </div>
@@ -148,7 +154,7 @@ export function ContractsView({ contracts, properties, tenants, payments, onEdit
                           <div className="flex items-center gap-3">
                             <Badge variant="outline" className="font-mono text-xs bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10">{new Date(contract.startDate).toLocaleDateString()}</Badge>
                             <span className="text-slate-500 font-bold tracking-tighter">···</span>
-                            <Badge variant="outline" className="font-mono text-xs bg-slate-100 dark:bg-white/5 text-slate-705 dark:text-slate-300 border-slate-200 dark:border-white/10">{new Date(contract.endDate).toLocaleDateString()}</Badge>
+                            <Badge variant="outline" className="font-mono text-xs bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10">{new Date(contract.endDate).toLocaleDateString()}</Badge>
                           </div>
                           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-2 font-semibold">Pagamento Mensal: DIA {contract.dayOfPayment}</p>
                         </div>

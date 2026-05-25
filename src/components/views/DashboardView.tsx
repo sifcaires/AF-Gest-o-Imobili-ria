@@ -63,7 +63,7 @@ export function DashboardView({ userName, stats, recentPayments, chartData }: Da
         <StatCard 
           title="Imóveis Ativos" 
           value={stats.propertiesCount} 
-          subValue="85% Taxa de ocupação" 
+          subValue={`${stats.occupancyRate !== undefined ? stats.occupancyRate : 85}% Taxa de ocupação`} 
           icon={<Building2 className="h-4 w-4" />}
           color="purple"
         />

@@ -113,36 +113,40 @@ export function PropertiesView({
                 <p className="text-xs text-slate-400 font-medium leading-relaxed italic line-clamp-2 mb-2">{property.description}</p>
                 
                 {/* Taxas Adicionais */}
-                {(property.condoAmount || property.iptuAmount) ? (
-                  <div className="grid grid-cols-2 gap-1.5 mb-2.5 border-t border-b border-white/5 py-2">
-                    {property.condoAmount && property.condoAmount > 0 ? (
-                      <div>
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Condomínio</p>
-                        <p className="text-xs font-bold text-slate-300 font-mono mt-0.5">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.condoAmount)}
-                        </p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Condomínio</p>
-                        <p className="text-xs font-semibold text-slate-500 mt-0.5">Incluso</p>
-                      </div>
-                    )}
-                    {property.iptuAmount && property.iptuAmount > 0 ? (
-                      <div>
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">IPTU Mensal</p>
-                        <p className="text-xs font-bold text-slate-300 font-mono mt-0.5">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.iptuAmount)}
-                        </p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">IPTU Mensal</p>
-                        <p className="text-xs font-semibold text-slate-500 mt-0.5">Incluso / Isento</p>
-                      </div>
-                    )}
+                <div className="grid grid-cols-3 gap-1.5 mb-2.5 border-t border-b border-white/5 py-2">
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Aluguel</p>
+                    <p className="text-xs font-bold text-slate-300 font-mono mt-0.5">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.rentAmount)}
+                    </p>
                   </div>
-                ) : null}
+                  {property.condoAmount && property.condoAmount > 0 ? (
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Condomínio</p>
+                      <p className="text-xs font-bold text-slate-300 font-mono mt-0.5">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.condoAmount)}
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Condomínio</p>
+                      <p className="text-xs font-semibold text-slate-500 mt-0.5">Incluso</p>
+                    </div>
+                  )}
+                  {property.iptuAmount && property.iptuAmount > 0 ? (
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">IPTU Mensal</p>
+                      <p className="text-xs font-bold text-slate-300 font-mono mt-0.5">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(property.iptuAmount)}
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">IPTU Mensal</p>
+                      <p className="text-xs font-semibold text-slate-500 mt-0.5">Incluso / Isento</p>
+                    </div>
+                  )}
+                </div>
 
                 {/* Exigências / Garantias */}
                 {(property.requiresGuarantor || property.requiresDeposit) ? (

@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +27,24 @@ export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: Pr
     requiresDeposit: initialData?.requiresDeposit || false,
   });
 
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        title: initialData.title || '',
+        description: initialData.description || '',
+        address: initialData.address || '',
+        rentAmount: initialData.rentAmount || 0,
+        status: initialData.status || 'available',
+        landlordId: initialData.landlordId || '',
+        imageUrl: initialData.imageUrl || 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&q=80&w=800',
+        iptuAmount: initialData.iptuAmount || 0,
+        condoAmount: initialData.condoAmount || 0,
+        requiresGuarantor: !!initialData.requiresGuarantor,
+        requiresDeposit: !!initialData.requiresDeposit,
+      });
+    }
+  }, [initialData]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     await onSubmit(formData);
@@ -44,7 +62,9 @@ export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: Pr
             required
           >
             <SelectTrigger className="border-white/10 bg-white/5 text-white h-10 rounded-xl w-[285.238px]">
-              <SelectValue placeholder="Selecione o proprietário" />
+              <SelectValue placeholder="Selecione o proprietário">
+                {landlords.find(l => l.id === formData.landlordId || l.ownerId === formData.landlordId)?.name || (formData.landlordId && landlords.length > 0 ? "Locador não encontrado" : undefined)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent className="bg-[#1e293b] border-white/10 text-white rounded-xl">
               {landlords.map((landlord) => (
@@ -65,7 +85,9 @@ export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: Pr
             onValueChange={(value: 'available' | 'rented') => setFormData({ ...formData, status: value })}
           >
             <SelectTrigger className="border-white/10 bg-white/5 text-white rounded-xl w-[119.32px] h-[47.9936px] mr-0 mb-0 mt-0 ml-[75px] pt-[9px] pb-[10px] pl-[10px] pr-[9px]">
-              <SelectValue placeholder="Selecione" />
+              <SelectValue placeholder="Selecione">
+                {formData.status === 'available' ? 'Disponível' : formData.status === 'rented' ? 'Locado' : undefined}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent className="bg-[#1e293b] border-white/10 text-white rounded-xl">
               <SelectItem value="available">Disponível</SelectItem>

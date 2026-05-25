@@ -114,7 +114,9 @@ export function ContractForm({ properties, tenants, landlords, users = [], onSub
             onValueChange={handlePropertyChange}
           >
             <SelectTrigger className="border-white/10 bg-white/5 text-white h-12 rounded-xl">
-              <SelectValue placeholder="Selecione o imóvel" />
+              <SelectValue placeholder="Selecione o imóvel">
+                {properties.find(p => p.id === formData.propertyId)?.title || (formData.propertyId && properties.length > 0 ? "Imóvel não encontrado" : undefined)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent className="bg-[#1e293b] border-white/10 text-white rounded-xl">
               {properties
@@ -133,7 +135,9 @@ export function ContractForm({ properties, tenants, landlords, users = [], onSub
             onValueChange={(value) => setFormData({ ...formData, tenantId: value })}
           >
             <SelectTrigger className="border-white/10 bg-white/5 text-white h-12 rounded-xl">
-              <SelectValue placeholder="Selecione o inquilino" />
+              <SelectValue placeholder="Selecione o inquilino">
+                {tenants.find(t => t.id === formData.tenantId)?.name || (formData.tenantId && tenants.length > 0 ? "Inquilino não encontrado" : undefined)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent className="bg-[#1e293b] border-white/10 text-white rounded-xl">
               {tenants.map(tenant => (
@@ -152,7 +156,24 @@ export function ContractForm({ properties, tenants, landlords, users = [], onSub
           required
         >
           <SelectTrigger className="border-white/10 bg-white/5 text-white h-12 rounded-xl pl-[17px] pt-[5px] pr-[90px]">
-            <SelectValue placeholder="Selecione o beneficiário" />
+            <SelectValue placeholder="Selecione o beneficiário">
+              {(() => {
+                if (!formData.beneficiaryId) return undefined;
+                const landlord = landlords.find(l => l.id === formData.beneficiaryId || l.ownerId === formData.beneficiaryId);
+                if (landlord) return landlord.name;
+                
+                const selectedProperty = properties.find(p => p.id === formData.propertyId);
+                const propertyOwner = selectedProperty ? landlords.find(l => l.id === selectedProperty.landlordId) : null;
+                const creatorId = propertyOwner?.ownerId || selectedProperty?.ownerId;
+                
+                if (creatorId && formData.beneficiaryId === creatorId) {
+                  const masterUser = users?.find(u => u.uid === creatorId || u.id === creatorId);
+                  return masterUser ? (masterUser.displayName || masterUser.email) : 'Locador Master';
+                }
+                
+                return landlords.length > 0 ? "Beneficiário não encontrado" : undefined;
+              })()}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent className="bg-[#1e293b] border-white/10 text-white rounded-xl">
             {(() => {
