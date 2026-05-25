@@ -416,8 +416,6 @@ export function useRealEstateData(user: any) {
       return;
     }
 
-    if (!window.confirm('Tem certeza de que deseja remover este usuário?')) return;
-
     setIsOperating(true);
     try {
       await deleteDoc(doc(db, 'users', uid));

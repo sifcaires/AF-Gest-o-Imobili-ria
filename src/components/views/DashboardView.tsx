@@ -31,7 +31,7 @@ import { Payment } from '../../types';
 interface DashboardViewProps {
   userName: string;
   stats: any;
-  recentPayments: Payment[];
+  recentPayments: (Payment & { tenantName?: string })[];
   chartData: any[];
 }
 
@@ -159,7 +159,9 @@ export function DashboardView({ userName, stats, recentPayments, chartData }: Da
                       {payment.status === 'paid' ? <CheckCircle2 className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-800 dark:text-white tracking-tight truncate">Boleto #{payment.id}</p>
+                      <p className="text-xs font-bold text-slate-800 dark:text-white tracking-tight truncate">
+                        {payment.tenantName || `Boleto #${payment.id}`}
+                      </p>
                       <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Vence em: {new Date(payment.dueDate).toLocaleDateString()}</p>
                     </div>
                   </div>

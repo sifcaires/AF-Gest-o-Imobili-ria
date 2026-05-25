@@ -9,6 +9,7 @@ export interface Landlord {
   address?: string;
   documentUrl?: string;
   documentUrls?: string[];
+  registeredBy?: string;
 }
 
 export interface Property {
@@ -25,6 +26,7 @@ export interface Property {
   condoAmount?: number;
   requiresGuarantor?: boolean;
   requiresDeposit?: boolean;
+  requiresInsurance?: boolean;
 }
 
 export interface Tenant {
@@ -38,6 +40,7 @@ export interface Tenant {
   birthDate?: string;
   profession?: string;
   monthlyIncome?: number;
+  address?: string;
 }
 
 export interface Contract {

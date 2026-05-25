@@ -25,6 +25,7 @@ export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: Pr
     condoAmount: initialData?.condoAmount || 0,
     requiresGuarantor: initialData?.requiresGuarantor || false,
     requiresDeposit: initialData?.requiresDeposit || false,
+    requiresInsurance: initialData?.requiresInsurance || false,
   });
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: Pr
         condoAmount: initialData.condoAmount || 0,
         requiresGuarantor: !!initialData.requiresGuarantor,
         requiresDeposit: !!initialData.requiresDeposit,
+        requiresInsurance: !!initialData.requiresInsurance,
       });
     }
   }, [initialData]);
@@ -164,7 +166,7 @@ export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: Pr
       {/* Garantias Exigidas para Locação */}
       <div className="space-y-1 mb-1">
         <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Garantias Exigidas</Label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <label className="flex items-center gap-2.5 p-2 rounded-xl border border-white/10 bg-white/5 cursor-pointer select-none transition-colors hover:bg-white/10">
             <input 
               type="checkbox"
@@ -188,6 +190,19 @@ export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: Pr
             <div className="flex flex-col">
               <span className="text-xs font-bold text-white leading-tight">Exige Caução</span>
               <span className="text-[9px] text-slate-400 leading-none">Depósito caução</span>
+            </div>
+          </label>
+
+          <label className="flex items-center gap-2.5 p-2 rounded-xl border border-white/10 bg-white/5 cursor-pointer select-none transition-colors hover:bg-white/10">
+            <input 
+              type="checkbox"
+              checked={formData.requiresInsurance}
+              onChange={(e) => setFormData({ ...formData, requiresInsurance: e.target.checked })}
+              className="h-4 w-4 rounded border-white/10 bg-white/5 text-indigo-600 focus:ring-indigo-500/50 accent-indigo-600"
+            />
+            <div className="flex flex-col">
+              <span className="text-xs font-bold text-white leading-tight">Exige Seguro</span>
+              <span className="text-[9px] text-slate-400 leading-none">Seguro fiança</span>
             </div>
           </label>
         </div>

@@ -23,9 +23,10 @@ interface LandlordFormProps {
   initialData?: Partial<Landlord>;
   onSubmit: (data: Omit<Landlord, 'id'>) => Promise<void>;
   isLoading?: boolean;
+  currentUserName?: string;
 }
 
-export function LandlordForm({ initialData, onSubmit, isLoading }: LandlordFormProps) {
+export function LandlordForm({ initialData, onSubmit, isLoading, currentUserName }: LandlordFormProps) {
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     email: initialData?.email || '',
@@ -35,6 +36,7 @@ export function LandlordForm({ initialData, onSubmit, isLoading }: LandlordFormP
     address: initialData?.address || '',
     documentUrl: initialData?.documentUrl || '',
     documentUrls: initialData?.documentUrls || (initialData?.documentUrl ? [initialData.documentUrl] : []),
+    registeredBy: initialData?.registeredBy || currentUserName || '',
   });
   const [files, setFiles] = useState<File[]>([]);
 
@@ -138,6 +140,21 @@ export function LandlordForm({ initialData, onSubmit, isLoading }: LandlordFormP
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="border-white/10 bg-white/5 text-white h-11 pl-10 rounded-xl focus:ring-indigo-500/50"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="registeredBy" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Cadastrado por</Label>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-400" />
+            <Input
+              id="registeredBy"
+              type="text"
+              readOnly
+              disabled
+              value={formData.registeredBy || 'Locador Master'}
+              className="border-white/10 bg-white/5 opacity-80 text-white/70 h-11 pl-10 rounded-xl cursor-not-allowed select-none"
             />
           </div>
         </div>

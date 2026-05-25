@@ -149,16 +149,21 @@ export function PropertiesView({
                 </div>
 
                 {/* Exigências / Garantias */}
-                {(property.requiresGuarantor || property.requiresDeposit) ? (
-                  <div className="flex flex-wrap gap-1 mb-2.5">
+                {(property.requiresGuarantor || property.requiresDeposit || property.requiresInsurance) ? (
+                  <div className="flex w-full gap-1.5 mb-2.5">
                     {property.requiresGuarantor && (
-                      <Badge variant="outline" className="border-indigo-500/20 bg-indigo-500/5 text-indigo-300 text-[9px] uppercase font-bold py-0.5 px-1.5 rounded-lg gap-1">
+                      <Badge variant="outline" className="flex-1 w-full justify-center text-center border-indigo-500/20 bg-indigo-500/5 text-indigo-300 text-[9px] uppercase font-bold py-1 px-1.5 rounded-lg gap-1">
                         <span>🛡️ Fiador</span>
                       </Badge>
                     )}
                     {property.requiresDeposit && (
-                      <Badge variant="outline" className="border-amber-500/20 bg-amber-500/5 text-amber-300 text-[9px] uppercase font-bold py-0.5 px-1.5 rounded-lg gap-1">
+                      <Badge variant="outline" className="flex-1 w-full justify-center text-center border-amber-500/20 bg-amber-500/5 text-amber-300 text-[9px] uppercase font-bold py-1 px-1.5 rounded-lg gap-1">
                         <span>💵 Caução</span>
+                      </Badge>
+                    )}
+                    {property.requiresInsurance && (
+                      <Badge variant="outline" className="flex-1 w-full justify-center text-center border-purple-500/20 bg-purple-500/5 text-purple-300 text-[9px] uppercase font-bold py-1 px-1.5 rounded-lg gap-1">
+                        <span>🛡️ Seguro</span>
                       </Badge>
                     )}
                   </div>

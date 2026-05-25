@@ -149,6 +149,11 @@ export function LandlordsView({ user, landlords, users, searchTerm, setSearchTer
                     <div>
                       <p className="font-bold text-white tracking-tight text-lg">{landlord.name}</p>
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest max-w-[200px] truncate">{landlord.address || 'Endereço não informado'}</p>
+                      {landlord.registeredBy && (
+                        <p className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest mt-1">
+                          👤 Cadastrado por: {landlord.registeredBy}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </TableCell>

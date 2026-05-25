@@ -9,7 +9,8 @@ import {
   IdCard, 
   Briefcase, 
   DollarSign, 
-  Calendar as CalendarIcon 
+  Calendar as CalendarIcon,
+  MapPin
 } from 'lucide-react';
 import { Tenant } from '../types';
 import { maskCPF, maskPhone } from '../lib/masks';
@@ -30,6 +31,7 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
     birthDate: initialData?.birthDate || '',
     profession: initialData?.profession || '',
     monthlyIncome: initialData?.monthlyIncome || 0,
+    address: initialData?.address || '',
   });
 
   const handleSubmit = async (e: FormEvent) => {
@@ -40,18 +42,34 @@ export function TenantForm({ initialData, onSubmit, isLoading }: TenantFormProps
   return (
     <form onSubmit={handleSubmit} className="space-y-6 py-4">
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="name" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Nome Completo</Label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-            <Input
-              id="name"
-              placeholder="Ex: João da Silva"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-              className="border-white/10 bg-white/5 text-white h-12 pl-10 rounded-xl focus:ring-indigo-500/50"
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2 pl-0 pt-0 ml-0 mt-0 mr-[83px]">
+            <Label htmlFor="name" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Nome Completo</Label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <Input
+                id="name"
+                placeholder="Ex: João da Silva"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                className="border-white/10 bg-white/5 text-white h-12 pl-10 rounded-xl focus:ring-indigo-500/50"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 ml-[-88px]">
+            <Label htmlFor="address" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Endereço</Label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <Input
+                id="address"
+                placeholder="Rua, Número, Bairro, Cidade - UF"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="border-white/10 bg-white/5 text-white h-12 pl-10 rounded-xl focus:ring-indigo-500/50"
+              />
+            </div>
           </div>
         </div>
 

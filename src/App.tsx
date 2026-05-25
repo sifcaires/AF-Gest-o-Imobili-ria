@@ -96,16 +96,16 @@ const chartData = [
 ];
 
 export default function App() {
-  const { user, loading: authLoading, signInWithGoogle, signInWithEmail, signUpWithEmail, logout, authError, updateUserProfile, updateEmail, appLogo } = useFirebase();
+  const { user, loading: authLoading, signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, logout, authError, updateUserProfile, updateEmail, appLogo } = useFirebase();
   const { theme, toggleTheme } = useTheme();
   const [activeView, setActiveView] = useState<View>('dashboard');
-  const [authMode, setAuthMode] = useState<'login' | 'register' | 'admin'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'admin' | 'forgot'>('login');
   const [authData, setAuthData] = useState({ email: '', password: '', name: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [isRegistryOpen, setIsRegistryOpen] = useState(false);
   const [activeForm, setActiveForm] = useState<'none' | 'property' | 'tenant' | 'contract' | 'payment' | 'landlord'>('none');
   const [editingItem, setEditingItem] = useState<any | null>(null);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'property' | 'tenant' | 'contract' | 'payment' | 'landlord' } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'property' | 'tenant' | 'contract' | 'payment' | 'landlord' | 'user' } | null>(null);
   const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
@@ -150,6 +150,7 @@ export default function App() {
           signInWithGoogle={signInWithGoogle}
           signInWithEmail={signInWithEmail}
           signUpWithEmail={signUpWithEmail}
+          sendPasswordReset={sendPasswordReset}
           authLoading={loading}
           authError={authError}
           appLogo={appLogo}
@@ -184,7 +185,14 @@ export default function App() {
             pendingPayments: pendingPaymentsCount,
             overduePayments: overduePaymentsCount
           }} 
-          recentPayments={payments.slice(0, 5)} 
+          recentPayments={payments.slice(0, 5).map(payment => {
+            const contract = contracts.find(c => c.id === payment.contractId);
+            const tenant = contract ? tenants.find(t => t.id === contract.tenantId) : null;
+            return {
+              ...payment,
+              tenantName: tenant ? tenant.name : undefined
+            };
+          })} 
           chartData={chartData}
         />;
       case 'properties':
@@ -260,6 +268,7 @@ export default function App() {
             setEditingItem({
               name: user.displayName || '',
               email: user.email || '',
+              registeredBy: user.displayName || user.email || 'Locador Master',
             });
             setActiveForm('landlord');
             setIsRegistryOpen(true);
@@ -273,13 +282,14 @@ export default function App() {
             setEditingItem({
               name: user.displayName || '',
               email: user.email || '',
+              registeredBy: user.displayName || user.email || 'Locador Master',
             });
             setActiveForm('landlord');
             setIsRegistryOpen(true);
           }}
         />;
       case 'users':
-        return <UsersView users={users} onUpdateUser={updateUser} onDeleteUser={deleteUser} />;
+        return <UsersView users={users} onUpdateUser={updateUser} onDeleteUser={(uid) => setItemToDelete({ id: uid, type: 'user' })} />;
       default:
         return <DashboardView 
           userName={user?.displayName || 'Gestor'}
@@ -619,6 +629,7 @@ export default function App() {
                       <div key={editingItem?.id || 'new'}>
                         <LandlordForm 
                           initialData={editingItem} 
+                          currentUserName={user?.displayName || user?.email || 'Locador Master'}
                           onSubmit={(editingItem && editingItem.id) ? async (data) => {
                             await updateLandlord(editingItem.id, data);
                             setIsRegistryOpen(false);
@@ -669,13 +680,19 @@ export default function App() {
                 Cancelar
               </Button>
               <Button 
-                onClick={() => {
+                onClick={async () => {
                   if (!itemToDelete) return;
-                  if (itemToDelete.type === 'property') deleteProperty(itemToDelete.id);
-                  if (itemToDelete.type === 'tenant') deleteTenant(itemToDelete.id);
-                  if (itemToDelete.type === 'contract') deleteContract(itemToDelete.id);
-                  if (itemToDelete.type === 'payment') deletePayment(itemToDelete.id);
-                  if (itemToDelete.type === 'landlord') deleteLandlord(itemToDelete.id);
+                  try {
+                    if (itemToDelete.type === 'property') await deleteProperty(itemToDelete.id);
+                    else if (itemToDelete.type === 'tenant') await deleteTenant(itemToDelete.id);
+                    else if (itemToDelete.type === 'contract') await deleteContract(itemToDelete.id);
+                    else if (itemToDelete.type === 'payment') await deletePayment(itemToDelete.id);
+                    else if (itemToDelete.type === 'landlord') await deleteLandlord(itemToDelete.id);
+                    else if (itemToDelete.type === 'user') await deleteUser(itemToDelete.id);
+                    setItemToDelete(null);
+                  } catch (error) {
+                    console.error('[Delete Error]', error);
+                  }
                 }}
                 disabled={isOperating}
                 className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-widest px-6 shadow-lg shadow-rose-900/20"

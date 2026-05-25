@@ -213,12 +213,12 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                             <Pencil className="h-4 w-4 text-indigo-300" />
                           </Button>
                         )}
-                        {onDeleteUser && (
+                        {onDeleteUser && u.role === 'landlord' && (
                           <Button 
                             variant="outline" 
                             onClick={() => onDeleteUser(u.uid)}
                             className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
-                            title="Excluir Usuário"
+                            title="Excluir Locador Master"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

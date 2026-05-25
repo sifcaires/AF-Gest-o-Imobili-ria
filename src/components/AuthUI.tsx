@@ -2,28 +2,26 @@ import React from 'react';
 import { 
   Building2, 
   LogIn, 
-  Search,
   CheckCircle2,
   AlertCircle,
   Eye,
-  EyeOff,
-  Sun,
-  Moon
+  EyeOff
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useTheme } from './ThemeProvider';
+import { toast } from 'sonner';
 
 interface AuthUIProps {
-  authMode: 'login' | 'register' | 'admin';
-  setAuthMode: (mode: 'login' | 'register' | 'admin') => void;
+  authMode: 'login' | 'register' | 'admin' | 'forgot';
+  setAuthMode: (mode: 'login' | 'register' | 'admin' | 'forgot') => void;
   authData: any;
   setAuthData: (data: any) => void;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
   authLoading: boolean;
   authError: any;
   appLogo?: string | null;
@@ -37,16 +35,29 @@ export function AuthUI({
   signInWithGoogle, 
   signInWithEmail, 
   signUpWithEmail, 
+  sendPasswordReset,
   authLoading,
   authError,
   appLogo
 }: AuthUIProps) {
   const [showPassword, setShowPassword] = React.useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const [resetSuccess, setResetSuccess] = React.useState(false);
+  const [resetLoading, setResetLoading] = React.useState(false);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (authMode === 'login' || authMode === 'admin') {
+    if (authMode === 'forgot') {
+      setResetLoading(true);
+      try {
+        await sendPasswordReset(authData.email);
+        setResetSuccess(true);
+        toast.success("E-mail de recuperação enviado com sucesso!");
+      } catch (err) {
+        // Error handling is managed and clean in FirebaseProvider
+      } finally {
+        setResetLoading(false);
+      }
+    } else if (authMode === 'login' || authMode === 'admin') {
       signInWithEmail(authData.email, authData.password);
     } else {
       signUpWithEmail(authData.email, authData.password, authData.name);
@@ -83,10 +94,10 @@ export function AuthUI({
         <Card className="border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-white/5 backdrop-blur-xl shadow-2xl rounded-[32px] overflow-hidden">
           <CardHeader className="pt-8 px-8">
             <CardTitle className="text-xl font-bold text-slate-800 dark:text-white serif italic">
-              {authMode === 'login' ? 'Bem-vindo de volta' : authMode === 'admin' ? 'Acesso Administrativo' : 'Criar Nova Unidade'}
+              {authMode === 'login' ? 'Bem-vindo de volta' : authMode === 'admin' ? 'Acesso Administrativo' : authMode === 'forgot' ? 'Recuperar Senha' : 'Criar Nova Unidade'}
             </CardTitle>
             <CardDescription className="text-slate-500 dark:text-slate-400 font-medium text-xs">
-              {authMode === 'login' ? 'Conecte-se para gerenciar seus ativos.' : authMode === 'admin' ? 'Insira suas credenciais mestras.' : 'Registre sua agência no ecossistema.'}
+              {authMode === 'login' ? 'Conecte-se para gerenciar seus ativos.' : authMode === 'admin' ? 'Insira suas credenciais mestras.' : authMode === 'forgot' ? 'Insira seu email para redefinir sua senha.' : 'Registre sua agência no ecossistema.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-8 pt-4">
@@ -114,31 +125,48 @@ export function AuthUI({
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 ml-1">Senha de Segurança</label>
-                <div className="relative">
-                  <Input 
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••" 
-                    className={`bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-800 dark:text-white h-12 rounded-2xl focus-visible:ring-indigo-500/50 pr-12 ${showPassword ? 'text-sm tracking-normal' : 'text-xl tracking-widest'}`}
-                    value={authData.password}
-                    onChange={(e) => setAuthData({ ...authData, password: e.target.value })}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors p-1"
-                    title={showPassword ? "Ocultar senha" : "Confirmar/Mostrar senha"}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
+              
+              {authMode !== 'forgot' && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center px-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 ml-1">Senha de Segurança</label>
+                    {authMode === 'login' && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setResetSuccess(false);
+                          setAuthMode('forgot');
+                        }}
+                        className="text-[10px] text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-350 transition-colors uppercase font-bold tracking-wider hover:underline cursor-pointer font-sans"
+                      >
+                        Esqueceu?
+                      </button>
                     )}
-                  </button>
+                  </div>
+                  <div className="relative">
+                    <Input 
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••" 
+                      className={`bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-800 dark:text-white h-12 rounded-2xl focus-visible:ring-indigo-500/50 pr-12 ${showPassword ? 'text-sm tracking-normal' : 'text-xl tracking-widest'}`}
+                      value={authData.password}
+                      onChange={(e) => setAuthData({ ...authData, password: e.target.value })}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors p-1 transition-all duration-200"
+                      title={showPassword ? "Ocultar senha" : "Confirmar/Mostrar senha"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {authError && (
                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-500 dark:text-rose-400 text-xs font-bold leading-tight">
@@ -147,42 +175,61 @@ export function AuthUI({
                  </div>
               )}
 
+              {authMode === 'forgot' && resetSuccess && (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 text-emerald-600 dark:text-emerald-400 text-xs font-bold leading-tight">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <p>E-mail de recuperação enviado! Verifique sua caixa de entrada.</p>
+                </div>
+              )}
+
               <Button 
                 type="submit"
-                disabled={authLoading}
-                className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-500/20 transition-all transform active:scale-95 uppercase tracking-widest text-xs cursor-pointer"
+                disabled={authLoading || resetLoading}
+                className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-500/20 transition-all transform active:scale-95 uppercase tracking-widest text-xs cursor-pointer flex items-center justify-center border-none"
               >
-                {authLoading ? (
+                {authLoading || resetLoading ? (
                   <div className="h-5 w-5 border-2 border-white/30 border-t-white animate-spin rounded-full"></div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 justify-center">
                     <LogIn className="h-4 w-4" />
-                    {authMode === 'login' ? 'Conectar à Plataforma' : authMode === 'admin' ? 'Validar Credenciais' : 'Efetuar Cadastro'}
+                    {authMode === 'login' ? 'Conectar à Plataforma' : authMode === 'admin' ? 'Validar Credenciais' : authMode === 'forgot' ? 'Enviar Link de Redefinição' : 'Efetuar Cadastro'}
                   </div>
                 )}
               </Button>
-
-
             </form>
 
             <div className="mt-10 text-center space-y-4">
-              <button 
-                onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 mx-auto cursor-pointer"
-              >
-                {authMode === 'login' ? (
-                  <>Não possui conta? <span className="text-indigo-600 dark:text-indigo-400">Crie agora</span></>
-                ) : (
-                  <>Já possui acesso? <span className="text-indigo-600 dark:text-indigo-400">Faça login</span></>
-                )}
-              </button>
+              {authMode === 'forgot' ? (
+                <button 
+                  onClick={() => {
+                    setResetSuccess(false);
+                    setAuthMode('login');
+                  }}
+                  className="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 mx-auto cursor-pointer"
+                >
+                  Voltar para o <span className="text-indigo-600 dark:text-indigo-400">Login</span>
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+                  className="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 mx-auto cursor-pointer"
+                >
+                  {authMode === 'login' ? (
+                    <>Não possui conta? <span className="text-indigo-600 dark:text-indigo-400">Crie agora</span></>
+                  ) : (
+                    <>Já possui acesso? <span className="text-indigo-600 dark:text-indigo-400">Faça login</span></>
+                  )}
+                </button>
+              )}
               
-              <button 
-                onClick={() => setAuthMode(authMode === 'admin' ? 'login' : 'admin')}
-                className="block mx-auto text-[8px] font-bold text-slate-500 dark:text-slate-600 hover:text-slate-850 dark:hover:text-slate-400 uppercase tracking-widest transition-colors mt-6 cursor-pointer"
-              >
-                {authMode === 'admin' ? 'Voltar para login padrão' : 'Acesso Administrador'}
-              </button>
+              {authMode !== 'forgot' && (
+                <button 
+                  onClick={() => setAuthMode(authMode === 'admin' ? 'login' : 'admin')}
+                  className="block mx-auto text-[8px] font-bold text-slate-500 dark:text-slate-600 hover:text-slate-850 dark:hover:text-slate-400 uppercase tracking-widest transition-colors mt-6 cursor-pointer"
+                >
+                  {authMode === 'admin' ? 'Voltar para login padrão' : 'Acesso Administrador'}
+                </button>
+              )}
             </div>
           </CardContent>
         </Card>

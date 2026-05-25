@@ -149,14 +149,14 @@ export function ContractForm({ properties, tenants, landlords, users = [], onSub
       </div>
 
       <div className="space-y-2">
-        <Label className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Beneficiário</Label>
+        <Label className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Locador</Label>
         <Select 
           value={formData.beneficiaryId} 
           onValueChange={(value) => setFormData({ ...formData, beneficiaryId: value })}
           required
         >
           <SelectTrigger className="border-white/10 bg-white/5 text-white h-12 rounded-xl pl-[17px] pt-[5px] pr-[90px]">
-            <SelectValue placeholder="Selecione o beneficiário">
+            <SelectValue placeholder="Selecione o locador">
               {(() => {
                 if (!formData.beneficiaryId) return undefined;
                 const landlord = landlords.find(l => l.id === formData.beneficiaryId || l.ownerId === formData.beneficiaryId);
@@ -171,44 +171,21 @@ export function ContractForm({ properties, tenants, landlords, users = [], onSub
                   return masterUser ? (masterUser.displayName || masterUser.email) : 'Locador Master';
                 }
                 
-                return landlords.length > 0 ? "Beneficiário não encontrado" : undefined;
+                return landlords.length > 0 ? "Locador não encontrado" : undefined;
               })()}
             </SelectValue>
           </SelectTrigger>
           <SelectContent className="bg-[#1e293b] border-white/10 text-white rounded-xl">
-            {(() => {
-              const selectedProperty = properties.find(p => p.id === formData.propertyId);
-              if (!selectedProperty) {
-                return (
-                  <SelectItem value="none" disabled>
-                    Selecione um imóvel primeiro
-                  </SelectItem>
-                );
-              }
-              const propertyOwner = landlords.find(l => l.id === selectedProperty.landlordId);
-              const creatorId = propertyOwner?.ownerId || selectedProperty?.ownerId;
-              const masterUser = creatorId ? users?.find(u => u.uid === creatorId || u.id === creatorId) : null;
-
-              return (
-                <>
-                  {propertyOwner && (
-                    <SelectItem key={propertyOwner.id} value={propertyOwner.id}>
-                      {propertyOwner.name} (Proprietário)
-                    </SelectItem>
-                  )}
-                  {creatorId && (
-                    <SelectItem key={creatorId} value={creatorId}>
-                      {masterUser ? (masterUser.displayName || masterUser.email) : 'Locador Master'} (Locador Master que Cadastrou)
-                    </SelectItem>
-                  )}
-                  {!propertyOwner && !creatorId && (
-                    <SelectItem value="none" disabled>
-                      Nenhum beneficiário encontrado para este imóvel
-                    </SelectItem>
-                  )}
-                </>
-              );
-            })()}
+            {landlords.map((landlord) => (
+              <SelectItem key={landlord.id} value={landlord.id}>
+                {landlord.name}
+              </SelectItem>
+            ))}
+            {landlords.length === 0 && (
+              <SelectItem value="none" disabled>
+                Nenhum locador cadastrado
+              </SelectItem>
+            )}
           </SelectContent>
         </Select>
       </div>

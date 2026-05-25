@@ -7,7 +7,8 @@ import {
   signOut,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { ref } from 'firebase/storage';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -22,6 +23,7 @@ interface FirebaseContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
   updateEmail: (email: string) => Promise<void>;
   updateUserProfile: (name: string) => Promise<void>;
   updateUserPhoto: (file: File) => Promise<string>;
@@ -144,6 +146,16 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       await updateProfile(userCredential.user, { displayName: name });
     } catch (error: any) {
       handleAuthError(error);
+    }
+  };
+
+  const sendPasswordReset = async (email: string) => {
+    setAuthError(null);
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error: any) {
+      handleAuthError(error);
+      throw error;
     }
   };
 
@@ -302,6 +314,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       signInWithGoogle, 
       signInWithEmail, 
       signUpWithEmail, 
+      sendPasswordReset,
       updateEmail,
       updateUserProfile,
       updateUserPhoto,

@@ -66,6 +66,9 @@ export function TenantsView({ tenants, user, users, onEdit, onDelete }: TenantsV
                     <div className="flex flex-col">
                       <span className="font-bold text-white text-base tracking-tight">{tenant.name}</span>
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{tenant.email}</span>
+                      {tenant.address && (
+                        <span className="text-[10px] text-slate-400 mt-1 max-w-[250px] truncate">📍 {tenant.address}</span>
+                      )}
                     </div>
                   </div>
                 </TableCell>
