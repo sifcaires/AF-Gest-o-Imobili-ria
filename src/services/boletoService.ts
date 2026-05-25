@@ -405,7 +405,7 @@ export const generateBoletoPDF = async (data: BoletoData) => {
   doc.setFontSize(7.5);
   doc.setTextColor(148, 163, 184);
   doc.text('Esta é uma fatura 100% ecológica e segura. Realizada no ecossistema integrado Pix Banco Central do Brasil.', 10, 280);
-  doc.text('AlugaFácil Tecnologia Ltda. Soluções e Relacionamentos Imobiliários e Residenciais S/A.', 10, 284);
+  doc.text('AlugaFácil Tecnologia. Soluções e Relacionamentos Imobiliários.', 10, 284);
   doc.text('PÁGINA 1/1 DE DOCUMENTAÇÃO DE COBRANÇA', 200, 280, { align: 'right' });
 
   // Save Document with customized title reflecting Pix
