@@ -101,6 +101,12 @@ export default function App() {
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'admin' | 'forgot'>('login');
   const [authData, setAuthData] = useState({ email: '', password: '', name: '' });
+  
+  const handleLogout = async () => {
+    setAuthData({ email: '', password: '', name: '' });
+    setAuthMode('login');
+    await logout();
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [isRegistryOpen, setIsRegistryOpen] = useState(false);
   const [activeForm, setActiveForm] = useState<'none' | 'property' | 'tenant' | 'contract' | 'payment' | 'landlord'>('none');
@@ -447,7 +453,7 @@ export default function App() {
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuSeparator className="bg-white/10" />
-                    <DropdownMenuItem onClick={logout} className="text-red-400 hover:bg-red-400/10 focus:bg-red-400/10 cursor-pointer flex items-center gap-2">
+                    <DropdownMenuItem onClick={handleLogout} className="text-red-400 hover:bg-red-400/10 focus:bg-red-400/10 cursor-pointer flex items-center gap-2">
                       <LogOut className="h-4 w-4" />
                       Sair
                     </DropdownMenuItem>
@@ -486,7 +492,7 @@ export default function App() {
                     </Button>
                   }
                 />
-                <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-sm' : 'sm:max-w-2xl'} frosted border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 overflow-hidden max-h-[min(655px,90vh)] md:h-[655px] flex flex-col pl-[7px] pr-[10px] pt-0 pb-0 ml-0 -mt-[21px] mr-0 mb-0 border`}>
+                <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-sm' : 'sm:max-w-2xl'} frosted border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 overflow-hidden ${(activeForm === 'tenant' || activeForm === 'payment') ? 'max-h-[min(780px,95vh)] md:h-[780px]' : 'max-h-[min(655px,90vh)] md:h-[655px]'} flex flex-col pl-[7px] pr-[10px] pt-0 pb-0 ml-0 -mt-[21px] mr-0 mb-0 border`}>
                   <DialogHeader className="h-[93px] pt-4 pb-4 pr-4 pl-[16px] ml-0 -mt-[8px] border-b border-slate-150 dark:border-white/5 flex flex-col justify-center shrink-0">
                     <DialogTitle className="serif text-xl md:text-2xl text-slate-800 dark:text-white">
                       {activeForm === 'none' ? 'Novo Cadastro' : 
