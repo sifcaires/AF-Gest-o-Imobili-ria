@@ -44,6 +44,14 @@ service cloud.firestore {
       allow read, write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
     }
 
+    match /automations/{id} {
+      allow read, write: if isSignedIn() && (id == request.auth.uid || (resource != null && resource.data.ownerId == request.auth.uid) || (request.resource != null && request.resource.data.ownerId == request.auth.uid));
+    }
+
+    match /webhook_logs/{id} {
+      allow read, write: if (resource != null && isOwner(resource.data)) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
+    }
+
     match /users/{userId} {
       allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
       allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();

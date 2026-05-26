@@ -14,7 +14,8 @@ import {
   User,
   LayoutDashboard,
   Sun,
-  Moon
+  Moon,
+  Cpu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
@@ -83,8 +84,9 @@ import { PaymentsView } from './components/views/PaymentsView';
 import { LandlordsView } from './components/views/LandlordsView';
 import { ProfileView } from './components/views/ProfileView';
 import { UsersView } from './components/views/UsersView';
+import { AutomationsView } from './components/views/AutomationsView';
 
-type View = 'dashboard' | 'properties' | 'tenants' | 'contracts' | 'payments' | 'landlords' | 'profile' | 'users';
+type View = 'dashboard' | 'properties' | 'tenants' | 'contracts' | 'payments' | 'landlords' | 'profile' | 'users' | 'automations';
 
 const chartData = [
   { name: 'Jan', total: 15000 },
@@ -296,6 +298,16 @@ export default function App() {
         />;
       case 'users':
         return <UsersView users={users} onUpdateUser={updateUser} onDeleteUser={(uid) => setItemToDelete({ id: uid, type: 'user' })} />;
+      case 'automations':
+        return <AutomationsView
+          user={user}
+          contracts={contracts}
+          payments={payments}
+          tenants={tenants}
+          properties={properties}
+          landlords={landlords}
+          onAddPayment={addPayment}
+        />;
       default:
         return <DashboardView 
           userName={user?.displayName || 'Gestor'}
@@ -413,6 +425,16 @@ export default function App() {
                   >
                     <CreditCard className="mr-3 h-5 w-5" />
                     <span className="font-medium text-sm">Financeiro</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    onClick={() => setActiveView('automations')} 
+                    isActive={activeView === 'automations'}
+                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
+                  >
+                    <Cpu className="mr-3 h-5 w-5" />
+                    <span className="font-medium text-sm">Automações</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

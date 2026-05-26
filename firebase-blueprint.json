@@ -107,6 +107,39 @@
         "updatedBy": { "type": "string" }
       },
       "required": ["logoUrl"]
+    },
+    "AutomationConfig": {
+      "title": "Automation Config",
+      "description": "Tenant invoice emission and webhook delivery rules",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "daysAhead": { "type": "number" },
+        "emailDelivery": { "type": "boolean" },
+        "whatsappDelivery": { "type": "boolean" },
+        "webhookUrl": { "type": "string" },
+        "secretToken": { "type": "string" },
+        "events": { "type": "array" }
+      },
+      "required": ["id", "ownerId", "enabled", "daysAhead", "webhookUrl"]
+    },
+    "WebhookLog": {
+      "title": "Webhook Log",
+      "description": "Record of a webhook event post attempt",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "event": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "payload": { "type": "string" },
+        "url": { "type": "string" },
+        "status": { "type": "string" },
+        "response": { "type": "string" }
+      },
+      "required": ["id", "ownerId", "event", "timestamp", "payload", "url", "status"]
     }
   },
   "firestore": {
@@ -133,6 +166,14 @@
     "settings/{settingId}": {
       "schema": "AppSettings",
       "description": "Global application settings documents"
+    },
+    "automations/{userId}": {
+      "schema": "AutomationConfig",
+      "description": "Automation configuration settings document for each user"
+    },
+    "webhook_logs/{logId}": {
+      "schema": "WebhookLog",
+      "description": "Log entry of triggered webhook events"
     }
   }
 }

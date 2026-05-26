@@ -259,6 +259,44 @@ export function useRealEstateData(user: any) {
         updatedAt: serverTimestamp()
       });
       toast.success('Pagamento atualizado!');
+
+      // If payment is marked as paid, trigger webhook event 'payment.paid'
+      if (data.status === 'paid' && user?.uid) {
+        (async () => {
+          try {
+            const currentPayment = payments.find(p => p.id === id);
+            if (!currentPayment) return;
+            const fullPayment = { ...currentPayment, ...data };
+            const contract = contracts.find(c => c.id === fullPayment.contractId);
+            const tenant = contract ? tenants.find(t => t.id === contract.tenantId) : undefined;
+            const property = contract ? properties.find(p => p.id === contract.propertyId) : undefined;
+
+            const { automationService } = await import('../services/automationService');
+            const config = await automationService.getAutomationConfig(user.uid);
+
+            if (config?.enabled && config.webhookUrl && config.events.includes('payment.paid')) {
+              const res = await automationService.triggerWebhook(config.webhookUrl, config.secretToken, 'payment.paid', {
+                payment: fullPayment,
+                contract,
+                tenant,
+                property,
+                paidAt: new Date().toISOString()
+              });
+
+              await automationService.addWebhookLog(user.uid, {
+                event: 'payment.paid',
+                timestamp: new Date().toISOString(),
+                payload: JSON.stringify({ payment: fullPayment, tenant, property }, null, 2),
+                url: config.webhookUrl,
+                status: res.status,
+                response: res.response
+              });
+            }
+          } catch (err) {
+            console.warn('[Automation] Error firing payment.paid webhook:', err);
+          }
+        })();
+      }
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `payments/${id}`);
     } finally {
