@@ -105,8 +105,8 @@ export default function App() {
   const [authData, setAuthData] = useState({ email: '', password: '', name: '' });
   
   const handleLogout = async () => {
-    setAuthData({ email: '', password: '', name: '' });
-    setAuthMode('login');
+    // setAuthData({ email: '', password: '', name: '' });
+    // setAuthMode('login');
     await logout();
   };
   const [searchTerm, setSearchTerm] = useState('');
