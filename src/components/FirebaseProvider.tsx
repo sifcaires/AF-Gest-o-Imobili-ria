@@ -40,7 +40,14 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [appLogo, setAppLogo] = useState<string | null>(null);
 
   useEffect(() => {
+    let unsubscribeUserDoc: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+        unsubscribeUserDoc = null;
+      }
+
       if (user) {
         // Persist user data to Firestore
         try {
@@ -122,6 +129,37 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
             enumerable: true
           });
           setUser(customUser);
+
+          // Listen in real-time to this user's document for any role or details changes!
+          unsubscribeUserDoc = onSnapshot(userDocRef, (snapshot) => {
+            if (snapshot.exists()) {
+              const liveData = snapshot.data();
+              const liveRole = liveData?.role || role;
+              const livePhoto = liveData?.photoURL || photoURL;
+              const liveName = liveData?.displayName || user.displayName;
+
+              const updatedCustomUser = Object.create(user);
+              Object.defineProperty(updatedCustomUser, 'photoURL', {
+                value: livePhoto,
+                writable: true,
+                configurable: true,
+                enumerable: true
+              });
+              Object.defineProperty(updatedCustomUser, 'role', {
+                value: liveRole,
+                writable: true,
+                configurable: true,
+                enumerable: true
+              });
+              Object.defineProperty(updatedCustomUser, 'displayName', {
+                value: liveName,
+                writable: true,
+                configurable: true,
+                enumerable: true
+              });
+              setUser(updatedCustomUser);
+            }
+          });
         } catch (error) {
           console.error('[FirebaseProvider] Error persisting user data:', error);
           setUser(user);
@@ -148,6 +186,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       unsubscribeAuth();
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
       unsubscribeLogo();
     };
   }, []);
@@ -202,10 +241,17 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       const userDocRef = doc(db, 'users', currentUser.uid);
       const userDoc = await getDoc(userDocRef);
       const photoURL = userDoc.exists() ? (userDoc.data()?.photoURL || currentUser.photoURL) : currentUser.photoURL;
+      const currentRole = userDoc.exists() ? (userDoc.data()?.role || 'landlord') : 'landlord';
       
       const customUser = Object.create(currentUser);
       Object.defineProperty(customUser, 'photoURL', {
         value: photoURL,
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+      Object.defineProperty(customUser, 'role', {
+        value: currentRole,
         writable: true,
         configurable: true,
         enumerable: true
@@ -253,9 +299,19 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       await auth.currentUser.reload();
       
       const reloadedUser = auth.currentUser;
+      const userDocRef = doc(db, 'users', reloadedUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      const currentRole = userDoc.exists() ? (userDoc.data()?.role || 'landlord') : 'landlord';
+
       const customUser = Object.create(reloadedUser);
       Object.defineProperty(customUser, 'photoURL', {
         value: downloadURL,
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+      Object.defineProperty(customUser, 'role', {
+        value: currentRole,
         writable: true,
         configurable: true,
         enumerable: true
