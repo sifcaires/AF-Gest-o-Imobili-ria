@@ -83,7 +83,7 @@ export interface AppUser {
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
-  role: 'director' | 'landlord';
+  role: 'director' | 'landlord' | 'landlord_pleno';
   createdAt: string;
   lastLogin: string;
 }

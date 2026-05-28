@@ -134,7 +134,9 @@ export function ProfileView({ user, landlords, onRegisterAsLandlord }: ProfileVi
                     />
                   </div>
                   <h3 className="text-xl font-bold text-white serif italic mt-4">{name || 'Usuário'}</h3>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Locador Master</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">
+                    {user?.role === 'landlord_pleno' ? 'Locador Pleno' : 'Locador Master'}
+                  </p>
                 </div>
               </div>
 
@@ -146,6 +148,7 @@ export function ProfileView({ user, landlords, onRegisterAsLandlord }: ProfileVi
                     onChange={(e) => setName(e.target.value)}
                     className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
                     placeholder="Seu nome"
+                    disabled={user?.role === 'landlord_pleno'}
                   />
                 </div>
                 <div className="space-y-2">
@@ -156,19 +159,25 @@ export function ProfileView({ user, landlords, onRegisterAsLandlord }: ProfileVi
                     placeholder="seu@email.com"
                     disabled
                   />
-                  <p className="text-[9px] text-slate-500 italic ml-1">* O e-mail não pode ser alterado por aqui por razões de segurança.</p>
+                  {user?.role === 'landlord_pleno' ? (
+                    <p className="text-[9px] text-slate-500 italic ml-1">* Perfis de Locador Pleno são gerenciados por administradores.</p>
+                  ) : (
+                    <p className="text-[9px] text-slate-500 italic ml-1">* O e-mail não pode ser alterado por aqui por razões de segurança.</p>
+                  )}
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-white/5 flex justify-center">
-                <Button 
-                  type="submit" 
-                  disabled={isLoading}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 h-12 rounded-xl shadow-xl shadow-indigo-500/20 transition-all uppercase tracking-widest text-[10px]"
-                >
-                  {isLoading ? 'Salvando...' : 'Salvar Alterações'}
-                </Button>
-              </div>
+              {user?.role !== 'landlord_pleno' && (
+                <div className="pt-6 border-t border-white/5 flex justify-center">
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 h-12 rounded-xl shadow-xl shadow-indigo-500/20 transition-all uppercase tracking-widest text-[10px]"
+                  >
+                    {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+                  </Button>
+                </div>
+              )}
             </form>
           </Card>
         </div>

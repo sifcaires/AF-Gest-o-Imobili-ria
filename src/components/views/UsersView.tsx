@@ -45,7 +45,7 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
   const [searchTerm, setSearchTerm] = React.useState('');
   const [editingUser, setEditingUser] = React.useState<AppUser | null>(null);
   const [editedName, setEditedName] = React.useState('');
-  const [editedRole, setEditedRole] = React.useState<'director' | 'landlord'>('landlord');
+  const [editedRole, setEditedRole] = React.useState<'director' | 'landlord' | 'landlord_pleno'>('landlord');
   const [isSaving, setIsSaving] = React.useState(false);
 
   const handleStartEdit = (u: AppUser) => {
@@ -172,6 +172,11 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                           <ShieldCheck className="h-3 w-3" />
                           Diretor Geral
                         </Badge>
+                      ) : u.role === 'landlord_pleno' ? (
+                        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 font-bold uppercase tracking-widest text-[9px] px-2.5 py-1 rounded-lg flex items-center gap-1.5 animate-pulse">
+                          <UserCheck className="h-3 w-3" />
+                          Locador Pleno
+                        </Badge>
                       ) : (
                         <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-bold uppercase tracking-widest text-[9px] px-2.5 py-1 rounded-lg flex items-center gap-1.5">
                           <UserCheck className="h-3 w-3" />
@@ -262,11 +267,12 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                 <div className="relative">
                   <select
                     value={editedRole}
-                    onChange={(e) => setEditedRole(e.target.value as 'director' | 'landlord')}
+                    onChange={(e) => setEditedRole(e.target.value as 'director' | 'landlord' | 'landlord_pleno')}
                     className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-2xl text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all appearance-none cursor-pointer"
                   >
                     <option value="director" className="bg-[#0a0f1d] text-white font-bold">Diretor Geral (Acesso Pleno)</option>
                     <option value="landlord" className="bg-[#0a0f1d] text-white">Locador Master (Acesso Restrito)</option>
+                    <option value="landlord_pleno" className="bg-[#0a0f1d] text-white">Locador Pleno (Somente Visualização)</option>
                   </select>
                 </div>
               </div>

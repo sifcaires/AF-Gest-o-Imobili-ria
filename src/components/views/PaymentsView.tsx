@@ -60,9 +60,10 @@ interface PaymentsViewProps {
   onEdit: (p: Payment) => void;
   onDelete: (id: string) => void;
   onUpdatePayment?: (id: string, data: Partial<Payment>) => Promise<void>;
+  user?: any;
 }
 
-export function PaymentsView({ payments, contracts, tenants, properties, landlords = [], onEdit, onDelete, onUpdatePayment }: PaymentsViewProps) {
+export function PaymentsView({ payments, contracts, tenants, properties, landlords = [], onEdit, onDelete, onUpdatePayment, user }: PaymentsViewProps) {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
   const [activeBoletoScreen, setActiveBoletoScreen] = useState<'menu' | 'whatsapp' | 'email'>('menu');
@@ -608,7 +609,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                   <div className="flex justify-end items-center gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
                     
                     {/* Botão de Registro de Baixa Rápida */}
-                    {payment.status !== 'paid' && (
+                    {user?.role !== 'landlord_pleno' && payment.status !== 'paid' && (
                       <Button 
                         variant="outline" 
                         onClick={() => handleOpenPayoff(payment)}
@@ -619,14 +620,16 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                       </Button>
                     )}
 
-                    <Button 
-                      variant="outline" 
-                      onClick={() => onEdit(payment)}
-                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-slate-400 transition-all"
-                      title="Editar"
-                    >
-                      <CreditCard className="h-4 w-4" />
-                    </Button>
+                    {user?.role !== 'landlord_pleno' && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => onEdit(payment)}
+                        className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-slate-400 transition-all"
+                        title="Editar"
+                      >
+                        <CreditCard className="h-4 w-4" />
+                      </Button>
+                    )}
 
                     <Button 
                       variant="outline" 

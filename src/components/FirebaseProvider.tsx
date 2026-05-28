@@ -11,7 +11,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { ref } from 'firebase/storage';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, storage, db, handleFirestoreError, OperationType, uploadFileWithFallback } from '../lib/firebase';
 import { toast } from 'sonner';
 
@@ -59,13 +59,37 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           
           const isDirector = user.email === 'admin@email.com' || user.email === 'sifcaires@gmail.com';
           
+          let role: 'director' | 'landlord' | 'landlord_pleno' = isDirector ? 'director' : 'landlord';
+          
+          if (!isDirector) {
+            try {
+              const landlordsRef = collection(db, 'landlords');
+              const q = query(landlordsRef, where('email', '==', user.email));
+              const querySnapshot = await getDocs(q);
+              
+              if (!querySnapshot.empty) {
+                role = 'landlord_pleno';
+              } else if (userDoc.exists()) {
+                const existingRole = userDoc.data()?.role;
+                if (existingRole === 'landlord_pleno' || existingRole === 'landlord' || existingRole === 'director') {
+                  role = existingRole;
+                }
+              }
+            } catch (err) {
+              console.error('[FirebaseProvider] Error checking landlord registration:', err);
+              if (userDoc.exists()) {
+                role = userDoc.data()?.role || role;
+              }
+            }
+          }
+          
           const userData = {
             uid: user.uid,
             displayName: user.displayName,
             email: user.email,
             photoURL: photoURL,
             lastLogin: new Date().toISOString(),
-            role: isDirector ? 'director' : 'landlord'
+            role: role
           };
 
           const firestoreWriteData = { ...userData };
@@ -85,6 +109,12 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           const customUser = Object.create(user);
           Object.defineProperty(customUser, 'photoURL', {
             value: photoURL,
+            writable: true,
+            configurable: true,
+            enumerable: true
+          });
+          Object.defineProperty(customUser, 'role', {
+            value: role,
             writable: true,
             configurable: true,
             enumerable: true

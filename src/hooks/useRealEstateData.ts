@@ -42,13 +42,14 @@ export function useRealEstateData(user: any) {
 
     setLoading(true);
     const isAdmin = user.email === 'admin@email.com' || user.email === 'sifcaires@gmail.com';
+    const isPleno = user?.role === 'landlord_pleno';
 
     const usersUnsubscribe = isAdmin ? onSnapshot(collection(db, 'users'), (snapshot) => {
       setUsers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'users')) : () => {};
 
     const getQuery = (collectionName: string) => {
-      return isAdmin 
+      return (isAdmin || isPleno)
         ? collection(db, collectionName) 
         : query(collection(db, collectionName), where('ownerId', '==', user.uid));
     };
@@ -487,8 +488,41 @@ export function useRealEstateData(user: any) {
     }
   };
 
+  const isPleno = user?.role === 'landlord_pleno';
+
+  const linkedLandlord = isPleno
+    ? landlords.find(l => l.email?.toLowerCase() === user?.email?.toLowerCase())
+    : null;
+
+  const filteredProperties = isPleno
+    ? (linkedLandlord ? properties.filter(p => p.landlordId === linkedLandlord.id) : [])
+    : properties;
+
+  const filteredContracts = isPleno
+    ? contracts.filter(c => filteredProperties.some(p => p.id === c.propertyId))
+    : contracts;
+
+  const filteredTenants = isPleno
+    ? tenants.filter(t => filteredContracts.some(c => c.tenantId === t.id))
+    : tenants;
+
+  const filteredPayments = isPleno
+    ? payments.filter(p => filteredContracts.some(c => c.id === p.contractId))
+    : payments;
+
+  const filteredLandlords = isPleno
+    ? (linkedLandlord ? [linkedLandlord] : [])
+    : landlords;
+
   return {
-    properties, tenants, contracts, payments, landlords, users, loading, isOperating,
+    properties: filteredProperties,
+    tenants: filteredTenants,
+    contracts: filteredContracts,
+    payments: filteredPayments,
+    landlords: filteredLandlords,
+    users,
+    loading,
+    isOperating,
     addProperty, updateProperty, deleteProperty,
     addTenant, updateTenant, deleteTenant,
     addContract, updateContract, deleteContract,

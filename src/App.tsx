@@ -211,6 +211,7 @@ export default function App() {
           contracts={contracts}
           setSearchTerm={setSearchTerm} 
           searchTerm={searchTerm} 
+          user={user}
           onEdit={(prop) => {
             setEditingItem(prop);
             setActiveForm('property');
@@ -237,6 +238,7 @@ export default function App() {
           tenants={tenants} 
           payments={payments}
           landlords={landlords}
+          user={user}
           onEdit={(contract) => {
             setEditingItem(contract);
             setActiveForm('contract');
@@ -251,6 +253,7 @@ export default function App() {
           tenants={tenants} 
           properties={properties} 
           landlords={landlords}
+          user={user}
           onEdit={(payment) => {
             setEditingItem(payment);
             setActiveForm('payment');
@@ -377,16 +380,18 @@ export default function App() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={() => setActiveView('landlords')} 
-                    isActive={activeView === 'landlords'}
-                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                  >
-                    <UserSquare2 className="mr-3 h-5 w-5" />
-                    <span className="font-medium text-sm">Locadores</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {user?.role !== 'landlord_pleno' && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveView('landlords')} 
+                      isActive={activeView === 'landlords'}
+                      className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
+                    >
+                      <UserSquare2 className="mr-3 h-5 w-5" />
+                      <span className="font-medium text-sm">Locadores</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     onClick={() => setActiveView('properties')} 
@@ -427,16 +432,18 @@ export default function App() {
                     <span className="font-medium text-sm">Financeiro</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={() => setActiveView('automations')} 
-                    isActive={activeView === 'automations'}
-                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                  >
-                    <Cpu className="mr-3 h-5 w-5" />
-                    <span className="font-medium text-sm">Automações</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {user?.role !== 'landlord_pleno' && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      onClick={() => setActiveView('automations')} 
+                      isActive={activeView === 'automations'}
+                      className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
+                    >
+                      <Cpu className="mr-3 h-5 w-5" />
+                      <span className="font-medium text-sm">Automações</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroup>
           </SidebarContent>
@@ -448,7 +455,13 @@ export default function App() {
               </Avatar>
               <div className="flex flex-col overflow-hidden">
                 <span className="text-sm font-semibold text-white truncate max-w-[120px]">{user?.displayName || ((user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') ? 'Administrador' : 'Usuário')}</span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') ? 'Diretor Geral' : 'Locador Master'}</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  {(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') 
+                    ? 'Diretor Geral' 
+                    : user?.role === 'landlord_pleno' 
+                      ? 'Locador Pleno' 
+                      : 'Locador Master'}
+                </span>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -508,10 +521,12 @@ export default function App() {
               }}>
                 <DialogTrigger
                   render={
-                    <Button className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/25 transition-all font-bold px-6 rounded-full text-xs uppercase tracking-wider">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Novo Registro
-                    </Button>
+                    user?.role !== 'landlord_pleno' ? (
+                      <Button className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/25 transition-all font-bold px-6 rounded-full text-xs uppercase tracking-wider">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Novo Registro
+                      </Button>
+                    ) : <div className="hidden" />
                   }
                 />
                 <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-sm' : 'sm:max-w-2xl'} frosted border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 overflow-hidden ${(activeForm === 'tenant' || activeForm === 'payment' || activeForm === 'contract') ? 'max-h-[min(880px,97vh)] md:h-[880px]' : 'max-h-[min(655px,90vh)] md:h-[655px]'} flex flex-col pl-[7px] pr-[10px] pt-0 pb-0 ml-0 -mt-[21px] mr-0 mb-0 border`}>

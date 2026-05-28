@@ -25,6 +25,7 @@ interface PropertiesViewProps {
   setSearchTerm: (s: string) => void;
   onEdit: (p: Property) => void;
   onDelete: (id: string) => void;
+  user?: any;
 }
 
 export function PropertiesView({ 
@@ -35,7 +36,8 @@ export function PropertiesView({
   searchTerm, 
   setSearchTerm, 
   onEdit, 
-  onDelete 
+  onDelete,
+  user
 }: PropertiesViewProps) {
   const filteredProperties = properties.filter(p => 
     (p.title || '').toLowerCase().includes((searchTerm || '').toLowerCase()) || 
@@ -76,18 +78,7 @@ export function PropertiesView({
                   alt={property.title} 
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-80 group-hover:opacity-100" 
                 />
-                <div className="absolute top-4 right-4 flex gap-2 z-20">
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(property.id);
-                    }}
-                    className="bg-rose-500/90 backdrop-blur-sm text-white hover:bg-rose-600 border-none h-8 w-8 rounded-lg shadow-xl transition-all hover:scale-105 active:scale-95"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                <div className="absolute top-4 right-4 z-20">
                   <Badge className={
                     property.status === 'available' ? 'bg-emerald-500/80 text-white border-none font-bold uppercase tracking-widest text-[9px] px-2 py-0.5 shadow-lg' : 'bg-slate-900/80 text-white border-none font-bold uppercase tracking-widest text-[9px] px-2 py-0.5 shadow-lg'
                   }>
@@ -96,13 +87,15 @@ export function PropertiesView({
                 </div>
               </div>
               <CardHeader className="p-4 pb-1.5 text-white">
+                {landlords.find(l => l.id === property.landlordId) && (
+                  <div className="mb-1.5">
+                    <Badge variant="outline" className="border-white/10 text-indigo-400 dark:text-indigo-300 text-[8px] uppercase tracking-tighter font-semibold">
+                      Prop: {landlords.find(l => l.id === property.landlordId)?.name || 'N/A'}
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex justify-between items-start gap-2">
                   <h3 className="text-[13px] leading-[14px] font-bold text-white tracking-tight group-hover:text-indigo-400 transition-colors uppercase italic serif truncate flex-1 min-w-0">{property.title}</h3>
-                  {landlords.find(l => l.id === property.landlordId) && (
-                    <Badge variant="outline" className="border-white/10 text-slate-400 text-[8px] uppercase tracking-tighter shrink-0">
-                      Prop: {landlords.find(l => l.id === property.landlordId)?.name?.split(' ')[0] || 'N/A'}
-                    </Badge>
-                  )}
                 </div>
                 <div className="flex items-start gap-1.5 mt-1">
                   <Home className="h-3 w-3 text-slate-500 mt-0.5 shrink-0" />
@@ -175,15 +168,35 @@ export function PropertiesView({
                   </div>
                 )}
                 
-                {property.status === 'rented' && currentTenant && (
-                  <div className="p-2 rounded-xl bg-indigo-500/5 border border-indigo-500/10 flex items-center gap-2">
-                    <User className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-none">Inquilino Atual</p>
-                      <p className="text-xs font-bold text-white truncate mt-0.5">{currentTenant.name}</p>
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  {property.status === 'rented' && currentTenant ? (
+                    <div 
+                      className="rounded-xl bg-indigo-500/5 border border-indigo-500/10 flex items-center gap-2 flex-1 min-w-0"
+                      style={{ paddingLeft: '7px', paddingTop: '8px', paddingBottom: '8px', paddingRight: '8px', marginLeft: '0px' }}
+                    >
+                      <User className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-none">Inquilino Atual</p>
+                        <p className="text-xs font-bold text-white truncate mt-0.5">{currentTenant.name}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex-1" />
+                  )}
+                  {user?.role !== 'landlord_pleno' && (
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(property.id);
+                      }}
+                      className="bg-rose-500/90 backdrop-blur-sm text-white hover:bg-rose-600 border-none h-8 w-8 rounded-lg shadow-xl transition-all hover:scale-105 active:scale-95 shrink-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </CardContent>
               <CardFooter className="px-4 py-3 mt-auto border-t border-white/5 flex items-center justify-between">
                 <div className="flex flex-col">
@@ -199,12 +212,14 @@ export function PropertiesView({
                     <span className="text-[8px] text-slate-400 font-medium">Apenas aluguel</span>
                   )}
                 </div>
-                <Button 
-                  onClick={() => onEdit(property)}
-                  className="h-8 px-4 rounded-full font-bold text-[10px] uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-lg hover:shadow-indigo-500/25"
-                >
-                  Gerenciar
-                </Button>
+                {user?.role !== 'landlord_pleno' && (
+                  <Button 
+                    onClick={() => onEdit(property)}
+                    className="h-8 px-4 rounded-full font-bold text-[10px] uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-lg hover:shadow-indigo-500/25"
+                  >
+                    Gerenciar
+                  </Button>
+                )}
               </CardFooter>
             </Card>
           );
