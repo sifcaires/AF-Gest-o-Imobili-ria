@@ -519,16 +519,16 @@ export default function App() {
                   setEditingItem(null);
                 }
               }}>
-                <DialogTrigger
-                  render={
-                    user?.role !== 'landlord_pleno' ? (
-                      <Button className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/25 transition-all font-bold px-6 rounded-full text-xs uppercase tracking-wider">
+                {user?.role !== 'landlord_pleno' ? (
+                  <DialogTrigger
+                    render={
+                      <button className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/25 transition-all font-bold px-6 rounded-full text-xs uppercase tracking-wider inline-flex items-center justify-center cursor-pointer">
                         <Plus className="mr-2 h-4 w-4" />
                         Novo Registro
-                      </Button>
-                    ) : <div className="hidden" />
-                  }
-                />
+                      </button>
+                    }
+                  />
+                ) : null}
                 <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-sm' : 'sm:max-w-2xl'} frosted border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 overflow-hidden ${(activeForm === 'tenant' || activeForm === 'payment' || activeForm === 'contract') ? 'max-h-[min(880px,97vh)] md:h-[880px]' : 'max-h-[min(655px,90vh)] md:h-[655px]'} flex flex-col pl-[7px] pr-[10px] pt-0 pb-0 ml-0 -mt-[21px] mr-0 mb-0 border`}>
                   <DialogHeader className="h-[93px] pt-4 pb-4 pr-4 pl-[16px] ml-0 -mt-[8px] border-b border-slate-150 dark:border-white/5 flex flex-col justify-center shrink-0">
                     <DialogTitle className="serif text-xl md:text-2xl text-slate-800 dark:text-white">

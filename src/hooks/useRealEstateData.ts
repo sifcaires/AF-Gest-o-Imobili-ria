@@ -345,6 +345,9 @@ export function useRealEstateData(user: any) {
       if (finalData.documentUrls.length > 0) {
         finalData.documentUrl = finalData.documentUrls[0];
       }
+      if (finalData.email) {
+        finalData.email = finalData.email.toLowerCase().trim();
+      }
 
       await setDoc(landlordRef, {
         ...finalData,
@@ -391,6 +394,9 @@ export function useRealEstateData(user: any) {
       finalData.documentUrls = [...(finalData.documentUrls || []), ...urls];
       if (finalData.documentUrls.length > 0) {
         finalData.documentUrl = finalData.documentUrls[0];
+      }
+      if (finalData.email) {
+        finalData.email = finalData.email.toLowerCase().trim();
       }
 
       await updateDoc(doc(db, 'landlords', id), {

@@ -61,10 +61,10 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           
           let role: 'director' | 'landlord' | 'landlord_pleno' = isDirector ? 'director' : 'landlord';
           
-          if (!isDirector) {
+          if (!isDirector && user.email) {
             try {
               const landlordsRef = collection(db, 'landlords');
-              const q = query(landlordsRef, where('email', '==', user.email));
+              const q = query(landlordsRef, where('email', '==', user.email.toLowerCase().trim()));
               const querySnapshot = await getDocs(q);
               
               if (!querySnapshot.empty) {

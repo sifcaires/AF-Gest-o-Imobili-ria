@@ -15,7 +15,9 @@ service cloud.firestore {
     }
 
     function isLandlordPleno() {
-      return isSignedIn() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'landlord_pleno');
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'landlord_pleno';
     }
 
     function isValidId(id) {
@@ -49,7 +51,8 @@ service cloud.firestore {
     }
     
     match /landlords/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || (isSignedIn() && resource.data.email == request.auth.token.email) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
+      allow get: if isOwner(resource.data) || isLandlordPleno() || (isSignedIn() && resource.data.email == request.auth.token.email);
+      allow list: if isOwner(resource.data) || isLandlordPleno() || (isSignedIn() && resource.data.email == request.auth.token.email);
       allow write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
     }
 

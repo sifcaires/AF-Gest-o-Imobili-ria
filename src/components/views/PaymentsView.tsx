@@ -656,8 +656,8 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                     >
                       <DialogTrigger
                         render={
-                          <Button 
-                            className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase tracking-widest gap-2 shadow-xl shadow-indigo-500/25 transition-all"
+                          <button 
+                            className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase tracking-widest gap-2 shadow-xl shadow-indigo-500/25 transition-all inline-flex items-center justify-center cursor-pointer"
                             onClick={() => {
                               setSelectedPayment(payment);
                               setActiveBoletoScreen('menu');
@@ -665,7 +665,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                           >
                             <QrCode className="h-4 w-4" />
                             Cobrança Pix
-                          </Button>
+                          </button>
                         }
                       />
                       <DialogContent className="sm:max-w-[1100px] overflow-hidden p-0 border-white/10 shadow-2xl rounded-3xl frosted max-h-[92vh] overflow-y-auto">
