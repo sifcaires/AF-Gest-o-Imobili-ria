@@ -578,7 +578,14 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                 </TableCell>
               </TableRow>
             ) : filteredPayments.map((payment) => (
-              <TableRow key={payment.id} className="hover:bg-white/5 transition-all border-b border-white/5 group">
+              <TableRow 
+                key={payment.id} 
+                className={`hover:bg-white/5 transition-all border-b border-white/5 group border-l-4 ${
+                  payment.status === 'paid' ? 'border-l-emerald-500/30 hover:border-l-emerald-500' :
+                  payment.status === 'overdue' ? 'border-l-rose-500/30 hover:border-l-rose-500' :
+                  'border-l-amber-500/30 hover:border-l-amber-500'
+                }`}
+              >
                 <TableCell className="py-8 px-10 text-white">
                   <div className="flex flex-col">
                     <span className="font-bold text-white text-sm tracking-tight">{getTenantName(payment.contractId)}</span>
@@ -598,9 +605,9 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                 </TableCell>
                 <TableCell>
                   <Badge className={
-                    payment.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-lg shadow-emerald-500/10 font-bold px-4 py-1.5' : 
-                    payment.status === 'overdue' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-lg shadow-rose-500/10 font-bold px-4 py-1.5' : 
-                    'bg-slate-900/50 text-white border-white/10 shadow-lg shadow-slate-900/50 font-bold px-4 py-1.5 border'
+                    payment.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-lg shadow-emerald-500/10 font-bold px-4 py-1.5 border' : 
+                    payment.status === 'overdue' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-lg shadow-rose-500/10 font-bold px-4 py-1.5 border' : 
+                    'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-lg shadow-amber-500/10 font-bold px-4 py-1.5 border'
                   }>
                     {payment.status === 'paid' ? 'LIQUIDADO' : payment.status === 'overdue' ? 'ATRASADO' : 'PENDENTE'}
                   </Badge>

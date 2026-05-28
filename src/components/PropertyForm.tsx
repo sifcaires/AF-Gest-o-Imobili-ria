@@ -3,16 +3,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Landlord, Property } from '../types';
+import { Landlord, Property, Broker } from '../types';
 
 interface PropertyFormProps {
   initialData?: Partial<Property>;
   landlords: Landlord[];
+  brokers: Broker[];
   onSubmit: (data: Omit<Property, 'id' | 'ownerId'>) => Promise<void>;
   isLoading?: boolean;
 }
 
-export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: PropertyFormProps) {
+export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoading }: PropertyFormProps) {
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
     description: initialData?.description || '',
@@ -26,6 +27,7 @@ export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: Pr
     requiresGuarantor: initialData?.requiresGuarantor || false,
     requiresDeposit: initialData?.requiresDeposit || false,
     requiresInsurance: initialData?.requiresInsurance || false,
+    capturedByBrokerId: initialData?.capturedByBrokerId || '',
   });
 
   useEffect(() => {
@@ -43,13 +45,17 @@ export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: Pr
         requiresGuarantor: !!initialData.requiresGuarantor,
         requiresDeposit: !!initialData.requiresDeposit,
         requiresInsurance: !!initialData.requiresInsurance,
+        capturedByBrokerId: initialData.capturedByBrokerId || '',
       });
     }
   }, [initialData]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    await onSubmit({
+      ...formData,
+      capturedByBrokerId: formData.capturedByBrokerId === 'none' ? '' : formData.capturedByBrokerId
+    });
   };
 
   return (
@@ -206,6 +212,30 @@ export function PropertyForm({ initialData, landlords, onSubmit, isLoading }: Pr
             </div>
           </label>
         </div>
+      </div>
+
+      {/* Corretor Captador (Opcional) */}
+      <div className="space-y-1">
+        <Label htmlFor="capturedByBrokerId" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Corretor responsável pela Captação (Opcional)</Label>
+        <Select 
+          value={formData.capturedByBrokerId || 'none'} 
+          onValueChange={(value) => setFormData({ ...formData, capturedByBrokerId: value === 'none' ? '' : value })}
+        >
+          <SelectTrigger className="border-white/10 bg-white/5 text-white h-10 rounded-xl focus:ring-indigo-500/50 w-full text-left">
+            <SelectValue placeholder="Selecione o corretor responsável pela captação">
+              {brokers.find(b => b.id === formData.capturedByBrokerId)?.name || "Nenhum (Captação direta / Interna)"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent className="bg-[#1e293b] border-white/10 text-white rounded-xl">
+            <SelectItem value="none">Nenhum (Captação direta / Interna)</SelectItem>
+            {brokers.map((broker) => (
+              <SelectItem key={broker.id} value={broker.id}>{broker.name} (CRECI {broker.creci})</SelectItem>
+            ))}
+            {brokers.length === 0 && (
+              <div className="py-2 px-8 text-xs text-slate-500 italic">Nenhum corretor cadastrado.</div>
+            )}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Descrição e Link Foto */}

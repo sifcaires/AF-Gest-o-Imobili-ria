@@ -12,6 +12,20 @@ export interface Landlord {
   registeredBy?: string;
 }
 
+export interface Broker {
+  id: string;
+  ownerId?: string;
+  name: string;
+  email: string;
+  phone: string;
+  creci: string; // real estate agency/broker license in Brazil
+  commissionPercent: number;
+  pixKey?: string;
+  registeredBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Property {
   id: string;
   ownerId: string; // The user who created it
@@ -27,6 +41,7 @@ export interface Property {
   requiresGuarantor?: boolean;
   requiresDeposit?: boolean;
   requiresInsurance?: boolean;
+  capturedByBrokerId?: string;
 }
 
 export interface Tenant {
@@ -83,7 +98,7 @@ export interface AppUser {
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
-  role: 'director' | 'landlord' | 'landlord_pleno';
+  role: 'director' | 'landlord' | 'landlord_pleno' | 'broker';
   createdAt: string;
   lastLogin: string;
 }

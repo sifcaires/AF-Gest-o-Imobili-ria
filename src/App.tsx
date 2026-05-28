@@ -63,12 +63,13 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 
-import { Property, Tenant, Contract, Payment, Landlord } from './types';
+import { Property, Tenant, Contract, Payment, Landlord, Broker } from './types';
 import { PropertyForm } from './components/PropertyForm';
 import { TenantForm } from './components/TenantForm';
 import { ContractForm } from './components/ContractForm';
 import { PaymentForm } from './components/PaymentForm';
 import { LandlordForm } from './components/LandlordForm';
+import { BrokerForm } from './components/BrokerForm';
 import { useFirebase } from './components/FirebaseProvider';
 import { useTheme } from './components/ThemeProvider';
 import { getSafeDocumentUrl } from './lib/documentViewer';
@@ -82,11 +83,12 @@ import { TenantsView } from './components/views/TenantsView';
 import { ContractsView } from './components/views/ContractsView';
 import { PaymentsView } from './components/views/PaymentsView';
 import { LandlordsView } from './components/views/LandlordsView';
+import { BrokersView } from './components/views/BrokersView';
 import { ProfileView } from './components/views/ProfileView';
 import { UsersView } from './components/views/UsersView';
 import { AutomationsView } from './components/views/AutomationsView';
 
-type View = 'dashboard' | 'properties' | 'tenants' | 'contracts' | 'payments' | 'landlords' | 'profile' | 'users' | 'automations';
+type View = 'dashboard' | 'properties' | 'tenants' | 'contracts' | 'payments' | 'landlords' | 'profile' | 'users' | 'automations' | 'brokers';
 
 const chartData = [
   { name: 'Jan', total: 15000 },
@@ -111,9 +113,9 @@ export default function App() {
   };
   const [searchTerm, setSearchTerm] = useState('');
   const [isRegistryOpen, setIsRegistryOpen] = useState(false);
-  const [activeForm, setActiveForm] = useState<'none' | 'property' | 'tenant' | 'contract' | 'payment' | 'landlord'>('none');
+  const [activeForm, setActiveForm] = useState<'none' | 'property' | 'tenant' | 'contract' | 'payment' | 'landlord' | 'broker'>('none');
   const [editingItem, setEditingItem] = useState<any | null>(null);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'property' | 'tenant' | 'contract' | 'payment' | 'landlord' | 'user' } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string, type: 'property' | 'tenant' | 'contract' | 'payment' | 'landlord' | 'broker' | 'user' } | null>(null);
   const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
@@ -126,12 +128,13 @@ export default function App() {
   }, []);
 
   const {
-    properties, tenants, contracts, payments, landlords, users, loading, isOperating,
+    properties, tenants, contracts, payments, landlords, brokers, users, loading, isOperating,
     addProperty, updateProperty, deleteProperty,
     addTenant, updateTenant, deleteTenant,
     addContract, updateContract, deleteContract,
     addPayment, updatePayment, deletePayment,
     addLandlord, updateLandlord, deleteLandlord,
+    addBroker, updateBroker, deleteBroker,
     updateUser, deleteUser,
     resetDatabase
   } = useRealEstateData(user);
@@ -209,6 +212,7 @@ export default function App() {
           landlords={landlords}
           tenants={tenants}
           contracts={contracts}
+          brokers={brokers}
           setSearchTerm={setSearchTerm} 
           searchTerm={searchTerm} 
           user={user}
@@ -285,6 +289,21 @@ export default function App() {
             setIsRegistryOpen(true);
           }}
         />;
+      case 'brokers':
+        return <BrokersView 
+          user={user}
+          brokers={brokers} 
+          properties={properties}
+          users={users}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          onEdit={(broker) => {
+            setEditingItem(broker);
+            setActiveForm('broker');
+            setIsRegistryOpen(true);
+          }}
+          onDelete={(id) => setItemToDelete({ id, type: 'broker' })}
+        />;
       case 'profile':
         return <ProfileView 
           user={user} 
@@ -358,16 +377,6 @@ export default function App() {
                     <span className="font-medium text-sm">Visão Geral</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={() => setActiveView('profile')} 
-                    isActive={activeView === 'profile'}
-                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                  >
-                    <User className="mr-3 h-5 w-5" />
-                    <span className="font-medium text-sm">Usuário</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
                 {(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') && (
                   <SidebarMenuItem>
                     <SidebarMenuButton 
@@ -380,6 +389,16 @@ export default function App() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    onClick={() => setActiveView('brokers')} 
+                    isActive={activeView === 'brokers'}
+                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
+                  >
+                    <UserSquare2 className="mr-3 h-5 w-5" />
+                    <span className="font-medium text-sm">Corretores</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 {user?.role !== 'landlord_pleno' && (
                   <SidebarMenuItem>
                     <SidebarMenuButton 
@@ -538,6 +557,7 @@ export default function App() {
                        activeForm === 'contract' ? (editingItem ? 'Editar Contrato' : 'Cadastrar Contrato') :
                        activeForm === 'payment' ? (editingItem ? 'Editar Boleto' : 'Novo Boleto') :
                        activeForm === 'landlord' ? (editingItem ? 'Editar Locador' : 'Cadastro de Locador') :
+                       activeForm === 'broker' ? (editingItem ? 'Editar Corretor' : 'Cadastro de Corretor') :
                        'Novo Registro'}
                     </DialogTitle>
                     <DialogDescription className="text-slate-500 dark:text-slate-400 text-xs truncate">
@@ -599,12 +619,23 @@ export default function App() {
                           </div>
                           <span className="font-bold text-xs uppercase tracking-widest">Locador</span>
                         </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setActiveForm('broker')}
+                          className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-teal-500/20 hover:border-teal-500/50 text-white transition-all group"
+                        >
+                           <div className="h-10 w-10 rounded-full bg-teal-500/10 flex items-center justify-center group-hover:bg-teal-500/20">
+                            <UserSquare2 className="h-5 w-5 text-teal-400" />
+                          </div>
+                          <span className="font-bold text-xs uppercase tracking-widest">Corretor</span>
+                        </Button>
                       </div>
                     ) : activeForm === 'property' ? (
                       <div key={editingItem?.id || 'new'}>
                         <PropertyForm 
                           initialData={editingItem} 
                           landlords={landlords}
+                          brokers={brokers}
                           onSubmit={editingItem ? async (data) => {
                             await updateProperty(editingItem.id, data);
                             setIsRegistryOpen(false);
@@ -684,6 +715,22 @@ export default function App() {
                           isLoading={isOperating} 
                         />
                       </div>
+                    ) : activeForm === 'broker' ? (
+                      <div key={editingItem?.id || 'new'}>
+                        <BrokerForm 
+                          initialData={editingItem} 
+                          currentUserName={user?.displayName || user?.email || 'Locador Master'}
+                          onSubmit={(editingItem && editingItem.id) ? async (data) => {
+                            await updateBroker(editingItem.id, data);
+                            setIsRegistryOpen(false);
+                            setEditingItem(null);
+                          } : async (data) => {
+                            await addBroker(data);
+                            setIsRegistryOpen(false);
+                          }} 
+                          isLoading={isOperating} 
+                        />
+                      </div>
                     ) : null}
                   </div>
                 </DialogContent>
@@ -731,6 +778,7 @@ export default function App() {
                     else if (itemToDelete.type === 'contract') await deleteContract(itemToDelete.id);
                     else if (itemToDelete.type === 'payment') await deletePayment(itemToDelete.id);
                     else if (itemToDelete.type === 'landlord') await deleteLandlord(itemToDelete.id);
+                    else if (itemToDelete.type === 'broker') await deleteBroker(itemToDelete.id);
                     else if (itemToDelete.type === 'user') await deleteUser(itemToDelete.id);
                     setItemToDelete(null);
                   } catch (error) {

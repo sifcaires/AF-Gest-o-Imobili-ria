@@ -56,6 +56,11 @@ service cloud.firestore {
       allow write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
     }
 
+    match /brokers/{id} {
+      allow read: if isOwner(resource.data) || isLandlordPleno() || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
+      allow write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
+    }
+
     match /automations/{id} {
       allow read, write: if isSignedIn() && (id == request.auth.uid || (resource != null && resource.data.ownerId == request.auth.uid) || (request.resource != null && request.resource.data.ownerId == request.auth.uid));
     }

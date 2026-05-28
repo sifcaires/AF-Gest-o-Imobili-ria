@@ -40,10 +40,15 @@ export function ContractForm({ properties, tenants, landlords, users = [], onSub
  
   const handlePropertyChange = (propertyId: string) => {
     const property = properties.find(p => p.id === propertyId);
+    const rent = property?.rentAmount || 0;
+    const iptu = property?.iptuAmount || 0;
+    const condo = property?.condoAmount || 0;
+    const total = rent + iptu + condo;
+
     setFormData({ 
       ...formData, 
       propertyId, 
-      rentAmount: property?.rentAmount || 0,
+      rentAmount: total,
       beneficiaryId: property?.landlordId || ''
     });
   };
@@ -227,6 +232,7 @@ export function ContractForm({ properties, tenants, landlords, users = [], onSub
             required
             className="border-white/10 bg-white/5 text-white h-12 rounded-xl focus:ring-indigo-500/50"
           />
+
         </div>
         <div className="space-y-2">
           <Label htmlFor="dayOfPayment" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Dia de Vencimento</Label>

@@ -67,14 +67,14 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           const userEmail = user.email?.toLowerCase().trim();
           const isDirector = userEmail === 'admin@email.com' || userEmail === 'sifcaires@gmail.com';
           
-          let role: 'director' | 'landlord' | 'landlord_pleno' = isDirector ? 'director' : 'landlord';
+          let role: 'director' | 'landlord' | 'landlord_pleno' | 'broker' = isDirector ? 'director' : 'landlord';
           
           if (!isDirector && user.email) {
             try {
               if (userDoc.exists() && userDoc.data()?.role) {
                 const existingRole = userDoc.data()?.role;
-                if (existingRole === 'landlord_pleno' || existingRole === 'landlord' || existingRole === 'director') {
-                  role = existingRole;
+                if (existingRole === 'landlord_pleno' || existingRole === 'landlord' || existingRole === 'director' || existingRole === 'broker') {
+                  role = existingRole as any;
                 }
               } else {
                 const landlordsRef = collection(db, 'landlords');
@@ -83,6 +83,14 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                 
                 if (!querySnapshot.empty) {
                   role = 'landlord_pleno';
+                } else {
+                  // Check if pre-registered as broker
+                  const brokersRef = collection(db, 'brokers');
+                  const qBroker = query(brokersRef, where('email', '==', user.email.toLowerCase().trim()));
+                  const brokerSnapshot = await getDocs(qBroker);
+                  if (!brokerSnapshot.empty) {
+                    role = 'broker';
+                  }
                 }
               }
             } catch (err) {
@@ -217,22 +225,42 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const signUpWithEmail = async (email: string, pass: string, name: string) => {
     setAuthError(null);
     try {
-      // 1. Verify if there is already a landlord profile with this email
-      const isDirector = email.toLowerCase().trim() === 'admin@email.com' || email.toLowerCase().trim() === 'sifcaires@gmail.com';
-      let role: 'director' | 'landlord' | 'landlord_pleno' = isDirector ? 'director' : 'landlord';
+      const emailLower = email.toLowerCase().trim();
+      const isDirector = emailLower === 'admin@email.com' || emailLower === 'sifcaires@gmail.com';
       
-      if (!isDirector) {
+      let isApproved = isDirector;
+      let role: 'director' | 'landlord' | 'landlord_pleno' | 'broker' = 'landlord';
+      
+      if (isDirector) {
+        role = 'director';
+      } else {
+        // Checking if the email is registered in Broker (corretor)
         try {
-          const landlordsRef = collection(db, 'landlords');
-          const q = query(landlordsRef, where('email', '==', email.toLowerCase().trim()));
-          const querySnapshot = await getDocs(q);
+          const brokersRef = collection(db, 'brokers');
+          const qBroker = query(brokersRef, where('email', '==', emailLower));
+          const brokerSnapshot = await getDocs(qBroker);
           
-          if (!querySnapshot.empty) {
-            role = 'landlord_pleno';
+          if (!brokerSnapshot.empty) {
+            isApproved = true;
+            role = 'broker';
+          } else {
+            // Let's also check Landlords in case they are registered as landlord
+            const landlordsRef = collection(db, 'landlords');
+            const qLandlord = query(landlordsRef, where('email', '==', emailLower));
+            const landlordSnapshot = await getDocs(qLandlord);
+            
+            if (!landlordSnapshot.empty) {
+              isApproved = true;
+              role = 'landlord_pleno';
+            }
           }
         } catch (err) {
-          console.error('[signUpWithEmail] Error checking landlord profile:', err);
+          console.error('[signUpWithEmail] Error checking email registration:', err);
         }
+      }
+      
+      if (!isApproved) {
+        throw new Error('Seu cadastro ainda não foi concluído, aguarde por 24 horas e tente novamente. Obrigado!');
       }
 
       // 2. Create the user authentication record
@@ -244,7 +272,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       await setDoc(userDocRef, {
         uid: userCredential.user.uid,
         displayName: name,
-        email: email.toLowerCase().trim(),
+        email: emailLower,
         role: role,
         lastLogin: new Date().toISOString(),
         createdAt: new Date().toISOString()
@@ -396,30 +424,34 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     
     console.error('[Auth Error Debug]', { errorCode, errorMessage, fullError: error });
     
+    let resolvedError = '';
     if (errorCode === 'auth/configuration-not-found') {
-      setAuthError('O login não está ativado no Console do Firebase.');
+      resolvedError = 'O login não está ativado no Console do Firebase.';
     } else if (errorCode === 'auth/unauthorized-domain') {
-      setAuthError('Domínio não autorizado no Console do Firebase.');
+      resolvedError = 'Domínio não autorizado no Console do Firebase.';
     } else if (errorCode === 'auth/email-already-in-use' || errorMessage.includes('auth/email-already-in-use')) {
-      setAuthError('Este e-mail já está em uso.');
+      resolvedError = 'Este e-mail já está em uso.';
     } else if (errorCode === 'auth/weak-password' || errorMessage.includes('auth/weak-password')) {
-      setAuthError('A senha é muito fraca (mínimo 6 caracteres).');
+      resolvedError = 'A senha é muito fraca (mínimo 6 caracteres).';
     } else if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential' || errorCode === 'auth/invalid-login-credentials' || errorMessage.includes('auth/invalid-credential')) {
-      setAuthError('Email ou senha inválidos.');
+      resolvedError = 'Email ou senha inválidos.';
     } else if (errorCode === 'auth/invalid-email' || errorMessage.includes('auth/invalid-email')) {
-      setAuthError('O formato do e-mail é inválido.');
+      resolvedError = 'O formato do e-mail é inválido.';
     } else if (errorCode === 'auth/operation-not-allowed') {
-      setAuthError('Este método de login não está habilitado.');
+      resolvedError = 'Este método de login não está habilitado.';
     } else if (errorCode === 'auth/too-many-requests') {
-      setAuthError('Muitas tentativas falhas. Tente novamente mais tarde.');
+      resolvedError = 'Muitas tentativas falhas. Tente novamente mais tarde.';
     } else if (errorCode === 'auth/popup-closed-by-user') {
       // Don't show error if user just closed the popup
       return;
     } else {
       // If it's a Firebase error but not specifically handled, try to clean the message
       const cleanMessage = errorMessage.replace('Firebase: ', '').replace('Error (', '').replace(').', '');
-      setAuthError(cleanMessage || `Erro inesperado: ${errorCode || 'desconhecido'}`);
+      resolvedError = cleanMessage || `Erro inesperado: ${errorCode || 'desconhecido'}`;
     }
+    
+    setAuthError(resolvedError);
+    toast.error(resolvedError, { duration: 6000 });
   };
 
   const logout = async () => {

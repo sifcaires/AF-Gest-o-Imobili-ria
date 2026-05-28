@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { ref } from 'firebase/storage';
 import { db, storage, handleFirestoreError, OperationType, uploadFileWithFallback } from '../lib/firebase';
-import { Property, Tenant, Contract, Payment, Landlord } from '../types';
+import { Property, Tenant, Contract, Payment, Landlord, Broker } from '../types';
 import { toast } from 'sonner';
 
 export function useRealEstateData(user: any) {
@@ -24,6 +24,7 @@ export function useRealEstateData(user: any) {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [landlords, setLandlords] = useState<Landlord[]>([]);
+  const [brokers, setBrokers] = useState<Broker[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOperating, setIsOperating] = useState(false);
@@ -35,6 +36,7 @@ export function useRealEstateData(user: any) {
       setContracts([]);
       setPayments([]);
       setLandlords([]);
+      setBrokers([]);
       setUsers([]);
       setLoading(false);
       return;
@@ -78,12 +80,17 @@ export function useRealEstateData(user: any) {
       setLoading(false);
     });
 
+    const unsubBrokers = onSnapshot(getQuery('brokers'), (snapshot) => {
+      setBrokers(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Broker)));
+    }, (e) => handleFirestoreError(e, OperationType.LIST, 'brokers'));
+
     return () => {
       unsubProperties();
       unsubTenants();
       unsubContracts();
       unsubPayments();
       unsubLandlords();
+      unsubBrokers();
       usersUnsubscribe();
     };
   }, [user]);
@@ -428,6 +435,51 @@ export function useRealEstateData(user: any) {
     }
   };
 
+  const addBroker = async (data: Omit<Broker, 'id'>) => {
+    if (!user) return;
+    setIsOperating(true);
+    try {
+      await addDoc(collection(db, 'brokers'), {
+        ...data,
+        ownerId: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Corretor cadastrado!');
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'brokers');
+    } finally {
+      setIsOperating(false);
+    }
+  };
+
+  const updateBroker = async (id: string, data: Partial<Broker>) => {
+    setIsOperating(true);
+    try {
+      await updateDoc(doc(db, 'brokers', id), {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+      toast.success('Corretor atualizado!');
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `brokers/${id}`);
+    } finally {
+      setIsOperating(false);
+    }
+  };
+
+  const deleteBroker = async (id: string) => {
+    setIsOperating(true);
+    try {
+      await deleteDoc(doc(db, 'brokers', id));
+      toast.success('Corretor removido!');
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `brokers/${id}`);
+    } finally {
+      setIsOperating(false);
+    }
+  };
+
   const updateUser = async (uid: string, data: any) => {
     if (!uid || uid === 'undefined') {
       console.error('[UpdateUser] Attempted to update user with invalid UID:', uid);
@@ -480,7 +532,7 @@ export function useRealEstateData(user: any) {
     if (!window.confirm('CUIDADO: Limpar todo o banco de dados?')) return;
     
     try {
-      const collections = ['properties', 'tenants', 'contracts', 'payments', 'landlords', 'users'];
+      const collections = ['properties', 'tenants', 'contracts', 'payments', 'landlords', 'brokers', 'users'];
       for (const col of collections) {
         const snapshot = await getDocs(collection(db, col));
         const batch = writeBatch(db);
@@ -520,12 +572,17 @@ export function useRealEstateData(user: any) {
     ? (linkedLandlord ? [linkedLandlord] : [])
     : landlords;
 
+  const filteredBrokers = isPleno
+    ? brokers // Let landlord_pleno access brokers
+    : brokers;
+
   return {
     properties: filteredProperties,
     tenants: filteredTenants,
     contracts: filteredContracts,
     payments: filteredPayments,
     landlords: filteredLandlords,
+    brokers: filteredBrokers,
     users,
     loading,
     isOperating,
@@ -534,6 +591,7 @@ export function useRealEstateData(user: any) {
     addContract, updateContract, deleteContract,
     addPayment, updatePayment, deletePayment,
     addLandlord, updateLandlord, deleteLandlord,
+    addBroker, updateBroker, deleteBroker,
     updateUser, deleteUser,
     resetDatabase
   };

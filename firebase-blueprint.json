@@ -97,6 +97,25 @@
       },
       "required": ["id", "ownerId", "name", "email", "phone", "cpfCnpj"]
     },
+    "Broker": {
+      "title": "Broker",
+      "description": "Real estate broker overseeing property transactions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "creci": { "type": "string", "description": "CRECI broker registration number" },
+        "commissionPercent": { "type": "number", "description": "Standard broker commission percentage" },
+        "pixKey": { "type": "string" },
+        "registeredBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "name", "email", "phone", "creci", "commissionPercent"]
+    },
     "AppSettings": {
       "title": "App Settings",
       "description": "Global application settings",
@@ -162,6 +181,10 @@
     "landlords/{landlordId}": {
       "schema": "Landlord",
       "description": "Collection of all landlords"
+    },
+    "brokers/{brokerId}": {
+      "schema": "Broker",
+      "description": "Collection of all brokers"
     },
     "settings/{settingId}": {
       "schema": "AppSettings",

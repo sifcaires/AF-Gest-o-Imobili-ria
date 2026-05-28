@@ -14,13 +14,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Property, Landlord, Tenant, Contract } from '../../types';
+import { Property, Landlord, Tenant, Contract, Broker } from '../../types';
 
 interface PropertiesViewProps {
   properties: Property[];
   landlords: Landlord[];
   tenants: Tenant[];
   contracts: Contract[];
+  brokers: Broker[];
   searchTerm: string;
   setSearchTerm: (s: string) => void;
   onEdit: (p: Property) => void;
@@ -33,6 +34,7 @@ export function PropertiesView({
   landlords, 
   tenants, 
   contracts, 
+  brokers,
   searchTerm, 
   setSearchTerm, 
   onEdit, 
@@ -87,13 +89,18 @@ export function PropertiesView({
                 </div>
               </div>
               <CardHeader className="p-4 pb-1.5 text-white">
-                {landlords.find(l => l.id === property.landlordId) && (
-                  <div className="mb-1.5">
+                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                  {landlords.find(l => l.id === property.landlordId) && (
                     <Badge variant="outline" className="border-white/10 text-indigo-400 dark:text-indigo-300 text-[8px] uppercase tracking-tighter font-semibold">
                       Prop: {landlords.find(l => l.id === property.landlordId)?.name || 'N/A'}
                     </Badge>
-                  </div>
-                )}
+                  )}
+                  {property.capturedByBrokerId && brokers.find(b => b.id === property.capturedByBrokerId) && (
+                    <Badge variant="outline" className="border-teal-500/20 bg-teal-500/10 text-teal-400 text-[8px] uppercase tracking-tighter font-semibold">
+                      Captação: {brokers.find(b => b.id === property.capturedByBrokerId)?.name || 'N/A'}
+                    </Badge>
+                  )}
+                </div>
                 <div className="flex justify-between items-start gap-2">
                   <h3 className="text-[13px] leading-[14px] font-bold text-white tracking-tight group-hover:text-indigo-400 transition-colors uppercase italic serif truncate flex-1 min-w-0">{property.title}</h3>
                 </div>

@@ -54,13 +54,21 @@ export function PaymentForm({ contracts, tenants, properties, onSubmit, isLoadin
     return `${tenant?.name || 'Inquilino'} - ${property?.title || 'Imóvel'}`;
   };
 
-  // When a contract is selected, update the amount to the contract's rent amount
+  // When a contract is selected, update the amount to the contract's rent amount + property's condo + property's iptu (complete package)
   const handleContractChange = (contractId: string) => {
     const contract = contracts.find(c => c.id === contractId);
+    let targetAmount = formData.amount;
+    if (contract) {
+      const property = properties.find(p => p.id === contract.propertyId);
+      const rent = contract.rentAmount || 0;
+      const iptu = property?.iptuAmount || 0;
+      const condo = property?.condoAmount || 0;
+      targetAmount = rent + iptu + condo;
+    }
     setFormData({
       ...formData,
       contractId,
-      amount: contract?.rentAmount || formData.amount
+      amount: targetAmount
     });
   };
 
@@ -153,6 +161,7 @@ export function PaymentForm({ contracts, tenants, properties, onSubmit, isLoadin
                 className="border-white/10 bg-white/5 text-white h-10 pl-10 rounded-xl focus:ring-indigo-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
+
           </div>
         </div>
 
