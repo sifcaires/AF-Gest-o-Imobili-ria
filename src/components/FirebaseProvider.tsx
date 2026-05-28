@@ -64,7 +64,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
             }
           }
           
-          const isDirector = user.email === 'admin@email.com' || user.email === 'sifcaires@gmail.com';
+          const userEmail = user.email?.toLowerCase().trim();
+          const isDirector = userEmail === 'admin@email.com' || userEmail === 'sifcaires@gmail.com';
           
           let role: 'director' | 'landlord' | 'landlord_pleno' = isDirector ? 'director' : 'landlord';
           
@@ -112,7 +113,10 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
               createdAt: new Date().toISOString(),
             });
           } else {
-            await setDoc(userDocRef, firestoreWriteData, { merge: true });
+            // Prevent overwriting the server-side role on login!
+            // We omit the 'role' field from the merge payload so we never revert a manually edited role in Firestore.
+            const { role: omittedRole, ...updatePayload } = firestoreWriteData;
+            await setDoc(userDocRef, updatePayload, { merge: true });
           }
 
           const customUser = Object.create(user);
