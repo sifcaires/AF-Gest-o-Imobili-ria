@@ -213,8 +213,41 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const signUpWithEmail = async (email: string, pass: string, name: string) => {
     setAuthError(null);
     try {
+      // 1. Verify if there is already a landlord profile with this email
+      const isDirector = email.toLowerCase().trim() === 'admin@email.com' || email.toLowerCase().trim() === 'sifcaires@gmail.com';
+      let role: 'director' | 'landlord' | 'landlord_pleno' = isDirector ? 'director' : 'landlord';
+      
+      if (!isDirector) {
+        try {
+          const landlordsRef = collection(db, 'landlords');
+          const q = query(landlordsRef, where('email', '==', email.toLowerCase().trim()));
+          const querySnapshot = await getDocs(q);
+          
+          if (!querySnapshot.empty) {
+            role = 'landlord_pleno';
+          }
+        } catch (err) {
+          console.error('[signUpWithEmail] Error checking landlord profile:', err);
+        }
+      }
+
+      // 2. Create the user authentication record
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(userCredential.user, { displayName: name });
+      
+      // 3. Persist the user document with the resolved role to Firestore immediately!
+      const userDocRef = doc(db, 'users', userCredential.user.uid);
+      await setDoc(userDocRef, {
+        uid: userCredential.user.uid,
+        displayName: name,
+        email: email.toLowerCase().trim(),
+        role: role,
+        lastLogin: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      }, { merge: true });
+
+      // Reload user record to update local profile displayName
+      await userCredential.user.reload();
     } catch (error: any) {
       handleAuthError(error);
     }
