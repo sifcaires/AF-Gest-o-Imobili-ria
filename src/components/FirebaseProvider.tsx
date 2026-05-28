@@ -63,16 +63,18 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           
           if (!isDirector && user.email) {
             try {
-              const landlordsRef = collection(db, 'landlords');
-              const q = query(landlordsRef, where('email', '==', user.email.toLowerCase().trim()));
-              const querySnapshot = await getDocs(q);
-              
-              if (!querySnapshot.empty) {
-                role = 'landlord_pleno';
-              } else if (userDoc.exists()) {
+              if (userDoc.exists() && userDoc.data()?.role) {
                 const existingRole = userDoc.data()?.role;
                 if (existingRole === 'landlord_pleno' || existingRole === 'landlord' || existingRole === 'director') {
                   role = existingRole;
+                }
+              } else {
+                const landlordsRef = collection(db, 'landlords');
+                const q = query(landlordsRef, where('email', '==', user.email.toLowerCase().trim()));
+                const querySnapshot = await getDocs(q);
+                
+                if (!querySnapshot.empty) {
+                  role = 'landlord_pleno';
                 }
               }
             } catch (err) {

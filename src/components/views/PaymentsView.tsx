@@ -631,29 +631,32 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                       </Button>
                     )}
 
-                    <Button 
-                      variant="outline" 
-                      onClick={() => handleGenerateBoleto(payment)}
-                      disabled={isGenerating === payment.id}
-                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-indigo-500/10 text-indigo-400 border hover:border-indigo-500/30 transition-all"
-                      title="Baixar PDF da Fatura"
-                    >
-                      {isGenerating === payment.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
-                      ) : (
-                        <FileDown className="h-4 w-4" />
-                      )}
-                    </Button>
+                    {user?.role !== 'landlord_pleno' && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleGenerateBoleto(payment)}
+                        disabled={isGenerating === payment.id}
+                        className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-indigo-500/10 text-indigo-400 border hover:border-indigo-500/30 transition-all"
+                        title="Baixar PDF da Fatura"
+                      >
+                        {isGenerating === payment.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+                        ) : (
+                          <FileDown className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
 
-                    <Dialog 
-                      open={!!selectedPayment && selectedPayment.id === payment.id} 
-                      onOpenChange={(open) => {
-                        if (!open) {
-                          setSelectedPayment(null);
-                          setActiveBoletoScreen('menu');
-                        }
-                      }}
-                    >
+                    {user?.role !== 'landlord_pleno' && (
+                      <Dialog 
+                        open={!!selectedPayment && selectedPayment.id === payment.id} 
+                        onOpenChange={(open) => {
+                          if (!open) {
+                            setSelectedPayment(null);
+                            setActiveBoletoScreen('menu');
+                          }
+                        }}
+                      >
                       <DialogTrigger
                         render={
                           <button 
@@ -960,14 +963,17 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                         </div>
                       </DialogContent>
                     </Dialog>
+                    )}
 
-                    <Button 
-                      variant="outline" 
-                      onClick={() => onDelete(payment.id)}
-                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {user?.role !== 'landlord_pleno' && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => onDelete(payment.id)}
+                        className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
