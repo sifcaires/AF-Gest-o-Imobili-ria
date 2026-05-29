@@ -79,20 +79,36 @@ export function TenantsView({ tenants, user, users, onEdit, onDelete }: TenantsV
                 <TableCell className="text-right px-10">
                   {user?.role !== 'landlord_pleno' && (
                     <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => onEdit(tenant)}
-                        className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-indigo-500/20 hover:text-white hover:border-indigo-500/50 text-slate-400 transition-colors"
-                      >
-                        <FileText className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => onDelete(tenant.id)}
-                        className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/20 text-rose-400 border hover:border-rose-500/50 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {user?.role === 'broker' ? (
+                        <div className="flex items-center gap-3 justify-end">
+                          <span className="text-[10px] uppercase tracking-widest font-bold text-teal-400 bg-teal-400/10 px-3 py-1.5 rounded-lg border border-teal-400/20">Visualização</span>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => onEdit(tenant)}
+                            className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-indigo-500/20 hover:text-white hover:border-indigo-500/50 text-slate-400 transition-colors"
+                            title="Visualizar Detalhes"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => onEdit(tenant)}
+                            className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-indigo-500/20 hover:text-white hover:border-indigo-500/50 text-slate-400 transition-colors"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => onDelete(tenant.id)}
+                            className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/20 text-rose-400 border hover:border-rose-500/50 transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   )}
                 </TableCell>

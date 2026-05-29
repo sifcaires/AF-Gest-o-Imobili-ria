@@ -451,7 +451,7 @@ export default function App() {
                     <span className="font-medium text-sm">Financeiro</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                {user?.role !== 'landlord_pleno' && (
+                {user?.role !== 'landlord_pleno' && user?.role !== 'broker' && (
                   <SidebarMenuItem>
                     <SidebarMenuButton 
                       onClick={() => setActiveView('automations')} 
@@ -636,6 +636,7 @@ export default function App() {
                           initialData={editingItem} 
                           landlords={landlords}
                           brokers={brokers}
+                          userRole={user?.role}
                           onSubmit={editingItem ? async (data) => {
                             await updateProperty(editingItem.id, data);
                             setIsRegistryOpen(false);
@@ -651,6 +652,7 @@ export default function App() {
                       <div key={editingItem?.id || 'new'}>
                         <TenantForm 
                           initialData={editingItem} 
+                          userRole={user?.role}
                           onSubmit={editingItem ? async (data) => {
                             await updateTenant(editingItem.id, data);
                             setIsRegistryOpen(false);

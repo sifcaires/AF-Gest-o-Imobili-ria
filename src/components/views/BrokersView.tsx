@@ -196,24 +196,28 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
                   )}
                 </TableCell>
                 <TableCell className="py-5 px-8 text-right">
-                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => onEdit(broker)}
-                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-white transition-colors"
-                      title="Editar Corretor"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => onDelete(broker.id)}
-                      className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
-                      title="Excluir Corretor"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {user?.role !== 'broker' ? (
+                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => onEdit(broker)}
+                        className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-white transition-colors"
+                        title="Editar Corretor"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => onDelete(broker.id)}
+                        className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
+                        title="Excluir Corretor"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Visualização</span>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

@@ -51,7 +51,8 @@ export function useRealEstateData(user: any) {
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'users')) : () => {};
 
     const getQuery = (collectionName: string) => {
-      return (isAdmin || isPleno)
+      const isBroker = user?.role === 'broker';
+      return (isAdmin || isPleno || isBroker)
         ? collection(db, collectionName) 
         : query(collection(db, collectionName), where('ownerId', '==', user.uid));
     };
@@ -547,34 +548,51 @@ export function useRealEstateData(user: any) {
   };
 
   const isPleno = user?.role === 'landlord_pleno';
+  const isBroker = user?.role === 'broker';
 
   const linkedLandlord = isPleno
     ? landlords.find(l => l.email?.toLowerCase() === user?.email?.toLowerCase())
     : null;
 
+  const linkedBroker = isBroker
+    ? brokers.find(b => b.email?.toLowerCase().trim() === user?.email?.toLowerCase().trim() || b.ownerId === user?.uid)
+    : null;
+
   const filteredProperties = isPleno
     ? (linkedLandlord ? properties.filter(p => p.landlordId === linkedLandlord.id) : [])
-    : properties;
+    : isBroker
+      ? properties.filter(p => (linkedBroker && p.capturedByBrokerId === linkedBroker.id) || p.ownerId === user?.uid)
+      : properties;
 
   const filteredContracts = isPleno
     ? contracts.filter(c => filteredProperties.some(p => p.id === c.propertyId))
-    : contracts;
+    : isBroker
+      ? contracts.filter(c => filteredProperties.some(p => p.id === c.propertyId) || c.ownerId === user?.uid)
+      : contracts;
 
   const filteredTenants = isPleno
     ? tenants.filter(t => filteredContracts.some(c => c.tenantId === t.id))
-    : tenants;
+    : isBroker
+      ? tenants.filter(t => filteredContracts.some(c => c.tenantId === t.id) || t.ownerId === user?.uid)
+      : tenants;
 
   const filteredPayments = isPleno
     ? payments.filter(p => filteredContracts.some(c => c.id === p.contractId))
-    : payments;
+    : isBroker
+      ? payments.filter(p => filteredContracts.some(c => c.id === p.contractId) || p.ownerId === user?.uid)
+      : payments;
 
   const filteredLandlords = isPleno
     ? (linkedLandlord ? [linkedLandlord] : [])
-    : landlords;
+    : isBroker
+      ? landlords.filter(l => filteredProperties.some(p => p.landlordId === l.id) || l.ownerId === user?.uid)
+      : landlords;
 
   const filteredBrokers = isPleno
     ? brokers // Let landlord_pleno access brokers
-    : brokers;
+    : isBroker
+      ? (linkedBroker ? [linkedBroker] : [])
+      : brokers;
 
   return {
     properties: filteredProperties,

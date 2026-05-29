@@ -190,7 +190,7 @@ export function PropertiesView({
                   ) : (
                     <div className="flex-1" />
                   )}
-                  {user?.role !== 'landlord_pleno' && (
+                  {user?.role !== 'landlord_pleno' && user?.role !== 'broker' && (
                     <Button 
                       size="icon" 
                       variant="ghost" 
@@ -222,9 +222,13 @@ export function PropertiesView({
                 {user?.role !== 'landlord_pleno' && (
                   <Button 
                     onClick={() => onEdit(property)}
-                    className="h-8 px-4 rounded-full font-bold text-[10px] uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-lg hover:shadow-indigo-500/25"
+                    className={`h-8 px-4 rounded-full font-bold text-[10px] uppercase tracking-wider transition-all shadow-lg ${
+                      user?.role === 'broker' 
+                        ? 'bg-teal-600 hover:bg-teal-700 text-white hover:shadow-teal-500/25' 
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-500/25'
+                    }`}
                   >
-                    Gerenciar
+                    {user?.role === 'broker' ? 'Visualizar' : 'Gerenciar'}
                   </Button>
                 )}
               </CardFooter>

@@ -11,9 +11,12 @@ interface PropertyFormProps {
   brokers: Broker[];
   onSubmit: (data: Omit<Property, 'id' | 'ownerId'>) => Promise<void>;
   isLoading?: boolean;
+  userRole?: string;
 }
 
-export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoading }: PropertyFormProps) {
+export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoading, userRole }: PropertyFormProps) {
+  const isReadOnly = userRole === 'broker';
+
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
     description: initialData?.description || '',
@@ -52,6 +55,7 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (isReadOnly) return;
     await onSubmit({
       ...formData,
       capturedByBrokerId: formData.capturedByBrokerId === 'none' ? '' : formData.capturedByBrokerId
@@ -68,6 +72,7 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
             value={formData.landlordId} 
             onValueChange={(value) => setFormData({ ...formData, landlordId: value })}
             required
+            disabled={isReadOnly}
           >
             <SelectTrigger className="border-white/10 bg-white/5 text-white h-10 rounded-xl w-[285.238px]">
               <SelectValue placeholder="Selecione o proprietário">
@@ -91,6 +96,7 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
           <Select 
             value={formData.status} 
             onValueChange={(value: 'available' | 'rented') => setFormData({ ...formData, status: value })}
+            disabled={isReadOnly}
           >
             <SelectTrigger className="border-white/10 bg-white/5 text-white rounded-xl w-[119.32px] h-[47.9936px] mr-0 mb-0 mt-0 ml-[75px] pt-[9px] pb-[10px] pl-[10px] pr-[9px]">
               <SelectValue placeholder="Selecione">
@@ -112,6 +118,7 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
           id="title"
           placeholder="Ex: Apartamento Moderno no Centro"
           value={formData.title}
+          disabled={isReadOnly}
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           required
           className="border-white/10 bg-white/5 text-white h-10 rounded-xl focus:ring-indigo-500/50 pt-0 pb-0 pr-0 pl-2 ml-0 mt-0 mr-[-2px] mb-[-1px]"
@@ -125,6 +132,7 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
           id="address"
           placeholder="Rua, Número, Bairro, Cidade"
           value={formData.address}
+          disabled={isReadOnly}
           onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           required
           className="border-white/10 bg-white/5 text-white h-10 rounded-xl focus:ring-indigo-500/50"
@@ -140,6 +148,7 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
             type="number"
             placeholder="0.00"
             value={formData.rentAmount || ''}
+            disabled={isReadOnly}
             onChange={(e) => setFormData({ ...formData, rentAmount: parseFloat(e.target.value) || 0 })}
             required
             className="border-white/10 bg-white/5 text-white h-10 rounded-xl focus:ring-indigo-500/50"
@@ -152,6 +161,7 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
             type="number"
             placeholder="0.00"
             value={formData.condoAmount || ''}
+            disabled={isReadOnly}
             onChange={(e) => setFormData({ ...formData, condoAmount: parseFloat(e.target.value) || 0 })}
             className="border-white/10 bg-white/5 text-white h-10 rounded-xl focus:ring-indigo-500/50"
           />
@@ -163,6 +173,7 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
             type="number"
             placeholder="0.00"
             value={formData.iptuAmount || ''}
+            disabled={isReadOnly}
             onChange={(e) => setFormData({ ...formData, iptuAmount: parseFloat(e.target.value) || 0 })}
             className="border-white/10 bg-white/5 text-white h-10 rounded-xl focus:ring-indigo-500/50"
           />
@@ -173,10 +184,11 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
       <div className="space-y-1 mb-1">
         <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Garantias Exigidas</Label>
         <div className="grid grid-cols-3 gap-3">
-          <label className="flex items-center gap-2.5 p-2 rounded-xl border border-white/10 bg-white/5 cursor-pointer select-none transition-colors hover:bg-white/10">
+          <label className={`flex items-center gap-2.5 p-2 rounded-xl border border-white/10 bg-white/5 select-none transition-colors ${isReadOnly ? 'cursor-default opacity-80' : 'cursor-pointer hover:bg-white/10'}`}>
             <input 
               type="checkbox"
               checked={formData.requiresGuarantor}
+              disabled={isReadOnly}
               onChange={(e) => setFormData({ ...formData, requiresGuarantor: e.target.checked })}
               className="h-4 w-4 rounded border-white/10 bg-white/5 text-indigo-600 focus:ring-indigo-500/50 accent-indigo-600"
             />
@@ -186,10 +198,11 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
             </div>
           </label>
 
-          <label className="flex items-center gap-2.5 p-2 rounded-xl border border-white/10 bg-white/5 cursor-pointer select-none transition-colors hover:bg-white/10">
+          <label className={`flex items-center gap-2.5 p-2 rounded-xl border border-white/10 bg-white/5 select-none transition-colors ${isReadOnly ? 'cursor-default opacity-80' : 'cursor-pointer hover:bg-white/10'}`}>
             <input 
               type="checkbox"
               checked={formData.requiresDeposit}
+              disabled={isReadOnly}
               onChange={(e) => setFormData({ ...formData, requiresDeposit: e.target.checked })}
               className="h-4 w-4 rounded border-white/10 bg-white/5 text-indigo-600 focus:ring-indigo-500/50 accent-indigo-600"
             />
@@ -199,10 +212,11 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
             </div>
           </label>
 
-          <label className="flex items-center gap-2.5 p-2 rounded-xl border border-white/10 bg-white/5 cursor-pointer select-none transition-colors hover:bg-white/10">
+          <label className={`flex items-center gap-2.5 p-2 rounded-xl border border-white/10 bg-white/5 select-none transition-colors ${isReadOnly ? 'cursor-default opacity-80' : 'cursor-pointer hover:bg-white/10'}`}>
             <input 
               type="checkbox"
               checked={formData.requiresInsurance}
+              disabled={isReadOnly}
               onChange={(e) => setFormData({ ...formData, requiresInsurance: e.target.checked })}
               className="h-4 w-4 rounded border-white/10 bg-white/5 text-indigo-600 focus:ring-indigo-500/50 accent-indigo-600"
             />
@@ -220,6 +234,7 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
         <Select 
           value={formData.capturedByBrokerId || 'none'} 
           onValueChange={(value) => setFormData({ ...formData, capturedByBrokerId: value === 'none' ? '' : value })}
+          disabled={isReadOnly}
         >
           <SelectTrigger className="border-white/10 bg-white/5 text-white h-10 rounded-xl focus:ring-indigo-500/50 w-full text-left">
             <SelectValue placeholder="Selecione o corretor responsável pela captação">
@@ -245,6 +260,7 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
           <textarea
             id="description"
             rows={1}
+            disabled={isReadOnly}
             className="w-full rounded-xl border border-white/10 bg-white/5 pt-0 pb-[91px] ml-0 mr-0 mt-0 mb-[-8px] pl-[6px] pr-0 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all resize-none h-[42px]"
             placeholder="Ex: 2 quartos, semi-mobiliado, próximo ao metrô..."
             value={formData.description}
@@ -257,6 +273,7 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
             id="imageUrl"
             placeholder="https://images.unsplash.com/..."
             value={formData.imageUrl}
+            disabled={isReadOnly}
             onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
             className="border-white/10 bg-white/5 text-white h-10 rounded-xl focus:ring-indigo-500/50 text-xs"
           />
@@ -264,17 +281,23 @@ export function PropertyForm({ initialData, landlords, brokers, onSubmit, isLoad
       </div>
 
       <div className="pt-[28px] pb-0 ml-0 -mt-[27px] pl-[5px] pr-0 mr-0 mb-0">
-        <Button 
-          type="submit" 
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 rounded-xl shadow-xl shadow-indigo-500/20 uppercase tracking-widest text-xs transition-all transform hover:-translate-y-0.5 pt-0 pl-0 ml-0 mr-0 mt-[13px] mb-0 pr-0"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          ) : (
-            'Salvar Imóvel'
-          )}
-        </Button>
+        {isReadOnly ? (
+          <div className="w-full bg-slate-800 text-slate-400 font-bold h-10 rounded-xl flex items-center justify-center border border-white/5 uppercase tracking-widest text-[10px] mt-[13px]">
+            Modo Somente Visualização (Corretor)
+          </div>
+        ) : (
+          <Button 
+            type="submit" 
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 rounded-xl shadow-xl shadow-indigo-500/20 uppercase tracking-widest text-xs transition-all transform hover:-translate-y-0.5 pt-0 pl-0 ml-0 mr-0 mt-[13px] mb-0 pr-0"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : (
+              'Salvar Imóvel'
+            )}
+          </Button>
+        )}
       </div>
     </form>
   );
