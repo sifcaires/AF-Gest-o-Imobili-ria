@@ -8,7 +8,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  deleteUser
 } from 'firebase/auth';
 import { ref } from 'firebase/storage';
 import { doc, getDoc, setDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
@@ -224,9 +225,15 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
 
   const signUpWithEmail = async (email: string, pass: string, name: string) => {
     setAuthError(null);
+    let createdUser: User | null = null;
     try {
       const emailLower = email.toLowerCase().trim();
       const isDirector = emailLower === 'admin@email.com' || emailLower === 'sifcaires@gmail.com';
+      
+      // 1. Create the user authentication record first! This signs in the user locally.
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      createdUser = userCredential.user;
+      await updateProfile(createdUser, { displayName: name });
       
       let isApproved = isDirector;
       let role: 'director' | 'landlord' | 'landlord_pleno' | 'broker' = 'landlord';
@@ -234,7 +241,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       if (isDirector) {
         role = 'director';
       } else {
-        // Checking if the email is registered in Broker (corretor)
+        // Checking if the email is registered in Broker (corretor) or Landlord.
+        // Since the user is now authenticated, the security rules can safely authorize the query!
         try {
           const brokersRef = collection(db, 'brokers');
           const qBroker = query(brokersRef, where('email', '==', emailLower));
@@ -256,21 +264,34 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (err) {
           console.error('[signUpWithEmail] Error checking email registration:', err);
+          // Delete created auth user if database check fails with an unexpected error
+          if (createdUser) {
+            try {
+              await deleteUser(createdUser);
+            } catch (delErr) {
+              console.error('[signUpWithEmail] Error deleting auth user on check fail:', delErr);
+            }
+          }
+          throw err;
         }
       }
       
       if (!isApproved) {
+        // Delete the created authentication user before throwing the error!
+        if (createdUser) {
+          try {
+            await deleteUser(createdUser);
+          } catch (delErr) {
+            console.error('[signUpWithEmail] Error deleting unauthorized auth user:', delErr);
+          }
+        }
         throw new Error('Seu cadastro ainda não foi concluído, aguarde por 24 horas e tente novamente. Obrigado!');
       }
-
-      // 2. Create the user authentication record
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-      await updateProfile(userCredential.user, { displayName: name });
       
       // 3. Persist the user document with the resolved role to Firestore immediately!
-      const userDocRef = doc(db, 'users', userCredential.user.uid);
+      const userDocRef = doc(db, 'users', createdUser.uid);
       await setDoc(userDocRef, {
-        uid: userCredential.user.uid,
+        uid: createdUser.uid,
         displayName: name,
         email: emailLower,
         role: role,
@@ -279,7 +300,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       }, { merge: true });
 
       // Reload user record to update local profile displayName
-      await userCredential.user.reload();
+      await createdUser.reload();
     } catch (error: any) {
       handleAuthError(error);
     }

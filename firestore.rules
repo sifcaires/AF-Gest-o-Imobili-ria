@@ -57,7 +57,7 @@ service cloud.firestore {
     }
 
     match /brokers/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
+      allow read: if isOwner(resource.data) || isLandlordPleno() || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid) || (isSignedIn() && resource.data.email == request.auth.token.email);
       allow write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
     }
 
