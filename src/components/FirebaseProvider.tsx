@@ -241,26 +241,30 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       if (isDirector) {
         role = 'director';
       } else {
-        // Checking if the email is registered in Broker (corretor) or Landlord.
-        // Since the user is now authenticated, the security rules can safely authorize the query!
+        // Checking if the email is registered in Broker (corretor) or Landlord (locador)
         try {
           const brokersRef = collection(db, 'brokers');
           const qBroker = query(brokersRef, where('email', '==', emailLower));
           const brokerSnapshot = await getDocs(qBroker);
           
-          if (!brokerSnapshot.empty) {
+          const landlordsRef = collection(db, 'landlords');
+          const qLandlord = query(landlordsRef, where('email', '==', emailLower));
+          const landlordSnapshot = await getDocs(qLandlord);
+          
+          const hasBroker = !brokerSnapshot.empty;
+          const hasLandlord = !landlordSnapshot.empty;
+          
+          if (hasLandlord) {
+            // Se tiver cadastro de Locador, efetive o acesso como Locador Pleno
+            isApproved = true;
+            role = 'landlord_pleno';
+          } else if (hasBroker) {
+            // Se tiver cadastro como Corretor, efetive o acesso como Corretor
             isApproved = true;
             role = 'broker';
           } else {
-            // Let's also check Landlords in case they are registered as landlord
-            const landlordsRef = collection(db, 'landlords');
-            const qLandlord = query(landlordsRef, where('email', '==', emailLower));
-            const landlordSnapshot = await getDocs(qLandlord);
-            
-            if (!landlordSnapshot.empty) {
-              isApproved = true;
-              role = 'landlord_pleno';
-            }
+            // Se não tiver cadastro nenhum (nem de Locador nem de Corretor), desaprova para dar a mensagem
+            isApproved = false;
           }
         } catch (err) {
           console.error('[signUpWithEmail] Error checking email registration:', err);

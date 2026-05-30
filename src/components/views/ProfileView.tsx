@@ -135,7 +135,9 @@ export function ProfileView({ user, landlords, onRegisterAsLandlord }: ProfileVi
                   </div>
                   <h3 className="text-xl font-bold text-white serif italic mt-4">{name || 'Usuário'}</h3>
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">
-                    {user?.role === 'landlord_pleno' ? 'Locador Pleno' : 'Locador Master'}
+                    {user?.role === 'director' ? 'Diretor Geral' : 
+                     user?.role === 'landlord_pleno' ? 'Locador Pleno' : 
+                     user?.role === 'broker' ? 'Corretor' : 'Locador Master'}
                   </p>
                 </div>
               </div>

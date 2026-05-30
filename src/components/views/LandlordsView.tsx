@@ -123,7 +123,7 @@ export function LandlordsView({ user, landlords, users, searchTerm, setSearchTer
                       <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Nenhum locador encontrado</p>
                       <p className="text-slate-600 text-[10px] mt-1">Refine sua busca ou adicione um novo registro.</p>
                     </div>
-                    {!isAlreadyLandlord && (
+                    {!isAlreadyLandlord && user?.role !== 'broker' && (
                       <Button 
                         onClick={onRegisterMe}
                         className="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 font-bold text-[10px] uppercase tracking-widest px-6 h-10 rounded-xl transition-all"

@@ -15,7 +15,8 @@ import {
   LayoutDashboard,
   Sun,
   Moon,
-  Cpu
+  Cpu,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
@@ -319,8 +320,30 @@ export default function App() {
           }}
         />;
       case 'users':
+        if (user?.email !== 'admin@email.com' && user?.email !== 'sifcaires@gmail.com') {
+          return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
+              <div className="h-16 w-16 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500 mb-4 animate-pulse">
+                <AlertCircle className="h-8 w-8" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Acesso Negado</h3>
+              <p className="text-slate-400 text-sm max-w-md font-medium">Você não possui permissões suficientes para gerenciar os usuários do sistema.</p>
+            </div>
+          );
+        }
         return <UsersView users={users} onUpdateUser={updateUser} onDeleteUser={(uid) => setItemToDelete({ id: uid, type: 'user' })} />;
       case 'automations':
+        if (user?.role === 'landlord_pleno' || user?.role === 'broker') {
+          return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
+              <div className="h-16 w-16 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500 mb-4 animate-pulse">
+                <AlertCircle className="h-8 w-8" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Acesso Negado</h3>
+              <p className="text-slate-400 text-sm max-w-md font-medium">O módulo de automações não está disponível para o seu nível de acesso atual.</p>
+            </div>
+          );
+        }
         return <AutomationsView
           user={user}
           contracts={contracts}
@@ -479,7 +502,9 @@ export default function App() {
                     ? 'Diretor Geral' 
                     : user?.role === 'landlord_pleno' 
                       ? 'Locador Pleno' 
-                      : 'Locador Master'}
+                      : user?.role === 'broker'
+                        ? 'Corretor'
+                        : 'Locador Master'}
                 </span>
               </div>
               <DropdownMenu>
@@ -569,26 +594,30 @@ export default function App() {
                   <div className="overflow-y-auto flex-1 pl-[16px] pr-4 -ml-[11px] -mr-[11px] -mt-[12px] -mb-[12px] pt-[3px] pb-[3px]">
                     {activeForm === 'none' ? (
                       <div className="grid grid-cols-2 gap-4 py-2">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setActiveForm('property')}
-                          className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-indigo-500/20 hover:border-indigo-500/50 text-white transition-all group"
-                        >
-                          <div className="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center group-hover:bg-indigo-500/20">
-                            <Building2 className="h-5 w-5 text-indigo-400" />
-                          </div>
-                          <span className="font-bold text-xs uppercase tracking-widest">Imóvel</span>
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setActiveForm('tenant')}
-                          className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-emerald-500/20 hover:border-emerald-500/50 text-white transition-all group"
-                        >
-                           <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20">
-                            <Users className="h-5 w-5 text-emerald-400" />
-                          </div>
-                          <span className="font-bold text-xs uppercase tracking-widest">Inquilino</span>
-                        </Button>
+                        {user?.role !== 'broker' && (
+                          <>
+                            <Button 
+                              variant="outline" 
+                              onClick={() => setActiveForm('property')}
+                              className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-indigo-500/20 hover:border-indigo-500/50 text-white transition-all group"
+                            >
+                              <div className="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center group-hover:bg-indigo-500/20">
+                                <Building2 className="h-5 w-5 text-indigo-400" />
+                              </div>
+                              <span className="font-bold text-xs uppercase tracking-widest">Imóvel</span>
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              onClick={() => setActiveForm('tenant')}
+                              className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-emerald-500/20 hover:border-emerald-500/50 text-white transition-all group"
+                            >
+                               <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20">
+                                <Users className="h-5 w-5 text-emerald-400" />
+                              </div>
+                              <span className="font-bold text-xs uppercase tracking-widest">Inquilino</span>
+                            </Button>
+                          </>
+                        )}
                         <Button 
                           variant="outline" 
                           onClick={() => setActiveForm('contract')}
@@ -609,26 +638,30 @@ export default function App() {
                           </div>
                           <span className="font-bold text-xs uppercase tracking-widest">Boleto</span>
                         </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setActiveForm('landlord')}
-                          className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-blue-500/20 hover:border-blue-500/50 text-white transition-all group"
-                        >
-                           <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20">
-                            <UserSquare2 className="h-5 w-5 text-blue-400" />
-                          </div>
-                          <span className="font-bold text-xs uppercase tracking-widest">Locador</span>
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setActiveForm('broker')}
-                          className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-teal-500/20 hover:border-teal-500/50 text-white transition-all group"
-                        >
-                           <div className="h-10 w-10 rounded-full bg-teal-500/10 flex items-center justify-center group-hover:bg-teal-500/20">
-                            <UserSquare2 className="h-5 w-5 text-teal-400" />
-                          </div>
-                          <span className="font-bold text-xs uppercase tracking-widest">Corretor</span>
-                        </Button>
+                        {user?.role !== 'broker' && (
+                          <>
+                            <Button 
+                              variant="outline" 
+                              onClick={() => setActiveForm('landlord')}
+                              className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-blue-500/20 hover:border-blue-500/50 text-white transition-all group"
+                            >
+                               <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20">
+                                <UserSquare2 className="h-5 w-5 text-blue-400" />
+                              </div>
+                              <span className="font-bold text-xs uppercase tracking-widest">Locador</span>
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              onClick={() => setActiveForm('broker')}
+                              className="h-28 flex-col gap-3 border-white/10 bg-white/5 hover:bg-teal-500/20 hover:border-teal-500/50 text-white transition-all group"
+                            >
+                               <div className="h-10 w-10 rounded-full bg-teal-500/10 flex items-center justify-center group-hover:bg-teal-500/20">
+                                <UserSquare2 className="h-5 w-5 text-teal-400" />
+                              </div>
+                              <span className="font-bold text-xs uppercase tracking-widest">Corretor</span>
+                            </Button>
+                          </>
+                        )}
                       </div>
                     ) : activeForm === 'property' ? (
                       <div key={editingItem?.id || 'new'}>

@@ -7,11 +7,21 @@ service cloud.firestore {
     }
     
     function isOwner(data) {
-      return isSignedIn() && (data.ownerId == request.auth.uid || isAdmin());
+      return isSignedIn() && data.ownerId == request.auth.uid;
+    }
+
+    function isDirector() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'director';
     }
 
     function isAdmin() {
-      return isSignedIn() && (request.auth.token.email == 'admin@email.com' || request.auth.token.email == 'sifcaires@gmail.com');
+      return isSignedIn() && (
+        request.auth.token.email == 'admin@email.com' || 
+        request.auth.token.email == 'sifcaires@gmail.com' || 
+        isDirector()
+      );
     }
 
     function isLandlordPleno() {
@@ -32,47 +42,54 @@ service cloud.firestore {
 
     // Matching all collections
     match /settings/{id} {
-      allow read: if true; // Public settings like logo should be readable by all? Or at least all signed in?
+      allow read: if true;
       allow write: if isAdmin();
     }
     
     match /properties/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
-      allow write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
+      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin();
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data) || isAdmin();
     }
     
     match /tenants/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
-      allow write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
+      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin();
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data) || isAdmin();
     }
     
     match /contracts/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
-      allow write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid) || isBroker();
+      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin();
+      allow create: if isSignedIn() && (request.resource.data.ownerId == request.auth.uid || isBroker());
+      allow update, delete: if isOwner(resource.data) || isBroker() || isAdmin();
     }
     
     match /payments/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
-      allow write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid) || isBroker();
+      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin();
+      allow create: if isSignedIn() && (request.resource.data.ownerId == request.auth.uid || isBroker());
+      allow update, delete: if isOwner(resource.data) || isBroker() || isAdmin();
     }
     
     match /landlords/{id} {
-      allow get: if isOwner(resource.data) || isLandlordPleno() || isBroker() || (isSignedIn() && resource.data.email == request.auth.token.email);
-      allow list: if isOwner(resource.data) || isLandlordPleno() || isBroker() || (isSignedIn() && resource.data.email == request.auth.token.email);
-      allow write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
+      allow get, list: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email);
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data) || isAdmin();
     }
 
     match /brokers/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid) || (isSignedIn() && resource.data.email == request.auth.token.email);
-      allow write: if isOwner(resource.data) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
+      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email);
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data) || isAdmin();
     }
 
     match /automations/{id} {
-      allow read, write: if isSignedIn() && (id == request.auth.uid || (resource != null && resource.data.ownerId == request.auth.uid) || (request.resource != null && request.resource.data.ownerId == request.auth.uid));
+      allow read, write: if isSignedIn() && (id == request.auth.uid || (resource != null && isOwner(resource.data)) || (request.resource != null && request.resource.data.ownerId == request.auth.uid) || isAdmin());
     }
 
     match /webhook_logs/{id} {
-      allow read, write: if (resource != null && isOwner(resource.data)) || (isSignedIn() && request.method == 'create' && request.resource.data.ownerId == request.auth.uid);
+      allow read: if resource != null && (isOwner(resource.data) || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data) || isAdmin();
     }
 
     match /users/{userId} {

@@ -34,6 +34,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { AppUser } from '../../types';
+import { useFirebase } from '../FirebaseProvider';
 
 interface UsersViewProps {
   users: AppUser[];
@@ -42,10 +43,11 @@ interface UsersViewProps {
 }
 
 export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps) {
+  const { user } = useFirebase();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [editingUser, setEditingUser] = React.useState<AppUser | null>(null);
   const [editedName, setEditedName] = React.useState('');
-  const [editedRole, setEditedRole] = React.useState<'director' | 'landlord' | 'landlord_pleno'>('landlord');
+  const [editedRole, setEditedRole] = React.useState<'director' | 'landlord' | 'landlord_pleno' | 'broker'>('landlord');
   const [isSaving, setIsSaving] = React.useState(false);
 
   const handleStartEdit = (u: AppUser) => {
@@ -177,6 +179,11 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                           <UserCheck className="h-3 w-3" />
                           Locador Pleno
                         </Badge>
+                      ) : u.role === 'broker' ? (
+                        <Badge className="bg-teal-500/20 text-teal-400 border-teal-500/30 font-bold uppercase tracking-widest text-[9px] px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                          <Shield className="h-3 w-3" />
+                          Corretor (Restrito)
+                        </Badge>
                       ) : (
                         <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-bold uppercase tracking-widest text-[9px] px-2.5 py-1 rounded-lg flex items-center gap-1.5">
                           <UserCheck className="h-3 w-3" />
@@ -218,12 +225,12 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                             <Pencil className="h-4 w-4 text-indigo-300" />
                           </Button>
                         )}
-                        {onDeleteUser && u.role === 'landlord' && (
+                        {onDeleteUser && (u.role === 'landlord' || (user?.role === 'director' && (u.role === 'landlord_pleno' || u.role === 'broker'))) && (
                           <Button 
                             variant="outline" 
                             onClick={() => onDeleteUser(u.uid)}
                             className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
-                            title="Excluir Locador Master"
+                            title={u.role === 'landlord_pleno' ? "Excluir Locador Pleno" : u.role === 'broker' ? "Excluir Corretor" : "Excluir Locador Master"}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -267,12 +274,13 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                 <div className="relative">
                   <select
                     value={editedRole}
-                    onChange={(e) => setEditedRole(e.target.value as 'director' | 'landlord' | 'landlord_pleno')}
+                    onChange={(e) => setEditedRole(e.target.value as 'director' | 'landlord' | 'landlord_pleno' | 'broker')}
                     className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-2xl text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all appearance-none cursor-pointer"
                   >
                     <option value="director" className="bg-[#0a0f1d] text-white font-bold">Diretor Geral (Acesso Pleno)</option>
                     <option value="landlord" className="bg-[#0a0f1d] text-white">Locador Master (Acesso Restrito)</option>
                     <option value="landlord_pleno" className="bg-[#0a0f1d] text-white">Locador Pleno (Somente Visualização)</option>
+                    <option value="broker" className="bg-[#0a0f1d] text-white">Corretor (Acesso Restrito)</option>
                   </select>
                 </div>
               </div>
