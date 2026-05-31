@@ -31,6 +31,8 @@ export function ContractForm({ properties, tenants, landlords, users = [], onSub
     dayOfPayment: initialData?.dayOfPayment || 1,
     documentUrl: initialData?.documentUrl || '',
     documentUrls: initialData?.documentUrls || (initialData?.documentUrl ? [initialData.documentUrl] : []),
+    testemunha1: initialData?.testemunha1 || '',
+    identidade1: initialData?.identidade1 || '',
   });
  
   const [files, setFiles] = useState<File[]>([]);
@@ -245,6 +247,31 @@ export function ContractForm({ properties, tenants, landlords, users = [], onSub
             value={formData.dayOfPayment}
             onChange={(e) => setFormData({ ...formData, dayOfPayment: parseInt(e.target.value) || 1 })}
             required
+            className="border-white/10 bg-white/5 text-white h-12 rounded-xl focus:ring-indigo-500/50"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="testemunha1" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Testemunha (NOME)</Label>
+          <Input
+            id="testemunha1"
+            type="text"
+            placeholder="Nome da testemunha"
+            value={formData.testemunha1}
+            onChange={(e) => setFormData({ ...formData, testemunha1: e.target.value })}
+            className="border-white/10 bg-white/5 text-white h-12 rounded-xl focus:ring-indigo-500/50"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="identidade1" className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Documento (CPF/RG)</Label>
+          <Input
+            id="identidade1"
+            type="text"
+            placeholder="CPF ou RG"
+            value={formData.identidade1}
+            onChange={(e) => setFormData({ ...formData, identidade1: e.target.value })}
             className="border-white/10 bg-white/5 text-white h-12 rounded-xl focus:ring-indigo-500/50"
           />
         </div>

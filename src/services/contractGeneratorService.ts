@@ -278,7 +278,34 @@ export const contractGeneratorService = {
     doc.setDrawColor(148, 163, 184); // slate-400
     doc.setLineWidth(0.3);
 
+    // Overlay drawn signatures if present
+    if (contract.signatures?.landlordSignature) {
+      try {
+        doc.addImage(contract.signatures.landlordSignature, 'PNG', margin + 5, currentY - 14, colWidth - 15, 13);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.5);
+        doc.setTextColor(16, 185, 129); // emerald-550
+        doc.text('ASSINADO ELETRONICAMENTE', margin + (colWidth - 5) / 2, currentY - 1, { align: 'center' });
+      } catch (err) {
+        console.error('Error rendering landlord signature in PDF:', err);
+      }
+    }
+
+    if (contract.signatures?.tenantSignature) {
+      try {
+        doc.addImage(contract.signatures.tenantSignature, 'PNG', margin + colWidth + 10, currentY - 14, colWidth - 15, 13);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.5);
+        doc.setTextColor(16, 185, 129); // emerald-550
+        doc.text('ASSINADO ELETRONICAMENTE', margin + colWidth + 5 + (colWidth - 5) / 2, currentY - 1, { align: 'center' });
+      } catch (err) {
+        console.error('Error rendering tenant signature in PDF:', err);
+      }
+    }
+
     // Row 1 signature
+    doc.setFont('helvetica', 'normal');
+    doc.setDrawColor(148, 163, 184);
     doc.line(margin, currentY, margin + colWidth - 5, currentY);
     doc.line(margin + colWidth + 5, currentY, pageWidth - margin, currentY);
 
@@ -298,6 +325,19 @@ export const contractGeneratorService = {
 
     currentY += 12;
 
+    // Overlay drawn broker/witness signatures if present
+    if (contract.signatures?.brokerSignature) {
+      try {
+        doc.addImage(contract.signatures.brokerSignature, 'PNG', margin + 5, currentY - 14, colWidth - 15, 13);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.5);
+        doc.setTextColor(16, 185, 129); // emerald-550
+        doc.text('ASSINADO ELETRONICAMENTE', margin + (colWidth - 5) / 2, currentY - 1, { align: 'center' });
+      } catch (err) {
+        console.error('Error rendering broker signature in PDF:', err);
+      }
+    }
+
     // Row 2 witnesses signature line
     doc.line(margin, currentY, margin + colWidth - 5, currentY);
     doc.line(margin + colWidth + 5, currentY, pageWidth - margin, currentY);
@@ -306,14 +346,140 @@ export const contractGeneratorService = {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(30, 41, 59);
-    doc.text('Testemunha 1', margin + (colWidth - 5) / 2, currentY, { align: 'center' });
-    doc.text('Testemunha 2', margin + colWidth + 5 + (colWidth - 5) / 2, currentY, { align: 'center' });
+    doc.text('TESTEMUNHA 1', margin + (colWidth - 5) / 2, currentY, { align: 'center' });
+    doc.text('TESTEMUNHA 2', margin + colWidth + 5 + (colWidth - 5) / 2, currentY, { align: 'center' });
+
+    currentY += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text(contract.signatures?.brokerName || contract.testemunha1 || 'Testemunha 1', margin + (colWidth - 5) / 2, currentY, { align: 'center' });
+    doc.text('Assinatura Manual', margin + colWidth + 5 + (colWidth - 5) / 2, currentY, { align: 'center' });
 
     currentY += 4;
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(148, 163, 184);
-    doc.text('Nome/CPF:', margin + (colWidth - 5) / 2, currentY, { align: 'center' });
+    doc.text(contract.identidade1 ? `Doc: ${contract.identidade1}` : 'CPF/RG:', margin + (colWidth - 5) / 2, currentY, { align: 'center' });
     doc.text('Nome/CPF:', margin + colWidth + 5 + (colWidth - 5) / 2, currentY, { align: 'center' });
+
+    // Append Dedicated Electronic Signature Audit Trail Page at the end
+    if (contract.signatures && (contract.signatures.landlordSignature || contract.signatures.tenantSignature || contract.signatures.brokerSignature)) {
+      doc.addPage();
+      pageCountRef.count++;
+      drawHeaderFooter(doc, pageCountRef.count);
+      
+      let auditY = 25;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(30, 41, 59); // slate-800
+      doc.text('CERTIFICADO DE ASSINATURA ELETRÔNICA', pageWidth / 2, auditY, { align: 'center' });
+      
+      auditY += 4;
+      doc.setDrawColor(16, 185, 129); // emerald-500
+      doc.setLineWidth(1);
+      doc.line(pageWidth / 2 - 35, auditY, pageWidth / 2 + 35, auditY);
+      
+      auditY += 12;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      const certIntro = 'Este documento foi assinado eletronicamente através do Portal Aluga Fácil com rastreabilidade digital completa. Abaixo constam os dados das assinaturas e a trilha de auditoria para fins de validade jurídica, em conformidade com a Medida Provisória nº 2.200-2 de 24/08/2001 e a Lei Federal nº 14.063/2020.';
+      const wrapIntro = doc.splitTextToSize(certIntro, contentWidth);
+      wrapIntro.forEach((l: string) => {
+        doc.text(l, margin, auditY);
+        auditY += 4.5;
+      });
+      
+      auditY += 8;
+      
+      const renderAuditBox = (titleS: string, nameS: string, emailS: string, dateS: string, ipS: string, hashS: string, signatureS: string | undefined) => {
+        if (auditY + 45 > pageHeight - 20) {
+          doc.addPage();
+          pageCountRef.count++;
+          drawHeaderFooter(doc, pageCountRef.count);
+          auditY = 25;
+        }
+        
+        // Draw card background
+        doc.setDrawColor(226, 232, 240); // slate-200
+        doc.setLineWidth(0.3);
+        doc.setFillColor(248, 250, 252); // slate-50
+        doc.roundedRect(margin, auditY, contentWidth, 38, 4, 4, 'FD');
+        
+        // Header
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(16, 185, 129); // emerald-500
+        doc.text(`REGISTRO: ${titleS}`, margin + 5, auditY + 5);
+        
+        doc.setFontSize(8);
+        doc.setTextColor(30, 41, 59);
+        doc.text(`Nome: ${nameS}`, margin + 5, auditY + 11);
+        doc.text(`E-mail: ${emailS}`, margin + 5, auditY + 16);
+        doc.text(`Data/Hora: ${dateS ? new Date(dateS).toLocaleString('pt-BR') : '__/__/____'}`, margin + 5, auditY + 21);
+        doc.text(`IP de Origem: ${ipS || 'Rastreado'}`, margin + 5, auditY + 26);
+        
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(7);
+        doc.text(`Hash de Integridade: ${hashS || 'N/A'}`, margin + 5, auditY + 33);
+        
+        // Signature Thumbnail on the right
+        if (signatureS) {
+          try {
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(226, 232, 240);
+            doc.roundedRect(pageWidth - margin - 47, auditY + 4, 42, 24, 2, 2, 'FD');
+            doc.addImage(signatureS, 'PNG', pageWidth - margin - 45, auditY + 6, 38, 20);
+            
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6);
+            doc.setTextColor(148, 163, 184);
+            doc.text('Rubrica Eletrônica', pageWidth - margin - 26, auditY + 31, { align: 'center' });
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        
+        auditY += 44;
+      };
+      
+      if (contract.signatures.landlordSignature) {
+        renderAuditBox(
+          'LOCADOR (PROPRIETÁRIO)',
+          contract.signatures.landlordName || landlord.name,
+          contract.signatures.landlordEmail || landlord.email,
+          contract.signatures.landlordSignedAt || '',
+          contract.signatures.landlordIp || 'Localhost',
+          contract.signatures.landlordAuditHash || '',
+          contract.signatures.landlordSignature
+        );
+      }
+      
+      if (contract.signatures.tenantSignature) {
+        renderAuditBox(
+          'LOCATÁRIO (INQUILINO)',
+          contract.signatures.tenantName || tenant.name,
+          contract.signatures.tenantEmail || tenant.email,
+          contract.signatures.tenantSignedAt || '',
+          contract.signatures.tenantIp || 'Localhost',
+          contract.signatures.tenantAuditHash || '',
+          contract.signatures.tenantSignature
+        );
+      }
+      
+      if (contract.signatures.brokerSignature) {
+        renderAuditBox(
+          'TESTEMUNHA 1',
+          contract.signatures.brokerName || contract.testemunha1 || 'Testemunha 1',
+          contract.signatures.brokerEmail || '',
+          contract.signatures.brokerSignedAt || '',
+          contract.signatures.brokerIp || 'Localhost',
+          contract.signatures.brokerAuditHash || '',
+          contract.signatures.brokerSignature
+        );
+      }
+    }
 
     // Dynamic retrospective drawing of page numbers in total
     const pageTotal = pageCountRef.count;

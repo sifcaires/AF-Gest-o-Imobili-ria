@@ -46,6 +46,7 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
   const { user } = useFirebase();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [editingUser, setEditingUser] = React.useState<AppUser | null>(null);
+  const [userToDelete, setUserToDelete] = React.useState<AppUser | null>(null);
   const [editedName, setEditedName] = React.useState('');
   const [editedRole, setEditedRole] = React.useState<'director' | 'landlord' | 'landlord_pleno' | 'broker'>('landlord');
   const [isSaving, setIsSaving] = React.useState(false);
@@ -69,6 +70,16 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
       console.error('[SaveUserEdit Error]', e);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteUserSubmit = async () => {
+    if (!userToDelete || !onDeleteUser) return;
+    try {
+      await onDeleteUser(userToDelete.uid);
+      setUserToDelete(null);
+    } catch (e) {
+      console.error('[DeleteUser Error]', e);
     }
   };
 
@@ -229,7 +240,7 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                         {onDeleteUser && (u.role === 'landlord' || (user?.role === 'director' && (u.role === 'landlord_pleno' || u.role === 'broker'))) && (
                           <Button 
                             variant="outline" 
-                            onClick={() => onDeleteUser(u.uid)}
+                            onClick={() => setUserToDelete(u)}
                             className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
                             title={u.role === 'landlord_pleno' ? "Excluir Locador Pleno" : u.role === 'broker' ? "Excluir Corretor" : "Excluir Locador Master"}
                           >
@@ -305,6 +316,45 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                 {isSaving ? 'Salvando...' : 'Salvar Alterações'}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {userToDelete && (
+        <Dialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+          <DialogContent className="sm:max-w-md bg-[#0a0f1d] border border-white/10 text-white rounded-3xl overflow-hidden p-0 shadow-2xl">
+            <div className="bg-gradient-to-r from-rose-700 to-rose-900 text-white p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 animate-pulse"></div>
+              <DialogHeader className="relative z-10">
+                <DialogTitle className="serif italic text-2xl text-white">Confirmar Exclusão</DialogTitle>
+                <DialogDescription className="text-rose-100/90 mt-1 text-xs font-semibold">
+                  Esta ação revogará todo o acesso do colaborador ao sistema.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <p className="text-sm text-slate-300">
+                Você tem certeza que deseja excluir o usuário <span className="font-bold text-white">{userToDelete.displayName || userToDelete.email}</span> ({userToDelete.role})?
+              </p>
+              
+              <DialogFooter className="flex gap-2 sm:justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setUserToDelete(null)}
+                  className="border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-xl"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleDeleteUserSubmit}
+                  className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold"
+                >
+                  Confirmar Exclusão
+                </Button>
+              </DialogFooter>
+            </div>
           </DialogContent>
         </Dialog>
       )}

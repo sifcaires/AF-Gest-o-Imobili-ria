@@ -71,6 +71,30 @@ export interface Contract {
   status?: 'active' | 'terminated';
   documentUrl?: string;
   documentUrls?: string[];
+  testemunha1?: string;
+  identidade1?: string;
+  signatures?: {
+    tenantName?: string;
+    tenantSignature?: string; // base64 PNG
+    tenantSignedAt?: string;
+    tenantIp?: string;
+    tenantEmail?: string;
+    tenantAuditHash?: string;
+    
+    landlordName?: string;
+    landlordSignature?: string; // base64 PNG
+    landlordSignedAt?: string;
+    landlordIp?: string;
+    landlordEmail?: string;
+    landlordAuditHash?: string;
+    
+    brokerName?: string;
+    brokerSignature?: string; // base64 PNG
+    brokerSignedAt?: string;
+    brokerEmail?: string;
+    brokerIp?: string;
+    brokerAuditHash?: string;
+  };
 }
 
 export interface Payment {

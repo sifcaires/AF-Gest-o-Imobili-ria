@@ -19,6 +19,14 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -39,6 +47,7 @@ interface LandlordsViewProps {
 
 export function LandlordsView({ user, landlords, users, searchTerm, setSearchTerm, onEdit, onDelete, onRegisterMe }: LandlordsViewProps) {
   const [filterDoc, setFilterDoc] = useState<'all' | 'with' | 'without'>('all');
+  const [landlordToDelete, setLandlordToDelete] = useState<Landlord | null>(null);
   const isAlreadyLandlord = landlords.some(l => l.email === user?.email);
 
   const getPhoto = (email: string) => {
@@ -232,7 +241,7 @@ export function LandlordsView({ user, landlords, users, searchTerm, setSearchTer
                       </Button>
                       <Button 
                         variant="outline" 
-                        onClick={() => onDelete(landlord.id)}
+                        onClick={() => setLandlordToDelete(landlord)}
                         className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
                         title="Excluir"
                       >
@@ -249,6 +258,48 @@ export function LandlordsView({ user, landlords, users, searchTerm, setSearchTer
         </Table>
         </div>
       </Card>
+
+      {landlordToDelete && (
+        <Dialog open={!!landlordToDelete} onOpenChange={(open) => !open && setLandlordToDelete(null)}>
+          <DialogContent className="sm:max-w-md bg-[#0a0f1d] border border-white/10 text-white rounded-3xl overflow-hidden p-0 shadow-2xl">
+            <div className="bg-gradient-to-r from-rose-700 to-rose-900 text-white p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 animate-pulse"></div>
+              <DialogHeader className="relative z-10">
+                <DialogTitle className="serif italic text-2xl text-white">Confirmar Exclusão</DialogTitle>
+                <DialogDescription className="text-rose-100/90 mt-1 text-xs font-semibold">
+                  Esta ação não pode ser desfeita e removerá os dados do registro.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <p className="text-sm text-slate-300">
+                Você tem certeza que deseja excluir o locador <span className="font-bold text-white">{landlordToDelete.name}</span>?
+              </p>
+              
+              <DialogFooter className="flex gap-2 sm:justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setLandlordToDelete(null)}
+                  className="border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-xl"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => {
+                    onDelete(landlordToDelete.id);
+                    setLandlordToDelete(null);
+                  }}
+                  className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold"
+                >
+                  Confirmar Exclusão
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

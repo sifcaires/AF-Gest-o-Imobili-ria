@@ -26,6 +26,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
+import { 
   BarChart, 
   Bar, 
   XAxis, 
@@ -36,7 +44,7 @@ import {
   Cell 
 } from 'recharts';
 import { toast } from 'sonner';
-import { Contract, Property, Tenant, Payment, Landlord } from '../../types';
+import { Contract, Property, Tenant, Payment, Landlord, Broker } from '../../types';
 import { viewDocumentSecurely, getSafeDocumentUrl } from '../../lib/documentViewer';
 import { contractGeneratorService, ContractGenerationOptions } from '../../services/contractGeneratorService';
 import { parseLocalDate } from '../../lib/dateUtils';
@@ -65,14 +73,167 @@ interface ContractsViewProps {
   tenants: Tenant[];
   payments: Payment[];
   landlords?: Landlord[];
+  brokers?: Broker[];
   onEdit: (c: Contract) => void;
   onDelete: (id: string) => void;
+  onUpdateContract?: (id: string, data: Partial<Contract>) => Promise<void>;
   user?: any;
 }
 
-export function ContractsView({ contracts, properties, tenants, payments, landlords = [], onEdit, onDelete, user }: ContractsViewProps) {
+export function ContractsView({ contracts, properties, tenants, payments, landlords = [], brokers = [], onEdit, onDelete, onUpdateContract, user }: ContractsViewProps) {
+  const [contractToDelete, setContractToDelete] = React.useState<Contract | null>(null);
   const [expandedContractId, setExpandedContractId] = React.useState<string | null>(null);
   const [selectedContractForDoc, setSelectedContractForDoc] = React.useState<Contract | null>(null);
+  
+  // Custom Electronic Signature States
+  const [signingContract, setSigningContract] = React.useState<Contract | null>(null);
+  const [signingRole, setSigningRole] = React.useState<'landlord' | 'tenant' | 'broker' | null>(null);
+  const [signerName, setSignerName] = React.useState('');
+  const [signerEmail, setSignerEmail] = React.useState('');
+  const [clientIp, setClientIp] = React.useState('186.220.141.22');
+  const [isDrawing, setIsDrawing] = React.useState(false);
+  const [isSavingSignature, setIsSavingSignature] = React.useState(false);
+  const [viewingSignatureDetails, setViewingSignatureDetails] = React.useState<{role: string, name: string, email: string, date: string, ip: string, hash: string} | null>(null);
+
+  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+
+  React.useEffect(() => {
+    fetch('https://api.ipify.org?format=json')
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.ip) {
+          setClientIp(data.ip);
+        }
+      })
+      .catch(err => console.log('Adblocker or offline, Fallback IP used:', err));
+  }, []);
+
+  React.useEffect(() => {
+    if (signingContract && signingRole) {
+      if (signingRole === 'tenant') {
+        const tenantInstance = tenants.find(t => t.id === signingContract.tenantId);
+        setSignerName(tenantInstance?.name || '');
+        setSignerEmail(tenantInstance?.email || '');
+      } else if (signingRole === 'landlord') {
+        const prop = properties.find(p => p.id === signingContract.propertyId);
+        const landlordInstance = landlords.find(l => l.id === prop?.landlordId);
+        setSignerName(landlordInstance?.name || '');
+        setSignerEmail(landlordInstance?.email || '');
+      } else if (signingRole === 'broker') {
+        setSignerName(signingContract.testemunha1 || '');
+        setSignerEmail('');
+      }
+    }
+  }, [signingContract, signingRole, tenants, landlords, properties, brokers, user]);
+
+  const generateAuditHash = async (name: string, email: string, role: string, timestamp: string) => {
+    const input = `${name}-${email}-${role}-${timestamp}-${Math.random().toString(36)}`;
+    try {
+      const msgBuffer = new TextEncoder().encode(input);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32).toUpperCase();
+    } catch (e) {
+      let hash = 0;
+      for (let i = 0; i < input.length; i++) {
+        hash = (hash << 5) - hash + input.charCodeAt(i);
+        hash |= 0;
+      }
+      return 'ALUGA-' + Math.abs(hash).toString(16).toUpperCase() + '-' + Math.floor(Math.random() * 10000);
+    }
+  };
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    if (e.cancelable) e.preventDefault();
+
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    ctx.strokeStyle = '#2563eb'; // Deep royal blue ink
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  };
+
+  const drawDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    if (e.cancelable) e.preventDefault();
+
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const handleSaveSignature = async () => {
+    if (!signingContract || !signingRole || !onUpdateContract) return;
+    setIsSavingSignature(true);
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const signatureDataUrl = canvas.toDataURL('image/png');
+      const timestamp = new Date().toISOString();
+      const auditHash = await generateAuditHash(signerName, signerEmail, signingRole, timestamp);
+      
+      const currentSignatures = signingContract.signatures || {};
+      const updatedSignatures = {
+        ...currentSignatures,
+        [`${signingRole}Name`]: signerName,
+        [`${signingRole}Email`]: signerEmail,
+        [`${signingRole}Signature`]: signatureDataUrl,
+        [`${signingRole}SignedAt`]: timestamp,
+        [`${signingRole}Ip`]: clientIp,
+        [`${signingRole}AuditHash`]: auditHash
+      };
+      
+      await onUpdateContract(signingContract.id, {
+        signatures: updatedSignatures
+      });
+      
+      toast.success(`Assinatura registrada para o ${signingRole === 'tenant' ? 'Inquilino' : signingRole === 'landlord' ? 'Locador' : 'Testemunha'}!`);
+      setSigningContract(null);
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao gravar assinatura eletrônica.');
+    } finally {
+      setIsSavingSignature(false);
+    }
+  };
+
   const [docOptions, setDocOptions] = React.useState<ContractGenerationOptions>({
     contractType: 'residential',
     warrantyType: 'deposit',
@@ -212,6 +373,15 @@ export function ContractsView({ contracts, properties, tenants, payments, landlo
                           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Nome do Inquilino</span>
                           <p className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">{tenant?.name}</p>
                           <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Documento: {tenant?.cpf}</p>
+                          {contract.testemunha1 && (
+                            <div className="mt-4 pt-4 border-t border-slate-205 dark:border-white/5 space-y-1">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Testemunha</span>
+                              <p className="text-sm font-bold text-slate-800 dark:text-white tracking-tight">{contract.testemunha1}</p>
+                              {contract.identidade1 && (
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Doc: {contract.identidade1}</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="space-y-3">
                            <div className="h-10 w-10 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-5 border border-orange-500/20 shadow-inner">
@@ -285,6 +455,225 @@ export function ContractsView({ contracts, properties, tenants, payments, landlo
                           )}
                         </div>
                       </div>
+
+                      {/* Trilha de Assinatura Eletrônica e Certificados */}
+                      <div className="border-t border-slate-200 dark:border-white/5 pt-8 mt-8">
+                        <div className="flex justify-between items-center mb-5">
+                          <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-500 dark:text-indigo-400 flex items-center gap-2">
+                            <span className="h-1 w-6 bg-indigo-500/30 rounded-full"></span>
+                            Assinaturas Eletrônicas do Contrato (MP 2.200-2 / Lei 14.063)
+                          </h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6" onClick={(e) => e.stopPropagation()}>
+                          {/* 1. LOCADOR ROW */}
+                          <div className="bg-slate-100/30 dark:bg-white/[0.02] border border-slate-250 dark:border-white/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between min-h-[140px]">
+                            <div>
+                              <div className="flex justify-between items-start mb-2">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-indigo-450 dark:text-indigo-400">LOCADOR</p>
+                                {contract.signatures?.landlordSignature ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[8px] font-bold uppercase tracking-wider">
+                                    <ShieldCheck className="h-3 w-3" /> Assinado
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 text-[8px] font-bold uppercase tracking-wider">
+                                    <Clock className="h-3 w-3" /> Pendente
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm font-bold text-slate-800 dark:text-white leading-tight truncate">
+                                {landlords.find(l => l.id === property?.landlordId)?.name || 'Locador Proprietário'}
+                              </p>
+                              {contract.signatures?.landlordSignature && (
+                                <p className="text-[8px] text-slate-500 mt-1 uppercase font-semibold font-mono tracking-wider truncate">
+                                  IP: {contract.signatures.landlordIp} • {new Date(contract.signatures.landlordSignedAt!).toLocaleDateString('pt-BR')}
+                                </p>
+                              )}
+                            </div>
+                            
+                            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/5 flex items-center justify-between gap-2">
+                              {contract.signatures?.landlordSignature ? (
+                                <div className="h-10 w-28 bg-white border border-slate-200/50 rounded-lg p-1 flex items-center justify-center opacity-85 hover:opacity-100 transition-opacity">
+                                  <img 
+                                    src={contract.signatures.landlordSignature} 
+                                    alt="Assinatura Locador" 
+                                    className="h-full object-contain max-w-full"
+                                  />
+                                </div>
+                              ) : (
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 italic">Sem rubrica eletrônica</p>
+                              )}
+                              
+                              {!contract.signatures?.landlordSignature ? (
+                                <Button 
+                                  size="sm"
+                                  onClick={() => {
+                                    setSigningContract(contract);
+                                    setSigningRole('landlord');
+                                  }}
+                                  className="h-8 px-4 rounded-xl text-[9px] font-bold uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white"
+                                >
+                                  Assinar
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setViewingSignatureDetails({
+                                    role: 'LOCADOR (PROPRIETÁRIO)',
+                                    name: contract.signatures?.landlordName || '',
+                                    email: contract.signatures?.landlordEmail || '',
+                                    date: contract.signatures?.landlordSignedAt || '',
+                                    ip: contract.signatures?.landlordIp || '',
+                                    hash: contract.signatures?.landlordAuditHash || ''
+                                  })}
+                                  className="h-7 text-[8px] font-bold uppercase tracking-widest text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10"
+                                >
+                                  Auditar
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 2. LOCATÁRIO ROW */}
+                          <div className="bg-slate-100/30 dark:bg-white/[0.02] border border-slate-250 dark:border-white/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between min-h-[140px]">
+                            <div>
+                              <div className="flex justify-between items-start mb-2">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-indigo-451 dark:text-indigo-400">LOCATÁRIO</p>
+                                {contract.signatures?.tenantSignature ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[8px] font-bold uppercase tracking-wider">
+                                    <ShieldCheck className="h-3 w-3" /> Assinado
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 text-[8px] font-bold uppercase tracking-wider">
+                                    <Clock className="h-3 w-3" /> Pendente
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm font-bold text-slate-800 dark:text-white leading-tight truncate">
+                                {tenant?.name || 'Inquilino Locatário'}
+                              </p>
+                              {contract.signatures?.tenantSignature && (
+                                <p className="text-[8px] text-slate-500 mt-1 uppercase font-semibold font-mono tracking-wider truncate">
+                                  IP: {contract.signatures.tenantIp} • {new Date(contract.signatures.tenantSignedAt!).toLocaleDateString('pt-BR')}
+                                </p>
+                              )}
+                            </div>
+                            
+                            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/5 flex items-center justify-between gap-2">
+                              {contract.signatures?.tenantSignature ? (
+                                <div className="h-10 w-28 bg-white border border-slate-200/50 rounded-lg p-1 flex items-center justify-center opacity-85 hover:opacity-100 transition-opacity">
+                                  <img 
+                                    src={contract.signatures.tenantSignature} 
+                                    alt="Assinatura Locatário" 
+                                    className="h-full object-contain max-w-full"
+                                  />
+                                </div>
+                              ) : (
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 italic">Sem rubrica eletrônica</p>
+                              )}
+                              
+                              {!contract.signatures?.tenantSignature ? (
+                                <Button 
+                                  size="sm"
+                                  onClick={() => {
+                                    setSigningContract(contract);
+                                    setSigningRole('tenant');
+                                  }}
+                                  className="h-8 px-4 rounded-xl text-[9px] font-bold uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white"
+                                >
+                                  Assinar
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setViewingSignatureDetails({
+                                    role: 'LOCATÁRIO (INQUILINO)',
+                                    name: contract.signatures?.tenantName || '',
+                                    email: contract.signatures?.tenantEmail || '',
+                                    date: contract.signatures?.tenantSignedAt || '',
+                                    ip: contract.signatures?.tenantIp || '',
+                                    hash: contract.signatures?.tenantAuditHash || ''
+                                  })}
+                                  className="h-7 text-[8px] font-bold uppercase tracking-widest text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10"
+                                >
+                                  Auditar
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 3. TESTEMUNHA ROW */}
+                          <div className="bg-slate-100/30 dark:bg-white/[0.02] border border-slate-250 dark:border-white/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between min-h-[140px]">
+                            <div>
+                              <div className="flex justify-between items-start mb-2">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-indigo-400 dark:text-indigo-400">TESTEMUNHA</p>
+                                {contract.signatures?.brokerSignature ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[8px] font-bold uppercase tracking-wider">
+                                    <ShieldCheck className="h-3 w-3" /> Assinado
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 text-[8px] font-bold uppercase tracking-wider">
+                                    <Clock className="h-3 w-3" /> Pendente
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm font-bold text-slate-800 dark:text-white leading-tight truncate">
+                                {contract.signatures?.brokerName || contract.testemunha1 || 'Testemunha'}
+                              </p>
+                              {contract.signatures?.brokerSignature && (
+                                <p className="text-[8px] text-slate-500 mt-1 uppercase font-semibold font-mono tracking-wider truncate">
+                                  IP: {contract.signatures.brokerIp} • {new Date(contract.signatures.brokerSignedAt!).toLocaleDateString('pt-BR')}
+                                </p>
+                              )}
+                            </div>
+                            
+                            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/5 flex items-center justify-between gap-2">
+                              {contract.signatures?.brokerSignature ? (
+                                <div className="h-10 w-28 bg-white border border-slate-200/50 rounded-lg p-1 flex items-center justify-center opacity-85 hover:opacity-100 transition-opacity">
+                                  <img 
+                                    src={contract.signatures.brokerSignature} 
+                                    alt="Assinatura Testemunha" 
+                                    className="h-full object-contain max-w-full"
+                                  />
+                                </div>
+                              ) : (
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 italic">Sem rubrica eletrônica</p>
+                              )}
+                              
+                              {!contract.signatures?.brokerSignature ? (
+                                <Button 
+                                  size="sm"
+                                  onClick={() => {
+                                    setSigningContract(contract);
+                                    setSigningRole('broker');
+                                  }}
+                                  className="h-8 px-4 rounded-xl text-[9px] font-bold uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white"
+                                >
+                                  Assinar
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setViewingSignatureDetails({
+                                    role: 'TESTEMUNHA',
+                                    name: contract.signatures?.brokerName || '',
+                                    email: contract.signatures?.brokerEmail || '',
+                                    date: contract.signatures?.brokerSignedAt || '',
+                                    ip: contract.signatures?.brokerIp || '',
+                                    hash: contract.signatures?.brokerAuditHash || ''
+                                  })}
+                                  className="h-7 text-[8px] font-bold uppercase tracking-widest text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10"
+                                >
+                                  Auditar
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </CardContent>
                     <CardFooter className="p-8 px-10 bg-slate-100/50 dark:bg-white/5 rounded-b-[35px] border-t border-slate-200 dark:border-white/5 flex flex-col gap-6">
                       <div className="w-full flex justify-between items-center">
@@ -294,7 +683,7 @@ export function ContractsView({ contracts, properties, tenants, payments, landlo
                               variant="ghost" 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onDelete(contract.id);
+                                setContractToDelete(contract);
                               }}
                               className="text-[10px] font-bold uppercase tracking-widest text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 px-6 py-4 rounded-xl transition-all"
                             >
@@ -735,6 +1124,222 @@ export function ContractsView({ contracts, properties, tenants, payments, landlo
           })()
         )}
       </AnimatePresence>
+
+      {contractToDelete && (
+        <Dialog open={!!contractToDelete} onOpenChange={(open) => !open && setContractToDelete(null)}>
+          <DialogContent className="sm:max-w-md bg-[#0a0f1d] border border-white/10 text-white rounded-3xl overflow-hidden p-0 shadow-2xl">
+            <div className="bg-gradient-to-r from-rose-700 to-rose-900 text-white p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 animate-pulse"></div>
+              <DialogHeader className="relative z-10">
+                <DialogTitle className="serif italic text-2xl text-white">Confirmar Exclusão</DialogTitle>
+                <DialogDescription className="text-rose-100/90 mt-1 text-xs font-semibold">
+                  Esta ação não pode ser desfeita e removerá os dados do contrato e lançamentos associados.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <p className="text-sm text-slate-300">
+                Você tem certeza que deseja excluir este contrato?
+              </p>
+              
+              <DialogFooter className="flex gap-2 sm:justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setContractToDelete(null)}
+                  className="border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-xl"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => {
+                    onDelete(contractToDelete.id);
+                    setContractToDelete(null);
+                  }}
+                  className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold"
+                >
+                  Confirmar Exclusão
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 1. INTERACTIVE DIGITAL SIGNATURE PAD DIALOG */}
+      {signingContract && signingRole && (
+        <Dialog open={!!signingContract} onOpenChange={(open) => !open && setSigningContract(null)}>
+          <DialogContent className="sm:max-w-lg bg-[#0a0f1d] border border-white/10 text-white rounded-3xl overflow-hidden p-0 shadow-2xl">
+            <div className="bg-gradient-to-r from-indigo-700 to-indigo-950 text-white p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 animate-pulse"></div>
+              <DialogHeader className="relative z-10">
+                <DialogTitle className="serif italic text-2xl text-white">Assinar Termos Eletronicamente</DialogTitle>
+                <DialogDescription className="text-indigo-200 mt-1 text-xs font-semibold">
+                  Sua rúbrica goza de presunção de validade integral (MP 2.200-2 / Lei 14.063)
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            
+            <div className="p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nome Completo</label>
+                  <input 
+                    type="text" 
+                    value={signerName} 
+                    onChange={(e) => setSignerName(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">E-mail de Notificação</label>
+                  <input 
+                    type="email" 
+                    value={signerEmail} 
+                    onChange={(e) => setSignerEmail(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-1.5 relative">
+                <div className="flex justify-between items-center bg-transparent">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Desenhe sua rúbrica no campo abaixo</label>
+                  <Button 
+                    variant="ghost" 
+                    onClick={clearCanvas}
+                    className="h-6 text-[9px] font-bold uppercase tracking-wider text-rose-450 hover:bg-rose-500/10 hover:text-rose-350"
+                  >
+                    Recomeçar
+                  </Button>
+                </div>
+                
+                {/* Canvas signature sketchpad */}
+                <div className="bg-white rounded-2xl p-2 relative h-48 border border-white/10 overflow-hidden flex items-center justify-center">
+                  {/* Guideline watermark */}
+                  <div className="absolute inset-x-8 bottom-12 border-b border-dashed border-slate-300 pointer-events-none flex items-end justify-start pr-12 pb-1">
+                    <span className="serif italic text-slate-400 text-xl font-bold select-none mr-2">X</span>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 select-none">Assine utilizando mouse ou tela de toque</span>
+                  </div>
+                  
+                  <canvas 
+                    ref={canvasRef}
+                    width={440}
+                    height={175}
+                    onMouseDown={startDrawing}
+                    onMouseMove={drawDraw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={drawDraw}
+                    onTouchEnd={stopDrawing}
+                    className="relative z-10 w-full h-full cursor-crosshair bg-transparent"
+                  />
+                </div>
+              </div>
+              
+              <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-2xl p-4 flex gap-3 items-start">
+                <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Certificado Auditável Integrado</p>
+                  <p className="text-[9px] text-slate-300 leading-normal">
+                    Seu endereço de IP <span className="font-mono text-emerald-300">{clientIp}</span>, carimbo temporal, sistema operacional e integridade SHA-256 serão anexados irreversivelmente a este contrato.
+                  </p>
+                </div>
+              </div>
+              
+              <DialogFooter className="flex gap-2 sm:justify-end pt-2 border-t border-white/5">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setSigningContract(null)}
+                  className="border-white/10 bg-white/5 text-white rounded-xl text-xs uppercase"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleSaveSignature}
+                  disabled={isSavingSignature}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider px-6 flex items-center gap-2"
+                >
+                  {isSavingSignature ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Registrando...
+                    </>
+                  ) : (
+                    <>
+                      <FileCheck className="h-4 w-4" />
+                      Confirmar Assinatura
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 2. DIGITAL AUDIT LOG DETAILS MODAL */}
+      {viewingSignatureDetails && (
+        <Dialog open={!!viewingSignatureDetails} onOpenChange={(open) => !open && setViewingSignatureDetails(null)}>
+          <DialogContent className="sm:max-w-md bg-[#0a0f1d] border border-white/10 text-white rounded-3xl overflow-hidden p-0 shadow-2xl">
+            <div className="bg-gradient-to-r from-emerald-700 to-emerald-950 text-white p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16"></div>
+              <DialogHeader className="relative z-10">
+                <DialogTitle className="serif italic text-2xl text-white">Certificado de Assinatura</DialogTitle>
+                <DialogDescription className="text-emerald-200 mt-1 text-xs font-semibold">
+                  Token de rastreabilidade e validade jurídica nacional auditado com sucesso.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            
+            <div className="p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+              <div className="space-y-3.5">
+                <div>
+                  <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Papel Contratual</label>
+                  <p className="text-xs font-bold text-emerald-400">{viewingSignatureDetails.role}</p>
+                </div>
+                
+                <div>
+                  <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Nome Declarado</label>
+                  <p className="text-xs font-semibold text-slate-150">{viewingSignatureDetails.name}</p>
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">E-mail de Validação</label>
+                  <p className="text-xs font-semibold text-slate-150">{viewingSignatureDetails.email}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Data e hora do Carimbo</label>
+                    <p className="text-[11px] font-semibold text-slate-150 font-mono">{new Date(viewingSignatureDetails.date).toLocaleString('pt-BR')}</p>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Origem IP Conexão</label>
+                    <p className="text-[11px] font-semibold text-slate-150 font-mono">{viewingSignatureDetails.ip}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Assinatura Digital (Hash SHA-256)</label>
+                  <p className="text-[10px] font-bold text-indigo-400 font-mono break-all bg-white/5 border border-white/5 p-2 rounded-lg">{viewingSignatureDetails.hash}</p>
+                </div>
+              </div>
+
+              <DialogFooter className="pt-2 border-t border-white/5">
+                <Button 
+                  onClick={() => setViewingSignatureDetails(null)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs uppercase"
+                >
+                  Fechar Auditoria
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

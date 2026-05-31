@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Search, 
   Home, 
@@ -11,6 +11,14 @@ import {
   CardContent, 
   CardFooter 
 } from '@/components/ui/card';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +49,7 @@ export function PropertiesView({
   onDelete,
   user
 }: PropertiesViewProps) {
+  const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const filteredProperties = properties.filter(p => 
     (p.title || '').toLowerCase().includes((searchTerm || '').toLowerCase()) || 
     (p.address || '').toLowerCase().includes((searchTerm || '').toLowerCase())
@@ -196,7 +205,7 @@ export function PropertiesView({
                       variant="ghost" 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDelete(property.id);
+                        setPropertyToDelete(property);
                       }}
                       className="bg-rose-500/90 backdrop-blur-sm text-white hover:bg-rose-600 border-none h-8 w-8 rounded-lg shadow-xl transition-all hover:scale-105 active:scale-95 shrink-0"
                     >
@@ -236,6 +245,48 @@ export function PropertiesView({
           );
         })}
       </div>
+
+      {propertyToDelete && (
+        <Dialog open={!!propertyToDelete} onOpenChange={(open) => !open && setPropertyToDelete(null)}>
+          <DialogContent className="sm:max-w-md bg-[#0a0f1d] border border-white/10 text-white rounded-3xl overflow-hidden p-0 shadow-2xl">
+            <div className="bg-gradient-to-r from-rose-700 to-rose-900 text-white p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 animate-pulse"></div>
+              <DialogHeader className="relative z-10">
+                <DialogTitle className="serif italic text-2xl text-white">Confirmar Exclusão</DialogTitle>
+                <DialogDescription className="text-rose-100/90 mt-1 text-xs font-semibold">
+                  Esta ação não pode ser desfeita e removerá o imóvel de forma permanente.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <p className="text-sm text-slate-300">
+                Você tem certeza que deseja excluir o imóvel <span className="font-bold text-white">{propertyToDelete.title}</span>?
+              </p>
+              
+              <DialogFooter className="flex gap-2 sm:justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setPropertyToDelete(null)}
+                  className="border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-xl"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => {
+                    onDelete(propertyToDelete.id);
+                    setPropertyToDelete(null);
+                  }}
+                  className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold"
+                >
+                  Confirmar Exclusão
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

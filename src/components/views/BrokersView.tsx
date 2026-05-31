@@ -20,6 +20,14 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -39,6 +47,7 @@ interface BrokersViewProps {
 
 export function BrokersView({ user, brokers, properties, users, searchTerm, setSearchTerm, onEdit, onDelete }: BrokersViewProps) {
   const [commissionFilter, setCommissionFilter] = useState<'all' | 'low' | 'high'>('all');
+  const [brokerToDelete, setBrokerToDelete] = useState<Broker | null>(null);
 
   const getPhoto = (email: string) => {
     if (email?.toLowerCase() === user?.email?.toLowerCase() && user?.photoURL) {
@@ -105,11 +114,11 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
           <TableHeader className="bg-white/5">
             <TableRow className="border-b border-white/5 hover:bg-transparent">
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Corretor</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">CRECI</TableHead>
+              <TableHead className="hidden md:table-cell text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">CRECI</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Contato</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Captações</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Comissão</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Chave PIX</TableHead>
+              <TableHead className="hidden md:table-cell text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Captações</TableHead>
+              <TableHead className="hidden md:table-cell text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Comissão</TableHead>
+              <TableHead className="hidden md:table-cell text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Chave PIX</TableHead>
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -151,7 +160,7 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="py-3 px-4">
+                <TableCell className="hidden md:table-cell py-3 px-4">
                   <Badge variant="outline" className="border-emerald-500/20 bg-emerald-500/5 text-emerald-400 font-mono text-[10px] px-3 py-1">
                     CRECI {broker.creci}
                   </Badge>
@@ -168,7 +177,7 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="py-3 px-4">
+                <TableCell className="hidden md:table-cell py-3 px-4">
                   <div className="flex flex-col gap-1">
                     <Badge variant="outline" className="border-teal-500/20 bg-teal-500/10 text-teal-300 text-xs font-bold px-3 py-1.5 rounded-lg w-max flex items-center gap-1.5">
                       <span className="text-[11px]">🏠</span>
@@ -178,13 +187,13 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
                     </Badge>
                   </div>
                 </TableCell>
-                <TableCell className="py-3 px-4">
+                <TableCell className="hidden md:table-cell py-3 px-4">
                   <div className="flex items-center gap-1.5 text-white font-bold text-sm">
                     <Percent className="h-4.5 w-4.5 text-indigo-400 shrink-0" />
                     <span>{broker.commissionPercent}%</span>
                   </div>
                 </TableCell>
-                <TableCell className="py-3 px-4">
+                <TableCell className="hidden md:table-cell py-3 px-4">
                   {broker.pixKey ? (
                     <div className="flex items-center gap-1.5">
                       <CreditCard className="h-3.5 w-3.5 text-slate-500 shrink-0" />
@@ -209,7 +218,7 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
                       </Button>
                       <Button 
                         variant="outline" 
-                        onClick={() => onDelete(broker.id)}
+                        onClick={() => setBrokerToDelete(broker)}
                         className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
                         title="Excluir Corretor"
                       >
@@ -226,6 +235,48 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
         </Table>
         </div>
       </Card>
+
+      {brokerToDelete && (
+        <Dialog open={!!brokerToDelete} onOpenChange={(open) => !open && setBrokerToDelete(null)}>
+          <DialogContent className="sm:max-w-md bg-[#0a0f1d] border border-white/10 text-white rounded-3xl overflow-hidden p-0 shadow-2xl">
+            <div className="bg-gradient-to-r from-rose-700 to-rose-900 text-white p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 animate-pulse"></div>
+              <DialogHeader className="relative z-10">
+                <DialogTitle className="serif italic text-2xl text-white">Confirmar Exclusão</DialogTitle>
+                <DialogDescription className="text-rose-100/90 mt-1 text-xs font-semibold">
+                  Esta ação não pode ser desfeita e removerá os dados do registro.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <p className="text-sm text-slate-300">
+                Você tem certeza que deseja excluir o corretor <span className="font-bold text-white">{brokerToDelete.name}</span>?
+              </p>
+              
+              <DialogFooter className="flex gap-2 sm:justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setBrokerToDelete(null)}
+                  className="border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-xl"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => {
+                    onDelete(brokerToDelete.id);
+                    setBrokerToDelete(null);
+                  }}
+                  className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold"
+                >
+                  Confirmar Exclusão
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
