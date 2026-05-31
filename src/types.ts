@@ -126,3 +126,26 @@ export interface AppUser {
   createdAt: string;
   lastLogin: string;
 }
+
+export interface InspectionArea {
+  name: string;
+  status: 'excellent' | 'good' | 'regular' | 'bad';
+  comments: string;
+  photos: string[]; // base64 strings or storage URLs
+}
+
+export interface Inspection {
+  id: string;
+  ownerId: string;
+  propertyId: string;
+  contractId?: string;
+  type: 'entrada' | 'saida'; // Move-in or Move-out inspection
+  date: string;
+  inspectorName: string;
+  inspectorEmail?: string;
+  generalObservations: string;
+  areas: InspectionArea[];
+  createdAt?: any;
+  updatedAt?: any;
+}
+

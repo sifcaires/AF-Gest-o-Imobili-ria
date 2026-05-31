@@ -146,6 +146,15 @@ service cloud.firestore {
       allow update, delete: if isOwner(existing()) || isAdmin();
     }
 
+    // Inspections (Vistorias por Foto) collection
+    match /inspections/{inspectionId} {
+      allow read: if isOwner(existing()) || isLandlordPleno() || isBroker() || isAdmin();
+      allow create: if isSignedIn() && isValidId(inspectionId)
+                     && (incoming().ownerId == request.auth.uid || isBroker() || isAdmin());
+      allow update: if isOwner(existing()) || isBroker() || isAdmin();
+      allow delete: if isOwner(existing()) || isAdmin();
+    }
+
     // Users registered profiles
     match /users/{userId} {
       allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);

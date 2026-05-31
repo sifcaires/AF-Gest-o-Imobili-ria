@@ -16,7 +16,8 @@ import {
   Sun,
   Moon,
   Cpu,
-  AlertCircle
+  AlertCircle,
+  Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
@@ -89,8 +90,9 @@ import { BrokersView } from './components/views/BrokersView';
 import { ProfileView } from './components/views/ProfileView';
 import { UsersView } from './components/views/UsersView';
 import { AutomationsView } from './components/views/AutomationsView';
+import { InspectionsView } from './components/views/InspectionsView';
 
-type View = 'dashboard' | 'properties' | 'tenants' | 'contracts' | 'payments' | 'landlords' | 'profile' | 'users' | 'automations' | 'brokers';
+type View = 'dashboard' | 'properties' | 'tenants' | 'contracts' | 'payments' | 'landlords' | 'profile' | 'users' | 'automations' | 'brokers' | 'inspections';
 
 const chartData = [
   { name: 'Jan', total: 15000 },
@@ -157,13 +159,14 @@ export default function App() {
   }, []);
 
   const {
-    properties, tenants, contracts, payments, landlords, brokers, users, loading, isOperating,
+    properties, tenants, contracts, payments, landlords, brokers, inspections, users, loading, isOperating,
     addProperty, updateProperty, deleteProperty,
     addTenant, updateTenant, deleteTenant,
     addContract, updateContract, deleteContract,
     addPayment, updatePayment, deletePayment,
     addLandlord, updateLandlord, deleteLandlord,
     addBroker, updateBroker, deleteBroker,
+    addInspection, updateInspection, deleteInspection,
     updateUser, deleteUser,
     resetDatabase
   } = useRealEstateData(user);
@@ -383,6 +386,18 @@ export default function App() {
           landlords={landlords}
           onAddPayment={addPayment}
         />;
+      case 'inspections':
+        return <InspectionsView
+          properties={properties}
+          contracts={contracts}
+          tenants={tenants}
+          landlords={landlords}
+          inspections={inspections}
+          addInspection={addInspection}
+          updateInspection={updateInspection}
+          deleteInspection={deleteInspection}
+          user={user}
+        />;
       default:
         return <DashboardView 
           userName={user?.displayName || 'Gestor'}
@@ -467,6 +482,15 @@ export default function App() {
                     onClick={setActiveView} 
                     icon={Building2} 
                     label="Imóveis" 
+                  />
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarViewButton 
+                    view="inspections" 
+                    activeView={activeView} 
+                    onClick={setActiveView} 
+                    icon={Camera} 
+                    label="Vistorias" 
                   />
                 </SidebarMenuItem>
                 <SidebarMenuItem>

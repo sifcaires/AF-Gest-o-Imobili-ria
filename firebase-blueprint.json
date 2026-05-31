@@ -159,6 +159,26 @@
         "response": { "type": "string" }
       },
       "required": ["id", "ownerId", "event", "timestamp", "payload", "url", "status"]
+    },
+    "Inspection": {
+      "title": "Inspection",
+      "description": "Photo-based property inspection report (move-in/move-out)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "propertyId": { "type": "string" },
+        "contractId": { "type": "string" },
+        "type": { "type": "string", "enum": ["entrada", "saida"] },
+        "date": { "type": "string", "format": "date" },
+        "inspectorName": { "type": "string" },
+        "inspectorEmail": { "type": "string" },
+        "generalObservations": { "type": "string" },
+        "areas": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "ownerId", "propertyId", "type", "date", "inspectorName", "areas"]
     }
   },
   "firestore": {
@@ -197,6 +217,10 @@
     "webhook_logs/{logId}": {
       "schema": "WebhookLog",
       "description": "Log entry of triggered webhook events"
+    },
+    "inspections/{inspectionId}": {
+      "schema": "Inspection",
+      "description": "Move-in/Move-out property inspection documents"
     }
   }
 }
