@@ -101,7 +101,8 @@ export function LandlordsView({ user, landlords, users, searchTerm, setSearchTer
       </div>
 
       <Card className="border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl">
-        <Table>
+        <div className="overflow-x-auto w-full">
+          <Table>
           <TableHeader className="bg-white/5">
             <TableRow className="border-b border-white/5 hover:bg-transparent">
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Nome / Razão Social</TableHead>
@@ -220,7 +221,7 @@ export function LandlordsView({ user, landlords, users, searchTerm, setSearchTer
                 </TableCell>
                 <TableCell className="py-5 px-8 text-right">
                   {user?.role !== 'broker' ? (
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 opacity-100 transition-all">
                       <Button 
                         variant="outline" 
                         onClick={() => onEdit(landlord)}
@@ -246,6 +247,7 @@ export function LandlordsView({ user, landlords, users, searchTerm, setSearchTer
             ))}
           </TableBody>
         </Table>
+        </div>
       </Card>
     </div>
   );

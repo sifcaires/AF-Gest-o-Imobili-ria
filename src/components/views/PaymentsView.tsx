@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/dialog';
 import { Payment, Contract, Tenant, Property, Landlord } from '../../types';
 import { boletoService, generatePixCode } from '../../services/boletoService';
+import { parseLocalDate } from '../../lib/dateUtils';
 import QRCode from 'qrcode';
 import { toast } from 'sonner';
 
@@ -89,7 +90,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
   const getPaymentCalculationDetails = (payment: Payment) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const limitDate = new Date(payment.dueDate);
+    const limitDate = parseLocalDate(payment.dueDate);
     limitDate.setHours(23, 59, 59, 999);
     const isOverdue = payment.status === 'overdue' || today > limitDate;
     
@@ -101,7 +102,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
       
       // Check start date limit
       if (payment.discountStartDate) {
-        const start = new Date(payment.discountStartDate);
+        const start = parseLocalDate(payment.discountStartDate);
         start.setHours(0, 0, 0, 0);
         if (today < start) {
           isDiscountCurrentlyActive = false;
@@ -110,7 +111,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
       
       // Check end date limit
       if (payment.discountEndDate) {
-        const end = new Date(payment.discountEndDate);
+        const end = parseLocalDate(payment.discountEndDate);
         end.setHours(23, 59, 59, 999);
         if (today > end) {
           isDiscountCurrentlyActive = false;
@@ -344,7 +345,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
     const { finalAmount, isOverdue, discount, penaltyAmount, totalInterest, daysPast } = getPaymentCalculationDetails(payment);
 
     const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount);
-    const formattedDate = new Date(payment.dueDate).toLocaleDateString('pt-BR');
+    const formattedDate = parseLocalDate(payment.dueDate).toLocaleDateString('pt-BR');
     const pixKey = getBeneficiaryPixKey(payment.contractId);
     const pixCode = generatePixCode(finalAmount, payment.id, tenant?.name || 'Inquilino', pixKey);
 
@@ -409,7 +410,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
     const { finalAmount, isOverdue, discount, penaltyAmount, totalInterest, daysPast } = getPaymentCalculationDetails(payment);
 
     const formattedAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payment.amount);
-    const formattedDate = new Date(payment.dueDate).toLocaleDateString('pt-BR');
+    const formattedDate = parseLocalDate(payment.dueDate).toLocaleDateString('pt-BR');
     const pixKey = getBeneficiaryPixKey(payment.contractId);
     const pixCode = generatePixCode(finalAmount, payment.id, tenant?.name || 'Inquilino', pixKey);
 
@@ -560,7 +561,8 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
       </div>
 
       <Card className="border-white/10 shadow-2xl backdrop-blur-md bg-white/5 overflow-hidden rounded-3xl border">
-        <Table>
+        <div className="overflow-x-auto w-full">
+          <Table>
           <TableHeader className="bg-white/5 border-b border-white/5">
             <TableRow className="border-white/5 hover:bg-transparent">
               <TableHead className="text-[10px] font-bold uppercase tracking-widest py-8 px-10 text-slate-400">Lançamento</TableHead>
@@ -595,9 +597,9 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                   </div>
                 </TableCell>
                 <TableCell className="font-mono text-xs font-bold text-slate-400 italic">
-                  {new Date(payment.dueDate).toLocaleDateString()}
+                  {parseLocalDate(payment.dueDate).toLocaleDateString()}
                   {payment.paymentDate && (
-                    <span className="block text-[9px] font-semibold text-emerald-400 mt-1 uppercase">Pago em: {new Date(payment.paymentDate).toLocaleDateString()}</span>
+                    <span className="block text-[9px] font-semibold text-emerald-400 mt-1 uppercase">Pago em: {parseLocalDate(payment.paymentDate).toLocaleDateString()}</span>
                   )}
                 </TableCell>
                 <TableCell className="text-lg font-bold text-white font-mono tracking-tighter">
@@ -613,7 +615,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right px-10">
-                  <div className="flex justify-end items-center gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                  <div className="flex justify-end items-center gap-3 lg:opacity-0 lg:group-hover:opacity-100 opacity-100 transition-all lg:translate-x-4 lg:group-hover:translate-x-0 translate-x-0">
                     
                     {/* Botão de Registro de Baixa Rápida */}
                     {user?.role !== 'landlord_pleno' && payment.status !== 'paid' && (
@@ -688,7 +690,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
                             {activeBoletoScreen === 'menu' && (
                               <>
                                 <h3 className="text-xl font-bold serif italic">Opções de Cobrança</h3>
-                                <p className="text-indigo-100 text-[9px] font-bold uppercase tracking-widest opacity-80 mt-0.5">Vencimento: {new Date(payment.dueDate).toLocaleDateString('pt-BR')}</p>
+                                <p className="text-indigo-100 text-[9px] font-bold uppercase tracking-widest opacity-80 mt-0.5">Vencimento: {parseLocalDate(payment.dueDate).toLocaleDateString('pt-BR')}</p>
                               </>
                             )}
                             {activeBoletoScreen === 'whatsapp' && (
@@ -987,6 +989,7 @@ export function PaymentsView({ payments, contracts, tenants, properties, landlor
             ))}
           </TableBody>
         </Table>
+        </div>
       </Card>
 
       {/* DIALOG DE CONFIRMAÇÃO DE BAIXA - CONTROLE FINANCEIRO EM GERAL */}

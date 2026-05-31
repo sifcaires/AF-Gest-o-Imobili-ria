@@ -43,7 +43,8 @@ export function TenantsView({ tenants, user, users, onEdit, onDelete }: TenantsV
       </div>
 
       <Card className="border-white/10 shadow-2xl backdrop-blur-md overflow-hidden bg-white/5 rounded-3xl border">
-        <Table>
+        <div className="overflow-x-auto w-full">
+          <Table>
           <TableHeader className="bg-white/5 border-b border-white/5">
             <TableRow className="border-white/5 hover:bg-transparent">
               <TableHead className="text-[10px] font-bold uppercase tracking-widest py-8 px-10 text-slate-400">Locatário</TableHead>
@@ -78,7 +79,7 @@ export function TenantsView({ tenants, user, users, onEdit, onDelete }: TenantsV
                 <TableCell className="text-sm font-bold text-slate-300 tracking-tight">{tenant.phone}</TableCell>
                 <TableCell className="text-right px-10">
                   {user?.role !== 'landlord_pleno' && (
-                    <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                    <div className="flex justify-end gap-3 lg:opacity-0 lg:group-hover:opacity-100 opacity-100 transition-all lg:translate-x-4 lg:group-hover:translate-x-0 translate-x-0">
                       {user?.role === 'broker' ? (
                         <div className="flex items-center gap-3 justify-end">
                           <span className="text-[10px] uppercase tracking-widest font-bold text-teal-400 bg-teal-400/10 px-3 py-1.5 rounded-lg border border-teal-400/20">Visualização</span>
@@ -116,6 +117,7 @@ export function TenantsView({ tenants, user, users, onEdit, onDelete }: TenantsV
             ))}
           </TableBody>
         </Table>
+        </div>
       </Card>
     </div>
   );

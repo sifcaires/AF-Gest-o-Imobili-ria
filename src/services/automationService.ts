@@ -246,7 +246,10 @@ export const automationService = {
       }
 
       // Check if a payment record for this exact due date already exists
-      const dueDateStr = billingDueDate.toISOString().split('T')[0];
+      const yearStr = billingDueDate.getFullYear();
+      const monthStr = String(billingDueDate.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(billingDueDate.getDate()).padStart(2, '0');
+      const dueDateStr = `${yearStr}-${monthStr}-${dayStr}`;
       const hasDuplicate = payments.some(p => p.contractId === contract.id && p.dueDate === dueDateStr);
 
       if (hasDuplicate) {

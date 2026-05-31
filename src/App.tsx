@@ -33,7 +33,8 @@ import {
   SidebarGroupLabel,
   SidebarInset, 
   SidebarTrigger,
-  SidebarFooter
+  SidebarFooter,
+  useSidebar
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -99,6 +100,33 @@ const chartData = [
   { name: 'Mai', total: 19000 },
   { name: 'Jun', total: 25000 },
 ];
+
+interface SidebarViewButtonProps {
+  view: View;
+  activeView: View;
+  onClick: (view: View) => void;
+  icon: React.ComponentType<any>;
+  label: string;
+}
+
+function SidebarViewButton({ view, activeView, onClick, icon: Icon, label }: SidebarViewButtonProps) {
+  const { setOpenMobile, isMobile } = useSidebar();
+  return (
+    <SidebarMenuButton 
+      onClick={() => {
+        onClick(view);
+        if (isMobile) {
+          setOpenMobile(false);
+        }
+      }} 
+      isActive={activeView === view}
+      className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
+    >
+      <Icon className="mr-3 h-5 w-5" />
+      <span className="font-medium text-sm">{label}</span>
+    </SidebarMenuButton>
+  );
+}
 
 export default function App() {
   const { user, loading: authLoading, signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, logout, authError, updateUserProfile, updateEmail, appLogo } = useFirebase();
@@ -391,99 +419,90 @@ export default function App() {
               <SidebarGroupLabel className="px-4 text-[13px] font-bold uppercase tracking-widest text-slate-500 mb-2">Painel de Controle</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={() => setActiveView('dashboard')} 
-                    isActive={activeView === 'dashboard'}
-                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                  >
-                    <LayoutDashboard className="mr-3 h-5 w-5" />
-                    <span className="font-medium text-sm">Visão Geral</span>
-                  </SidebarMenuButton>
+                  <SidebarViewButton 
+                    view="dashboard" 
+                    activeView={activeView} 
+                    onClick={setActiveView} 
+                    icon={LayoutDashboard} 
+                    label="Visão Geral" 
+                  />
                 </SidebarMenuItem>
                 {(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      onClick={() => setActiveView('users')} 
-                      isActive={activeView === 'users'}
-                      className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                    >
-                      <Users className="mr-3 h-5 w-5" />
-                      <span className="font-medium text-sm">Usuários</span>
-                    </SidebarMenuButton>
+                    <SidebarViewButton 
+                      view="users" 
+                      activeView={activeView} 
+                      onClick={setActiveView} 
+                      icon={Users} 
+                      label="Usuários" 
+                    />
                   </SidebarMenuItem>
                 )}
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={() => setActiveView('brokers')} 
-                    isActive={activeView === 'brokers'}
-                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                  >
-                    <UserSquare2 className="mr-3 h-5 w-5" />
-                    <span className="font-medium text-sm">Corretores</span>
-                  </SidebarMenuButton>
+                  <SidebarViewButton 
+                    view="brokers" 
+                    activeView={activeView} 
+                    onClick={setActiveView} 
+                    icon={UserSquare2} 
+                    label="Corretores" 
+                  />
                 </SidebarMenuItem>
                 {user?.role !== 'landlord_pleno' && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      onClick={() => setActiveView('landlords')} 
-                      isActive={activeView === 'landlords'}
-                      className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                    >
-                      <UserSquare2 className="mr-3 h-5 w-5" />
-                      <span className="font-medium text-sm">Locadores</span>
-                    </SidebarMenuButton>
+                    <SidebarViewButton 
+                      view="landlords" 
+                      activeView={activeView} 
+                      onClick={setActiveView} 
+                      icon={UserSquare2} 
+                      label="Locadores" 
+                    />
                   </SidebarMenuItem>
                 )}
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={() => setActiveView('properties')} 
-                    isActive={activeView === 'properties'}
-                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                  >
-                    <Building2 className="mr-3 h-5 w-5" />
-                    <span className="font-medium text-sm">Imóveis</span>
-                  </SidebarMenuButton>
+                  <SidebarViewButton 
+                    view="properties" 
+                    activeView={activeView} 
+                    onClick={setActiveView} 
+                    icon={Building2} 
+                    label="Imóveis" 
+                  />
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={() => setActiveView('tenants')} 
-                    isActive={activeView === 'tenants'}
-                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                  >
-                    <Users className="mr-3 h-5 w-5" />
-                    <span className="font-medium text-sm">Inquilinos</span>
-                  </SidebarMenuButton>
+                  <SidebarViewButton 
+                    view="tenants" 
+                    activeView={activeView} 
+                    onClick={setActiveView} 
+                    icon={Users} 
+                    label="Inquilinos" 
+                  />
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={() => setActiveView('contracts')} 
-                    isActive={activeView === 'contracts'}
-                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                  >
-                    <FileText className="mr-3 h-5 w-5" />
-                    <span className="font-medium text-sm">Contratos</span>
-                  </SidebarMenuButton>
+                  <SidebarViewButton 
+                    view="contracts" 
+                    activeView={activeView} 
+                    onClick={setActiveView} 
+                    icon={FileText} 
+                    label="Contratos" 
+                  />
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={() => setActiveView('payments')} 
-                    isActive={activeView === 'payments'}
-                    className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                  >
-                    <CreditCard className="mr-3 h-5 w-5" />
-                    <span className="font-medium text-sm">Financeiro</span>
-                  </SidebarMenuButton>
+                  <SidebarViewButton 
+                    view="payments" 
+                    activeView={activeView} 
+                    onClick={setActiveView} 
+                    icon={CreditCard} 
+                    label="Financeiro" 
+                  />
                 </SidebarMenuItem>
                 {user?.role !== 'landlord_pleno' && user?.role !== 'broker' && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      onClick={() => setActiveView('automations')} 
-                      isActive={activeView === 'automations'}
-                      className="h-11 px-4 text-slate-500 dark:text-slate-400 transition-all hover:bg-slate-200/50 dark:hover:bg-white/5 data-[active=true]:bg-indigo-600/10 dark:data-[active=true]:bg-white/10 data-[active=true]:text-indigo-600 dark:data-[active=true]:text-white rounded-lg"
-                    >
-                      <Cpu className="mr-3 h-5 w-5" />
-                      <span className="font-medium text-sm">Automações</span>
-                    </SidebarMenuButton>
+                    <SidebarViewButton 
+                      view="automations" 
+                      activeView={activeView} 
+                      onClick={setActiveView} 
+                      icon={Cpu} 
+                      label="Automações" 
+                    />
                   </SidebarMenuItem>
                 )}
               </SidebarMenu>

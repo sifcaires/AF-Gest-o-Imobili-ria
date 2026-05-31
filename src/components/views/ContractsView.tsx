@@ -39,6 +39,7 @@ import { toast } from 'sonner';
 import { Contract, Property, Tenant, Payment, Landlord } from '../../types';
 import { viewDocumentSecurely, getSafeDocumentUrl } from '../../lib/documentViewer';
 import { contractGeneratorService, ContractGenerationOptions } from '../../services/contractGeneratorService';
+import { parseLocalDate } from '../../lib/dateUtils';
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -146,9 +147,9 @@ export function ContractsView({ contracts, properties, tenants, payments, landlo
             const contractPayments = payments.filter(p => p.contractId === contract.id);
             const chartData = contractPayments
               .slice()
-              .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+              .sort((a, b) => parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime())
               .map(payment => {
-                const date = new Date(payment.dueDate);
+                const date = parseLocalDate(payment.dueDate);
                 const month = date.toLocaleDateString('pt-BR', { month: 'short' });
                 const year = date.toLocaleDateString('pt-BR', { year: '2-digit' });
                 return {
@@ -441,7 +442,7 @@ export function ContractsView({ contracts, properties, tenants, payments, landlo
                                     {contractPayments.length > 0 ? (
                                       contractPayments
                                         .slice()
-                                        .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())
+                                        .sort((a, b) => parseLocalDate(b.dueDate).getTime() - parseLocalDate(a.dueDate).getTime())
                                         .map((payment) => (
                                           <div 
                                             key={payment.id} 
@@ -455,7 +456,7 @@ export function ContractsView({ contracts, properties, tenants, payments, landlo
                                               }`} />
                                               <div>
                                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">Vencimento</p>
-                                                <p className="text-xs font-bold text-slate-800 dark:text-white font-mono">{new Date(payment.dueDate).toLocaleDateString()}</p>
+                                                <p className="text-xs font-bold text-slate-800 dark:text-white font-mono">{parseLocalDate(payment.dueDate).toLocaleDateString()}</p>
                                               </div>
                                             </div>
                                             

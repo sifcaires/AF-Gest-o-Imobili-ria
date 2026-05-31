@@ -27,6 +27,7 @@ import {
   Area
 } from 'recharts';
 import { Payment } from '../../types';
+import { parseLocalDate } from '../../lib/dateUtils';
 
 interface DashboardViewProps {
   userName: string;
@@ -162,7 +163,7 @@ export function DashboardView({ userName, stats, recentPayments, chartData }: Da
                       <p className="text-xs font-bold text-slate-800 dark:text-white tracking-tight truncate">
                         {payment.tenantName || `Boleto #${payment.id}`}
                       </p>
-                      <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Vence em: {new Date(payment.dueDate).toLocaleDateString()}</p>
+                      <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Vence em: {parseLocalDate(payment.dueDate).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <div className="text-right shrink-0">

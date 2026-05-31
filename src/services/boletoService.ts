@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import QRCode from 'qrcode';
+import { parseLocalDate } from '../lib/dateUtils';
 
 export interface BoletoData {
   id: string;
@@ -110,7 +111,7 @@ export const generateBoletoPDF = async (data: BoletoData) => {
   // Dynamic calculation of finalAmount according to date
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const limitDate = new Date(data.dueDate);
+  const limitDate = parseLocalDate(data.dueDate);
   limitDate.setHours(23, 59, 59, 999);
   const isOverdue = today > limitDate;
 
@@ -120,7 +121,7 @@ export const generateBoletoPDF = async (data: BoletoData) => {
     let isDiscountCurrentlyActive = true;
     
     if (data.discountStartDate) {
-      const start = new Date(data.discountStartDate);
+      const start = parseLocalDate(data.discountStartDate);
       start.setHours(0, 0, 0, 0);
       if (today < start) {
         isDiscountCurrentlyActive = false;
@@ -128,7 +129,7 @@ export const generateBoletoPDF = async (data: BoletoData) => {
     }
     
     if (data.discountEndDate) {
-      const end = new Date(data.discountEndDate);
+      const end = parseLocalDate(data.discountEndDate);
       end.setHours(23, 59, 59, 999);
       if (today > end) {
         isDiscountCurrentlyActive = false;
@@ -234,7 +235,7 @@ export const generateBoletoPDF = async (data: BoletoData) => {
   doc.setTextColor(255, 255, 255);
   doc.text('FATURA DIGITAL SINALIZADA VIA PIX', 192, 22, { align: 'right' });
   doc.setFont('Helvetica', 'normal');
-  doc.text(`VENCIMENTO: ${format(new Date(data.dueDate), 'dd/MM/yyyy')}`, 192, 28, { align: 'right' });
+  doc.text(`VENCIMENTO: ${format(parseLocalDate(data.dueDate), 'dd/MM/yyyy')}`, 192, 28, { align: 'right' });
   doc.text(`NÚMERO: #${data.id.substring(0, 8).toUpperCase()}`, 192, 33, { align: 'right' });
 
   // Spacer
@@ -275,7 +276,7 @@ export const generateBoletoPDF = async (data: BoletoData) => {
     head: [['Rubrica / Descrição', 'Vencimento', 'Multa / Juros', 'Valor']],
     body: [[
       data.title || 'Aluguel Residencial/Comercial Mensal',
-      format(new Date(data.dueDate), 'dd/MM/yyyy'),
+      format(parseLocalDate(data.dueDate), 'dd/MM/yyyy'),
       (data.penaltyPercent ? `Multa: ${data.penaltyPercent}%\n` : '') +
       (data.interestPercent ? `Mora: ${data.interestPercent}%/mês` : 'Sem juros'),
       data.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -427,7 +428,7 @@ export const boletoService = {
       digitableLine: (() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const limitDate = new Date(payment.dueDate);
+        const limitDate = parseLocalDate(payment.dueDate);
         limitDate.setHours(23, 59, 59, 999);
         const isOverdue = today > limitDate;
         
@@ -435,12 +436,12 @@ export const boletoService = {
         if (payment.discountAmount && payment.discountAmount > 0) {
           let isDiscountCurrentlyActive = true;
           if (payment.discountStartDate) {
-            const start = new Date(payment.discountStartDate);
+            const start = parseLocalDate(payment.discountStartDate);
             start.setHours(0, 0, 0, 0);
             if (today < start) isDiscountCurrentlyActive = false;
           }
           if (payment.discountEndDate) {
-            const end = new Date(payment.discountEndDate);
+            const end = parseLocalDate(payment.discountEndDate);
             end.setHours(23, 59, 59, 999);
             if (today > end) isDiscountCurrentlyActive = false;
           } else {

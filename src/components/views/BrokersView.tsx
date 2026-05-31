@@ -100,7 +100,8 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
       </div>
 
       <Card className="border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl">
-        <Table>
+        <div className="overflow-x-auto w-full">
+          <Table>
           <TableHeader className="bg-white/5">
             <TableRow className="border-b border-white/5 hover:bg-transparent">
               <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Corretor</TableHead>
@@ -197,7 +198,7 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
                 </TableCell>
                 <TableCell className="py-3 px-4 text-right">
                   {user?.role !== 'broker' ? (
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 opacity-100 transition-all">
                       <Button 
                         variant="outline" 
                         onClick={() => onEdit(broker)}
@@ -223,6 +224,7 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
             ))}
           </TableBody>
         </Table>
+        </div>
       </Card>
     </div>
   );

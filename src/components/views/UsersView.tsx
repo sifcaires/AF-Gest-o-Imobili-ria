@@ -119,7 +119,8 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
       </div>
 
       <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md overflow-hidden shadow-2xl">
-        <Table>
+        <div className="overflow-x-auto w-full">
+          <Table>
           <TableHeader className="bg-white/5">
             <TableRow className="hover:bg-transparent border-white/10 h-16">
               <TableHead className="text-slate-400 font-bold uppercase tracking-widest text-[10px] pl-8">Usuário</TableHead>
@@ -214,7 +215,7 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                   </TableCell>
                   {(onUpdateUser || onDeleteUser) && (
                     <TableCell className="text-right pr-8 py-5">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 opacity-100 transition-all">
                         {onUpdateUser && (
                           <Button 
                             variant="outline" 
@@ -243,6 +244,7 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {editingUser && (
