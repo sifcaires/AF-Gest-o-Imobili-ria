@@ -103,13 +103,13 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
         <Table>
           <TableHeader className="bg-white/5">
             <TableRow className="border-b border-white/5 hover:bg-transparent">
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Corretor</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">CRECI</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Contato</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Captações</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Comissão</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8">Chave PIX</TableHead>
-              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-4 px-8 text-right">Ações</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Corretor</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">CRECI</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Contato</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Captações</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Comissão</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4">Chave PIX</TableHead>
+              <TableHead className="text-[10px] font-bold uppercase tracking-widest text-slate-400 py-3 px-4 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -129,7 +129,7 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
               </TableRow>
             ) : filteredBrokers.map((broker) => (
               <TableRow key={broker.id} className="border-white/5 hover:bg-white/[0.02] transition-colors group">
-                <TableCell className="py-5 px-8">
+                <TableCell className="py-3 px-4">
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12 border-2 border-white/10 shadow-lg">
                       {getPhoto(broker.email) && (
@@ -150,12 +150,12 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="py-5 px-8">
+                <TableCell className="py-3 px-4">
                   <Badge variant="outline" className="border-emerald-500/20 bg-emerald-500/5 text-emerald-400 font-mono text-[10px] px-3 py-1">
                     CRECI {broker.creci}
                   </Badge>
                 </TableCell>
-                <TableCell className="py-5 px-8">
+                <TableCell className="py-3 px-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <Mail className="h-3 w-3 text-slate-500" />
@@ -167,7 +167,7 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="py-5 px-8">
+                <TableCell className="py-3 px-4">
                   <div className="flex flex-col gap-1">
                     <Badge variant="outline" className="border-teal-500/20 bg-teal-500/10 text-teal-300 text-xs font-bold px-3 py-1.5 rounded-lg w-max flex items-center gap-1.5">
                       <span className="text-[11px]">🏠</span>
@@ -177,13 +177,13 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
                     </Badge>
                   </div>
                 </TableCell>
-                <TableCell className="py-5 px-8">
+                <TableCell className="py-3 px-4">
                   <div className="flex items-center gap-1.5 text-white font-bold text-sm">
                     <Percent className="h-4.5 w-4.5 text-indigo-400 shrink-0" />
                     <span>{broker.commissionPercent}%</span>
                   </div>
                 </TableCell>
-                <TableCell className="py-5 px-8">
+                <TableCell className="py-3 px-4">
                   {broker.pixKey ? (
                     <div className="flex items-center gap-1.5">
                       <CreditCard className="h-3.5 w-3.5 text-slate-500 shrink-0" />
@@ -195,7 +195,7 @@ export function BrokersView({ user, brokers, properties, users, searchTerm, setS
                     <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest italic">Não informada</span>
                   )}
                 </TableCell>
-                <TableCell className="py-5 px-8 text-right">
+                <TableCell className="py-3 px-4 text-right">
                   {user?.role !== 'broker' ? (
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button 

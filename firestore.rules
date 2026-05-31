@@ -1,7 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
+    
+    // --- 1. Global Safety Net ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- 2. Reusable Primitives & Helpers ---
     function isSignedIn() {
       return request.auth != null;
     }
@@ -10,96 +16,157 @@ service cloud.firestore {
       return isSignedIn() && data.ownerId == request.auth.uid;
     }
 
-    function isDirector() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'director';
+    // Role-based retrieval by checking the authenticated user's role in the /users/{userId} document.
+    // If the user document does not exist yet (e.g. during very first signup check), these return false.
+    function isUserDocExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    function isAdmin() {
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isDirector() {
       return isSignedIn() && (
-        request.auth.token.email == 'admin@email.com' || 
-        request.auth.token.email == 'sifcaires@gmail.com' || 
-        isDirector()
+        request.auth.token.email.lower() == 'admin@email.com' || 
+        request.auth.token.email.lower() == 'sifcaires@gmail.com' || 
+        (isUserDocExists() && getUserRole() == 'director')
       );
     }
 
+    function isAdmin() {
+      return isDirector();
+    }
+
     function isLandlordPleno() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'landlord_pleno';
+      return isSignedIn() && (
+        isAdmin() || 
+        (isUserDocExists() && getUserRole() == 'landlord_pleno')
+      );
     }
 
     function isBroker() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'broker';
+      return isSignedIn() && (
+        isAdmin() || 
+        (isUserDocExists() && getUserRole() == 'broker')
+      );
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128;
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // Matching all collections
+    // Helper functions to retrieve state properties from request payload.
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+
+    // --- 3. Schema & Role-Based Match Rules ---
+
+    // Global settings collection (logo, app parameters)
     match /settings/{id} {
       allow read: if true;
       allow write: if isAdmin();
     }
-    
-    match /properties/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin();
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data) || isAdmin();
-    }
-    
-    match /tenants/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin();
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data) || isAdmin();
-    }
-    
-    match /contracts/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin();
-      allow create: if isSignedIn() && (request.resource.data.ownerId == request.auth.uid || isBroker());
-      allow update, delete: if isOwner(resource.data) || isBroker() || isAdmin();
-    }
-    
-    match /payments/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin();
-      allow create: if isSignedIn() && (request.resource.data.ownerId == request.auth.uid || isBroker());
-      allow update, delete: if isOwner(resource.data) || isBroker() || isAdmin();
-    }
-    
-    match /landlords/{id} {
-      allow get, list: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email);
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data) || isAdmin();
+
+    // Properties collection
+    match /properties/{propertyId} {
+      allow read: if isOwner(existing()) || isLandlordPleno() || isBroker() || isAdmin();
+      allow create: if isSignedIn() && isValidId(propertyId) 
+                     && (incoming().ownerId == request.auth.uid || isBroker() || isAdmin());
+      allow update: if isOwner(existing()) || isBroker() || isAdmin();
+      allow delete: if isOwner(existing()) || isAdmin();
     }
 
-    match /brokers/{id} {
-      allow read: if isOwner(resource.data) || isLandlordPleno() || isBroker() || isAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email);
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data) || isAdmin();
+    // Tenants collection
+    match /tenants/{tenantId} {
+      allow read: if isOwner(existing()) || isLandlordPleno() || isBroker() || isAdmin();
+      allow create: if isSignedIn() && isValidId(tenantId)
+                     && (incoming().ownerId == request.auth.uid || isBroker() || isAdmin());
+      allow update: if isOwner(existing()) || isBroker() || isAdmin();
+      allow delete: if isOwner(existing()) || isAdmin();
     }
 
-    match /automations/{id} {
-      allow read, write: if isSignedIn() && (id == request.auth.uid || (resource != null && isOwner(resource.data)) || (request.resource != null && request.resource.data.ownerId == request.auth.uid) || isAdmin());
+    // Contracts collection
+    match /contracts/{contractId} {
+      allow read: if isOwner(existing()) || isLandlordPleno() || isBroker() || isAdmin();
+      allow create: if isSignedIn() && isValidId(contractId)
+                     && (incoming().ownerId == request.auth.uid || isBroker() || isAdmin());
+      allow update: if isOwner(existing()) || isBroker() || isAdmin();
+      allow delete: if isOwner(existing()) || isAdmin();
     }
 
+    // Payments collection
+    match /payments/{paymentId} {
+      allow read: if isOwner(existing()) || isLandlordPleno() || isBroker() || isAdmin();
+      allow create: if isSignedIn() && isValidId(paymentId)
+                     && (incoming().ownerId == request.auth.uid || isBroker() || isAdmin());
+      allow update: if isOwner(existing()) || isBroker() || isAdmin();
+      allow delete: if isOwner(existing()) || isAdmin();
+    }
+
+    // Landlords collection
+    match /landlords/{landlordId} {
+      allow get, list: if isOwner(existing()) || isLandlordPleno() || isBroker() || isAdmin() || 
+                       (isSignedIn() && existing().email.lower() == request.auth.token.email.lower());
+      allow create: if isSignedIn() && isValidId(landlordId)
+                     && (incoming().ownerId == request.auth.uid || isBroker() || isAdmin());
+      allow update: if isOwner(existing()) || isBroker() || isAdmin();
+      allow delete: if isOwner(existing()) || isAdmin();
+    }
+
+    // Brokers collection
+    match /brokers/{brokerId} {
+      allow read: if isOwner(existing()) || isLandlordPleno() || isBroker() || isAdmin() || 
+                   (isSignedIn() && existing().email.lower() == request.auth.token.email.lower());
+      allow create: if isSignedIn() && isValidId(brokerId)
+                     && (incoming().ownerId == request.auth.uid || isBroker() || isAdmin());
+      allow update: if isOwner(existing()) || isBroker() || isAdmin();
+      allow delete: if isOwner(existing()) || isAdmin();
+    }
+
+    // Automations configuration
+    match /automations/{userId} {
+      allow read, write: if isSignedIn() && (
+        userId == request.auth.uid || 
+        (resource != null && isOwner(existing())) || 
+        (request.resource != null && incoming().ownerId == request.auth.uid) || 
+        isAdmin()
+      );
+    }
+
+    // Webhook delivery logs
     match /webhook_logs/{id} {
-      allow read: if resource != null && (isOwner(resource.data) || isAdmin());
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data) || isAdmin();
+      allow read: if resource != null && (isOwner(existing()) || isAdmin());
+      allow create: if isSignedIn() && incoming().ownerId == request.auth.uid;
+      allow update, delete: if isOwner(existing()) || isAdmin();
     }
 
+    // Users registered profiles
     match /users/{userId} {
       allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
-      allow write: if (isSignedIn() && request.auth.uid == userId) || isAdmin();
-    }
-
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
+      // Elevate security on user registration / role changes:
+      // Regular users are allowed to create or modify their own basic profile, but cannot self-assign/elevate roles or change them once set unless they are Director/Admin.
+      allow write: if isAdmin() || (
+        isSignedIn() && request.auth.uid == userId && (
+          // On registration creation:
+          (resource == null && (
+            incoming().role == "landlord" || 
+            incoming().role == "landlord_pleno" || 
+            incoming().role == "broker" || 
+            (incoming().role == "director" && (request.auth.token.email.lower() == "admin@email.com" || request.auth.token.email.lower() == "sifcaires@gmail.com"))
+          )) ||
+          // On profile updates:
+          (resource != null && (
+            !('role' in incoming()) || 
+            incoming().role == existing().role
+          ))
+        )
+      );
     }
   }
 }
