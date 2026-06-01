@@ -759,7 +759,7 @@ export function ContractsView({ contracts, properties, tenants, payments, landlo
                                   
                                   {contractPayments.length > 0 ? (
                                     <div className="h-[220px] w-full p-2 bg-slate-500/5 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl flex items-center justify-center">
-                                      <ResponsiveContainer width="100%" height="100%">
+                                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                         <BarChart
                                           data={chartData}
                                           margin={{ top: 20, right: 10, left: 10, bottom: 5 }}

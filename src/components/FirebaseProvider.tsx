@@ -34,6 +34,8 @@ interface FirebaseContextType {
 
 const FirebaseContext = createContext<FirebaseContextType | undefined>(undefined);
 
+let isSigningUpUser = false;
+
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,10 +52,24 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (user) {
+        if (isSigningUpUser) {
+          // Skip expensive firestore writes and validations during the signup/approval flow itself.
+          setUser(user);
+          setLoading(false);
+          return;
+        }
         // Persist user data to Firestore
         try {
           const userDocRef = doc(db, 'users', user.uid);
           const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists() && userDoc.data()?.active === false) {
+            await auth.signOut();
+            setAuthError('Sua conta está desativada. Entre em contato com seu administrador.');
+            setUser(null);
+            setLoading(false);
+            return;
+          }
           
           let photoURL = user.photoURL;
           let firestorePhotoURL = null;
@@ -69,21 +85,50 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           const isDirector = userEmail === 'admin@email.com' || userEmail === 'sifcaires@gmail.com';
           
           let role: 'director' | 'landlord' | 'landlord_pleno' | 'broker' = isDirector ? 'director' : 'landlord';
+          let ownerId: string | null = null;
+          let isPreRegisteredActive = true;
           
           if (!isDirector && user.email) {
             try {
-              if (userDoc.exists() && userDoc.data()?.role) {
-                const existingRole = userDoc.data()?.role;
-                if (existingRole === 'landlord_pleno' || existingRole === 'landlord' || existingRole === 'director' || existingRole === 'broker') {
-                  role = existingRole as any;
+              if (userDoc.exists()) {
+                const docData = userDoc.data();
+                if (docData?.role) {
+                  const existingRole = docData.role;
+                  if (existingRole === 'landlord_pleno' || existingRole === 'landlord' || existingRole === 'director' || existingRole === 'broker') {
+                    role = existingRole as any;
+                  }
                 }
-              } else {
+                ownerId = docData?.ownerId || null;
+              }
+              
+              if (!ownerId) {
                 const landlordsRef = collection(db, 'landlords');
                 const q = query(landlordsRef, where('email', '==', user.email.toLowerCase().trim()));
                 const querySnapshot = await getDocs(q);
                 
                 if (!querySnapshot.empty) {
-                  role = 'landlord_pleno';
+                  const data = querySnapshot.docs[0].data();
+                  ownerId = data?.ownerId || null;
+                  role = 'landlord_pleno'; // default
+                  if (ownerId) {
+                    try {
+                      const creatorDoc = await getDoc(doc(db, 'users', ownerId));
+                      if (creatorDoc.exists()) {
+                        const cData = creatorDoc.data();
+                        const isCreatorDirector = cData?.role === 'director' || cData?.email === 'admin@email.com' || cData?.email === 'sifcaires@gmail.com';
+                        if (isCreatorDirector) {
+                          role = 'landlord';
+                        }
+                      }
+                    } catch (creatorDocErr) {
+                      console.warn('[FirebaseProvider] Failed to fetch creator document, falling back:', creatorDocErr);
+                    }
+                  } else {
+                    role = 'landlord';
+                  }
+                  if (data?.active === false) {
+                    isPreRegisteredActive = false;
+                  }
                 } else {
                   // Check if pre-registered as broker
                   const brokersRef = collection(db, 'brokers');
@@ -91,6 +136,11 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
                   const brokerSnapshot = await getDocs(qBroker);
                   if (!brokerSnapshot.empty) {
                     role = 'broker';
+                    const data = brokerSnapshot.docs[0].data();
+                    ownerId = data?.ownerId || null;
+                    if (data?.active === false) {
+                      isPreRegisteredActive = false;
+                    }
                   }
                 }
               }
@@ -98,8 +148,19 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
               console.error('[FirebaseProvider] Error checking landlord registration:', err);
               if (userDoc.exists()) {
                 role = userDoc.data()?.role || role;
+                ownerId = userDoc.data()?.ownerId || null;
               }
             }
+          }
+          
+          const isActive = userDoc.exists() ? (userDoc.data()?.active !== false) : isPreRegisteredActive;
+          
+          if (!isActive) {
+            await auth.signOut();
+            setAuthError('Sua conta está desativada. Entre em contato com seu administrador.');
+            setUser(null);
+            setLoading(false);
+            return;
           }
           
           const userData = {
@@ -108,7 +169,9 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
             email: user.email,
             photoURL: photoURL,
             lastLogin: new Date().toISOString(),
-            role: role
+            role: role,
+            ownerId: ownerId,
+            active: isActive
           };
 
           const firestoreWriteData = { ...userData };
@@ -226,6 +289,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const signUpWithEmail = async (email: string, pass: string, name: string) => {
     setAuthError(null);
     let createdUser: User | null = null;
+    isSigningUpUser = true;
     try {
       const emailLower = email.toLowerCase().trim();
       const isDirector = emailLower === 'admin@email.com' || emailLower === 'sifcaires@gmail.com';
@@ -237,7 +301,9 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       
       let isApproved = isDirector;
       let role: 'director' | 'landlord' | 'landlord_pleno' | 'broker' = 'landlord';
+      let ownerId: string | null = null;
       
+      let isPreRegisteredActive = true;
       if (isDirector) {
         role = 'director';
       } else {
@@ -255,13 +321,38 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           const hasLandlord = !landlordSnapshot.empty;
           
           if (hasLandlord) {
-            // Se tiver cadastro de Locador, efetive o acesso como Locador Pleno
             isApproved = true;
-            role = 'landlord_pleno';
+            const data = landlordSnapshot.docs[0].data();
+            ownerId = data?.ownerId || null;
+            role = 'landlord_pleno'; // default
+            if (ownerId) {
+              try {
+                const creatorDoc = await getDoc(doc(db, 'users', ownerId));
+                if (creatorDoc.exists()) {
+                  const cData = creatorDoc.data();
+                  const isCreatorDirector = cData?.role === 'director' || cData?.email === 'admin@email.com' || cData?.email === 'sifcaires@gmail.com';
+                  if (isCreatorDirector) {
+                    role = 'landlord';
+                  }
+                }
+              } catch (creatorDocErr) {
+                console.warn('[signUpWithEmail] Failed to fetch creator document, falling back:', creatorDocErr);
+              }
+            } else {
+              role = 'landlord';
+            }
+            if (data?.active === false) {
+              isPreRegisteredActive = false;
+            }
           } else if (hasBroker) {
             // Se tiver cadastro como Corretor, efetive o acesso como Corretor
             isApproved = true;
             role = 'broker';
+            const data = brokerSnapshot.docs[0].data();
+            ownerId = data?.ownerId || null;
+            if (data?.active === false) {
+              isPreRegisteredActive = false;
+            }
           } else {
             // Se não tiver cadastro nenhum (nem de Locador nem de Corretor), desaprova para dar a mensagem
             isApproved = false;
@@ -291,6 +382,18 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         }
         throw new Error('Seu cadastro ainda não foi concluído, aguarde por 24 horas e tente novamente. Obrigado!');
       }
+
+      if (!isPreRegisteredActive) {
+        // Delete the created authentication user before throwing the error!
+        if (createdUser) {
+          try {
+            await deleteUser(createdUser);
+          } catch (delErr) {
+            console.error('[signUpWithEmail] Error deleting unauthorized auth user:', delErr);
+          }
+        }
+        throw new Error('Sua conta está desativada. Entre em contato com seu administrador.');
+      }
       
       // 3. Persist the user document with the resolved role to Firestore immediately!
       const userDocRef = doc(db, 'users', createdUser.uid);
@@ -299,14 +402,34 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         displayName: name,
         email: emailLower,
         role: role,
+        ownerId: ownerId,
+        active: isPreRegisteredActive,
         lastLogin: new Date().toISOString(),
         createdAt: new Date().toISOString()
       }, { merge: true });
 
       // Reload user record to update local profile displayName
       await createdUser.reload();
+
+      // Configure user with roles as expected in the state
+      const customUser = Object.create(createdUser);
+      Object.defineProperty(customUser, 'photoURL', {
+        value: createdUser.photoURL,
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+      Object.defineProperty(customUser, 'role', {
+        value: role,
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+      setUser(customUser);
     } catch (error: any) {
       handleAuthError(error);
+    } finally {
+      isSigningUpUser = false;
     }
   };
 

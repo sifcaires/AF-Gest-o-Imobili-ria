@@ -58,7 +58,7 @@ export function AutomationsView({
     if (user?.uid) {
       loadData();
     }
-  }, [user]);
+  }, [user?.uid]);
 
   const loadData = async () => {
     try {

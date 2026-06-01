@@ -125,6 +125,8 @@ export interface AppUser {
   role: 'director' | 'landlord' | 'landlord_pleno' | 'broker';
   createdAt: string;
   lastLogin: string;
+  ownerId?: string | null;
+  active?: boolean;
 }
 
 export interface InspectionArea {

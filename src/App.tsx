@@ -353,7 +353,7 @@ export default function App() {
           }}
         />;
       case 'users':
-        if (user?.email !== 'admin@email.com' && user?.email !== 'sifcaires@gmail.com') {
+        if (user?.email !== 'admin@email.com' && user?.email !== 'sifcaires@gmail.com' && user?.role !== 'director' && user?.role !== 'landlord') {
           return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
               <div className="h-16 w-16 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500 mb-4 animate-pulse">
@@ -444,7 +444,7 @@ export default function App() {
                     label="Visão Geral" 
                   />
                 </SidebarMenuItem>
-                {(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com') && (
+                {(user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com' || user?.role === 'director' || user?.role === 'landlord') && (
                   <SidebarMenuItem>
                     <SidebarViewButton 
                       view="users" 
@@ -464,17 +464,15 @@ export default function App() {
                     label="Corretores" 
                   />
                 </SidebarMenuItem>
-                {user?.role !== 'landlord_pleno' && (
-                  <SidebarMenuItem>
-                    <SidebarViewButton 
-                      view="landlords" 
-                      activeView={activeView} 
-                      onClick={setActiveView} 
-                      icon={UserSquare2} 
-                      label="Locadores" 
-                    />
-                  </SidebarMenuItem>
-                )}
+                <SidebarMenuItem>
+                  <SidebarViewButton 
+                    view="landlords" 
+                    activeView={activeView} 
+                    onClick={setActiveView} 
+                    icon={UserSquare2} 
+                    label="Locadores" 
+                  />
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarViewButton 
                     view="properties" 
@@ -608,16 +606,14 @@ export default function App() {
                   setEditingItem(null);
                 }
               }}>
-                {user?.role !== 'landlord_pleno' ? (
-                  <DialogTrigger
-                    render={
-                      <button className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/25 transition-all font-bold px-6 rounded-full text-xs uppercase tracking-wider inline-flex items-center justify-center cursor-pointer">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Novo Registro
-                      </button>
-                    }
-                  />
-                ) : null}
+                 <DialogTrigger
+                   render={
+                     <button className="h-10 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/25 transition-all font-bold px-6 rounded-full text-xs uppercase tracking-wider inline-flex items-center justify-center cursor-pointer">
+                       <Plus className="mr-2 h-4 w-4" />
+                       Novo Registro
+                     </button>
+                   }
+                 />
                 <DialogContent className={`${activeForm === 'none' ? 'sm:max-w-sm' : 'sm:max-w-2xl'} frosted border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 overflow-hidden ${activeForm === 'none' ? 'max-h-[min(655px,90vh)] md:h-[655px]' : 'max-h-[96vh] h-[95vh] md:h-[95vh]'} flex flex-col pl-[7px] pr-[10px] pt-0 pb-0 ml-0 -mt-[21px] mr-0 mb-0 border`}>
                   <DialogHeader className="h-[93px] pt-4 pb-4 pr-4 pl-[16px] ml-0 -mt-[8px] border-b border-slate-150 dark:border-white/5 flex flex-col justify-center shrink-0">
                     <DialogTitle className="serif text-xl md:text-2xl text-slate-800 dark:text-white">

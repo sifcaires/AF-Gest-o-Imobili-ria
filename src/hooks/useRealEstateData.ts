@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   collection, 
   query, 
@@ -30,6 +30,11 @@ export function useRealEstateData(user: any) {
   const [loading, setLoading] = useState(true);
   const [isOperating, setIsOperating] = useState(false);
 
+  const getDocumentOwnerId = () => {
+    if (!user) return '';
+    return (user.role === 'landlord_pleno' && user.ownerId) ? user.ownerId : user.uid;
+  };
+
   useEffect(() => {
     if (!user) {
       setProperties([]);
@@ -48,15 +53,29 @@ export function useRealEstateData(user: any) {
     const isAdmin = user.email === 'admin@email.com' || user.email === 'sifcaires@gmail.com';
     const isPleno = user?.role === 'landlord_pleno';
 
-    const usersUnsubscribe = isAdmin ? onSnapshot(collection(db, 'users'), (snapshot) => {
+    const isMaster = user?.role === 'landlord';
+    let usersQuery = null;
+    if (isAdmin) {
+      usersQuery = collection(db, 'users');
+    } else if (isMaster || isPleno) {
+      const masterId = isPleno ? (user.ownerId || '') : user.uid;
+      usersQuery = query(collection(db, 'users'), where('ownerId', '==', masterId));
+    }
+
+    const usersUnsubscribe = usersQuery ? onSnapshot(usersQuery, (snapshot) => {
       setUsers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'users')) : () => {};
 
     const getQuery = (collectionName: string) => {
       const isBroker = user?.role === 'broker';
-      return (isAdmin || isPleno || isBroker)
-        ? collection(db, collectionName) 
-        : query(collection(db, collectionName), where('ownerId', '==', user.uid));
+      if (isAdmin || isBroker) {
+        return collection(db, collectionName);
+      }
+      if (isPleno) {
+        const masterId = user?.ownerId || '';
+        return query(collection(db, collectionName), where('ownerId', '==', masterId));
+      }
+      return query(collection(db, collectionName), where('ownerId', '==', user.uid));
     };
 
     const unsubProperties = onSnapshot(getQuery('properties'), (snapshot) => {
@@ -101,7 +120,7 @@ export function useRealEstateData(user: any) {
       unsubInspections();
       usersUnsubscribe();
     };
-  }, [user]);
+  }, [user?.uid, user?.email, user?.role, user?.ownerId]);
 
   const addProperty = async (data: Omit<Property, 'id' | 'ownerId'>) => {
     if (!user) return;
@@ -109,7 +128,7 @@ export function useRealEstateData(user: any) {
     try {
       await addDoc(collection(db, 'properties'), {
         ...data,
-        ownerId: user.uid,
+        ownerId: getDocumentOwnerId(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -154,7 +173,7 @@ export function useRealEstateData(user: any) {
     try {
       await addDoc(collection(db, 'tenants'), {
         ...data,
-        ownerId: user.uid,
+        ownerId: getDocumentOwnerId(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -201,7 +220,7 @@ export function useRealEstateData(user: any) {
       const contractRef = doc(collection(db, 'contracts'));
       batch.set(contractRef, {
         ...data,
-        ownerId: user.uid,
+        ownerId: getDocumentOwnerId(),
         status: 'active',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -255,7 +274,7 @@ export function useRealEstateData(user: any) {
     try {
       await addDoc(collection(db, 'payments'), {
         ...data,
-        ownerId: user.uid,
+        ownerId: getDocumentOwnerId(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -288,7 +307,8 @@ export function useRealEstateData(user: any) {
             const property = contract ? properties.find(p => p.id === contract.propertyId) : undefined;
 
             const { automationService } = await import('../services/automationService');
-            const config = await automationService.getAutomationConfig(user.uid);
+            const targetOwnerId = getDocumentOwnerId();
+            const config = await automationService.getAutomationConfig(targetOwnerId);
 
             if (config?.enabled && config.webhookUrl && config.events.includes('payment.paid')) {
               const res = await automationService.triggerWebhook(config.webhookUrl, config.secretToken, 'payment.paid', {
@@ -299,7 +319,7 @@ export function useRealEstateData(user: any) {
                 paidAt: new Date().toISOString()
               });
 
-              await automationService.addWebhookLog(user.uid, {
+              await automationService.addWebhookLog(targetOwnerId, {
                 event: 'payment.paid',
                 timestamp: new Date().toISOString(),
                 payload: JSON.stringify({ payment: fullPayment, tenant, property }, null, 2),
@@ -366,7 +386,7 @@ export function useRealEstateData(user: any) {
 
       await setDoc(landlordRef, {
         ...finalData,
-        ownerId: user.uid,
+        ownerId: getDocumentOwnerId(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -449,7 +469,7 @@ export function useRealEstateData(user: any) {
     try {
       await addDoc(collection(db, 'brokers'), {
         ...data,
-        ownerId: user.uid,
+        ownerId: getDocumentOwnerId(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -494,7 +514,7 @@ export function useRealEstateData(user: any) {
     try {
       await addDoc(collection(db, 'inspections'), {
         ...data,
-        ownerId: user.uid,
+        ownerId: getDocumentOwnerId(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -541,11 +561,59 @@ export function useRealEstateData(user: any) {
     }
     setIsOperating(true);
     try {
-      await updateDoc(doc(db, 'users', uid), {
-        ...data,
-        updatedAt: serverTimestamp()
-      });
-      toast.success('Usuário atualizado com sucesso!');
+      if (uid.startsWith('virtual_landlord_')) {
+        const landlordId = uid.replace('virtual_landlord_', '');
+        await updateDoc(doc(db, 'landlords', landlordId), {
+          active: data.active,
+          updatedAt: serverTimestamp()
+        });
+        toast.success('Status de Acesso do Locador atualizado!');
+      } else if (uid.startsWith('virtual_broker_')) {
+        const brokerId = uid.replace('virtual_broker_', '');
+        await updateDoc(doc(db, 'brokers', brokerId), {
+          active: data.active,
+          updatedAt: serverTimestamp()
+        });
+        toast.success('Status de Acesso do Corretor atualizado!');
+      } else {
+        await updateDoc(doc(db, 'users', uid), {
+          ...data,
+          updatedAt: serverTimestamp()
+        });
+
+        // Dual-write: If we updated active status, let's keep corresponding landlords/brokers in sync too!
+        if (data.active !== undefined) {
+          const existingUser = users.find(u => u.uid === uid);
+          if (existingUser && existingUser.email) {
+            const emailLower = existingUser.email.toLowerCase().trim();
+            if (existingUser.role === 'landlord' || existingUser.role === 'landlord_pleno') {
+              const landlordsRef = collection(db, 'landlords');
+              const q = query(landlordsRef, where('email', '==', emailLower));
+              const snapshot = await getDocs(q);
+              if (!snapshot.empty) {
+                const landlordDocId = snapshot.docs[0].id;
+                await updateDoc(doc(db, 'landlords', landlordDocId), {
+                  active: data.active,
+                  updatedAt: serverTimestamp()
+                });
+              }
+            } else if (existingUser.role === 'broker') {
+              const brokersRef = collection(db, 'brokers');
+              const q = query(brokersRef, where('email', '==', emailLower));
+              const snapshot = await getDocs(q);
+              if (!snapshot.empty) {
+                const brokerDocId = snapshot.docs[0].id;
+                await updateDoc(doc(db, 'brokers', brokerDocId), {
+                  active: data.active,
+                  updatedAt: serverTimestamp()
+                });
+              }
+            }
+          }
+        }
+
+        toast.success('Usuário atualizado com sucesso!');
+      }
     } catch (e) {
       console.error('[UpdateUser Error]', e);
       handleFirestoreError(e, OperationType.UPDATE, `users/${uid}`);
@@ -568,8 +636,18 @@ export function useRealEstateData(user: any) {
 
     setIsOperating(true);
     try {
-      await deleteDoc(doc(db, 'users', uid));
-      toast.success('Usuário removido com sucesso!');
+      if (uid.startsWith('virtual_landlord_')) {
+        const landlordId = uid.replace('virtual_landlord_', '');
+        await deleteDoc(doc(db, 'landlords', landlordId));
+        toast.success('Cadastro de Locador removido!');
+      } else if (uid.startsWith('virtual_broker_')) {
+        const brokerId = uid.replace('virtual_broker_', '');
+        await deleteDoc(doc(db, 'brokers', brokerId));
+        toast.success('Cadastro de Corretor removido!');
+      } else {
+        await deleteDoc(doc(db, 'users', uid));
+        toast.success('Usuário removido com sucesso!');
+      }
     } catch (e) {
       console.error('[DeleteUser Error]', e);
       handleFirestoreError(e, OperationType.DELETE, `users/${uid}`);
@@ -601,6 +679,77 @@ export function useRealEstateData(user: any) {
 
   const isPleno = user?.role === 'landlord_pleno';
   const isBroker = user?.role === 'broker';
+
+  const unifiedUsers = useMemo(() => {
+    const list = [...users];
+
+    // Ensure the logged-in user themselves is always in the list of users so they can see themselves
+    if (user) {
+      const selfExists = list.some(u => u.uid === user.uid);
+      if (!selfExists) {
+        list.push({
+          uid: user.uid,
+          id: user.uid,
+          displayName: user.displayName || 'Você',
+          email: user.email || '',
+          role: user.role,
+          active: user.active !== false,
+          createdAt: user.createdAt || new Date().toISOString(),
+          lastLogin: user.lastLogin || new Date().toISOString(),
+          ownerId: user.ownerId || null,
+          isSelf: true
+        });
+      }
+    }
+
+    // Merge pre-registered landlords who have not signed up yet
+    landlords.forEach((l) => {
+      if (l.email) {
+        const emailLower = l.email.toLowerCase().trim();
+        const alreadyExists = list.some(u => u.email?.toLowerCase().trim() === emailLower);
+        if (!alreadyExists) {
+          list.push({
+            uid: `virtual_landlord_${l.id}`,
+            id: l.id,
+            displayName: l.name,
+            email: l.email,
+            role: 'landlord_pleno',
+            active: l.active !== false,
+            createdAt: l.createdAt ? (typeof l.createdAt.toDate === 'function' ? l.createdAt.toDate().toISOString() : l.createdAt) : new Date().toISOString(),
+            lastLogin: null,
+            ownerId: l.ownerId,
+            isVirtual: true,
+            virtualType: 'landlord'
+          });
+        }
+      }
+    });
+
+    // Merge pre-registered brokers who have not signed up yet
+    brokers.forEach((b) => {
+      if (b.email) {
+        const emailLower = b.email.toLowerCase().trim();
+        const alreadyExists = list.some(u => u.email?.toLowerCase().trim() === emailLower);
+        if (!alreadyExists) {
+          list.push({
+            uid: `virtual_broker_${b.id}`,
+            id: b.id,
+            displayName: b.name,
+            email: b.email,
+            role: 'broker',
+            active: b.active !== false,
+            createdAt: b.createdAt ? (typeof b.createdAt.toDate === 'function' ? b.createdAt.toDate().toISOString() : b.createdAt) : new Date().toISOString(),
+            lastLogin: null,
+            ownerId: b.ownerId,
+            isVirtual: true,
+            virtualType: 'broker'
+          });
+        }
+      }
+    });
+
+    return list;
+  }, [users, landlords, brokers]);
 
   const linkedLandlord = isPleno
     ? landlords.find(l => l.email?.toLowerCase() === user?.email?.toLowerCase())
@@ -641,7 +790,7 @@ export function useRealEstateData(user: any) {
       : landlords;
 
   const filteredBrokers = isPleno
-    ? brokers // Let landlord_pleno access brokers
+    ? brokers.filter(b => b.ownerId === (user?.ownerId || linkedLandlord?.ownerId))
     : isBroker
       ? (linkedBroker ? [linkedBroker] : [])
       : brokers;
@@ -660,7 +809,7 @@ export function useRealEstateData(user: any) {
     landlords: filteredLandlords,
     brokers: filteredBrokers,
     inspections: filteredInspections,
-    users,
+    users: unifiedUsers,
     loading,
     isOperating,
     addProperty, updateProperty, deleteProperty,

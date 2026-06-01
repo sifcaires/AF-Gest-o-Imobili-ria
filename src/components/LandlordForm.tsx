@@ -15,7 +15,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { Landlord } from '../types';
-import { maskPhone, maskCPFouCNPJ } from '../lib/masks';
+import { maskPhone, maskCPFouCNPJ, validateCPF, validateCNPJ } from '../lib/masks';
 import { toast } from 'sonner';
 import { getSafeDocumentUrl, viewDocumentSecurely } from '../lib/documentViewer';
 
@@ -39,9 +39,86 @@ export function LandlordForm({ initialData, onSubmit, isLoading, currentUserName
     registeredBy: initialData?.registeredBy || currentUserName || '',
   });
   const [files, setFiles] = useState<File[]>([]);
+  const [cpfCnpjError, setCpfCnpjError] = useState(() => {
+    if (initialData?.cpfCnpj) {
+      const clean = initialData.cpfCnpj.replace(/\D/g, '');
+      if (clean.length > 0) {
+        if (clean.length <= 11) {
+          if (clean.length < 11) return 'O CPF deve ter 11 dígitos';
+          return validateCPF(clean) ? '' : 'CPF inválido (Dígito verificador incorreto)';
+        } else {
+          if (clean.length < 14) return 'O CNPJ deve ter 14 dígitos';
+          return validateCNPJ(clean) ? '' : 'CNPJ inválido (Dígito verificador incorreto)';
+        }
+      }
+    }
+    return '';
+  });
+
+  const handleCpfCnpjChange = (val: string) => {
+    const masked = maskCPFouCNPJ(val);
+    const clean = val.replace(/\D/g, '');
+
+    setFormData(prev => ({ ...prev, cpfCnpj: masked }));
+
+    if (clean.length === 0) {
+      setCpfCnpjError('');
+    } else if (clean.length <= 11) {
+      if (clean.length < 11) {
+        setCpfCnpjError('O CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos');
+      } else {
+        const isValid = validateCPF(clean);
+        if (!isValid) {
+          setCpfCnpjError('CPF inválido (Dígito verificador incorreto)');
+        } else {
+          setCpfCnpjError('');
+        }
+      }
+    } else {
+      if (clean.length < 14) {
+        setCpfCnpjError('O CNPJ deve ter 14 dígitos');
+      } else {
+        const isValid = validateCNPJ(clean);
+        if (!isValid) {
+          setCpfCnpjError('CNPJ inválido (Dígito verificador incorreto)');
+        } else {
+          setCpfCnpjError('');
+        }
+      }
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    // Validate CPF/CNPJ
+    const clean = formData.cpfCnpj.replace(/\D/g, '');
+    if (clean.length > 0) {
+      if (clean.length <= 11) {
+        if (clean.length < 11) {
+          setCpfCnpjError('O CPF deve ter 11 dígitos');
+          toast.error('O CPF está incompleto. Digite todos os 11 dígitos.');
+          return;
+        }
+        if (!validateCPF(clean)) {
+          setCpfCnpjError('CPF inválido (Dígito verificador incorreto)');
+          toast.error('O CPF informado é inválido.');
+          return;
+        }
+      } else {
+        if (clean.length < 14) {
+          setCpfCnpjError('O CNPJ deve ter 14 dígitos');
+          toast.error('O CNPJ está incompleto. Digite todos os 14 dígitos.');
+          return;
+        }
+        if (!validateCNPJ(clean)) {
+          setCpfCnpjError('CNPJ inválido (Dígito verificador incorreto)');
+          toast.error('O CNPJ informado é inválido.');
+          return;
+        }
+      }
+    }
+
     if (files.length > 0) {
       await onSubmit({ ...formData, files } as any);
       setFiles([]);
@@ -109,11 +186,18 @@ export function LandlordForm({ initialData, onSubmit, isLoading, currentUserName
                 id="cpfCnpj"
                 placeholder="000.000.000-00"
                 value={formData.cpfCnpj}
-                onChange={(e) => setFormData({ ...formData, cpfCnpj: maskCPFouCNPJ(e.target.value) })}
+                onChange={(e) => handleCpfCnpjChange(e.target.value)}
                 required
-                className="border-white/10 bg-white/5 text-white h-11 pl-10 rounded-xl focus:ring-indigo-500/50"
+                className={`border-white/10 bg-white/5 text-white h-11 pl-10 rounded-xl focus:ring-indigo-500/50 ${
+                  cpfCnpjError ? 'border-rose-500/50 focus:ring-rose-500/50' : ''
+                }`}
               />
             </div>
+            {cpfCnpjError && (
+              <span className="text-[10px] font-bold text-rose-400 mt-1 block font-sans">
+                {cpfCnpjError}
+              </span>
+            )}
           </div>
           <div className="space-y-1">
             <Label htmlFor="pixKey" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Chave PIX (Para Recebimento)</Label>

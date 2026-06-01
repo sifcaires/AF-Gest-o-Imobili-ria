@@ -46,25 +46,33 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
   const { user } = useFirebase();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [editingUser, setEditingUser] = React.useState<AppUser | null>(null);
-  const [userToDelete, setUserToDelete] = React.useState<AppUser | null>(null);
   const [editedName, setEditedName] = React.useState('');
   const [editedRole, setEditedRole] = React.useState<'director' | 'landlord' | 'landlord_pleno' | 'broker'>('landlord');
+  const [editedActive, setEditedActive] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
+
+  const isDirector = user?.role === 'director' || user?.email === 'admin@email.com' || user?.email === 'sifcaires@gmail.com';
+  const isMaster = user?.role === 'landlord';
 
   const handleStartEdit = (u: AppUser) => {
     setEditingUser(u);
     setEditedName(u.displayName || '');
     setEditedRole(u.role || 'landlord');
+    setEditedActive(u.active !== false);
   };
 
   const handleSaveEdit = async () => {
     if (!editingUser || !onUpdateUser) return;
     setIsSaving(true);
     try {
-      await onUpdateUser(editingUser.uid, {
-        displayName: editedName,
-        role: editedRole
-      });
+      const updatePayload: Partial<AppUser> = {
+        active: editedActive
+      };
+      if (!isMaster) {
+        updatePayload.displayName = editedName;
+        updatePayload.role = editedRole;
+      }
+      await onUpdateUser(editingUser.uid, updatePayload);
       setEditingUser(null);
     } catch (e) {
       console.error('[SaveUserEdit Error]', e);
@@ -73,17 +81,17 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
     }
   };
 
-  const handleDeleteUserSubmit = async () => {
-    if (!userToDelete || !onDeleteUser) return;
-    try {
-      await onDeleteUser(userToDelete.uid);
-      setUserToDelete(null);
-    } catch (e) {
-      console.error('[DeleteUser Error]', e);
-    }
-  };
-
   const filteredUsers = users.filter(u => {
+    // If the logged-in user is a Locador Master, they can ONLY see themselves,
+    // and users they created (with role 'landlord', 'landlord_pleno', or 'broker')
+    if (isMaster) {
+      const isSelf = u.uid === user?.uid;
+      const isCreatedByMe = u.ownerId === user?.uid;
+      
+      if (!isSelf && !isCreatedByMe) return false;
+      if (u.role !== 'landlord' && u.role !== 'landlord_pleno' && u.role !== 'broker') return false;
+    }
+
     const s = searchTerm.toLowerCase();
     return (
       u.displayName?.toLowerCase().includes(s) || 
@@ -114,7 +122,7 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
             <h2 className="text-4xl font-bold text-white serif italic tracking-tight">Gestão de Usuários</h2>
           </div>
           <p className="text-slate-400 text-sm max-w-md font-medium">
-            Visualize e monitore os acessos ao Portal AlugaFácil. Restrito ao Diretor Geral.
+            Visualize e gerencie os usuários e os acessos ao Portal AlugaFácil.
           </p>
         </div>
 
@@ -219,9 +227,11 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="inline-flex items-center gap-2 bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20">
-                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse"></div>
-                      <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">Ativo</span>
+                    <div className={`inline-flex items-center gap-2 ${u.active !== false ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'} px-3 py-1.5 rounded-full border`}>
+                      <div className={`h-1.5 w-1.5 rounded-full ${u.active !== false ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></div>
+                      <span className={`text-[10px] font-bold ${u.active !== false ? 'text-emerald-300' : 'text-rose-300'} uppercase tracking-widest`}>
+                        {u.active !== false ? 'Ativo' : 'Inativo'}
+                      </span>
                     </div>
                   </TableCell>
                   {(onUpdateUser || onDeleteUser) && (
@@ -232,15 +242,15 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                             variant="outline" 
                             onClick={() => handleStartEdit(u)}
                             className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-white/10 text-white transition-colors"
-                            title="Editar Usuário"
+                            title={isMaster ? "Alterar Status de Acesso" : "Editar Usuário"}
                           >
                             <Pencil className="h-4 w-4 text-indigo-300" />
                           </Button>
                         )}
-                        {onDeleteUser && (u.role === 'landlord' || (user?.role === 'director' && (u.role === 'landlord_pleno' || u.role === 'broker'))) && (
+                        {onDeleteUser && (isDirector || isMaster) && u.uid !== user?.uid && (
                           <Button 
                             variant="outline" 
-                            onClick={() => setUserToDelete(u)}
+                            onClick={() => onDeleteUser(u.uid)}
                             className="h-10 w-10 p-0 rounded-xl border-white/10 bg-white/5 hover:bg-rose-500/10 text-rose-400 border hover:border-rose-500/50 transition-colors"
                             title={u.role === 'landlord_pleno' ? "Excluir Locador Pleno" : u.role === 'broker' ? "Excluir Corretor" : "Excluir Locador Master"}
                           >
@@ -264,9 +274,13 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
             <div className="bg-gradient-to-r from-indigo-700 to-indigo-900 text-white p-6 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 animate-pulse"></div>
               <DialogHeader className="relative z-10">
-                <DialogTitle className="serif italic text-2xl text-white">Editar Usuário</DialogTitle>
+                <DialogTitle className="serif italic text-2xl text-white">
+                  {isMaster ? 'Alterar Status de Acesso' : 'Editar Usuário'}
+                </DialogTitle>
                 <DialogDescription className="text-indigo-200/90 mt-1 text-xs font-semibold">
-                  Altere as credenciais e nível de acesso do colaborador.
+                  {isMaster 
+                    ? 'Ative ou inative o acesso do colaborador ao sistema.'
+                    : 'Altere as credenciais e nível de acesso do colaborador.'}
                 </DialogDescription>
               </DialogHeader>
             </div>
@@ -278,22 +292,41 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                   value={editedName} 
                   onChange={(e) => setEditedName(e.target.value)}
                   placeholder="Nome Completo"
-                  className="h-12 border-white/10 bg-white/5 text-white placeholder:text-slate-500 rounded-2xl focus-visible:ring-indigo-500/50 transition-all font-semibold"
+                  disabled={isMaster}
+                  className="h-12 border-white/10 bg-white/5 disabled:opacity-60 text-white placeholder:text-slate-500 rounded-2xl focus-visible:ring-indigo-500/50 transition-all font-semibold"
                 />
               </div>
 
+              {!isMaster && (
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Papel / Perfil de Acesso</Label>
+                  <div className="relative">
+                    <select
+                      value={editedRole}
+                      onChange={(e) => setEditedRole(e.target.value as 'director' | 'landlord' | 'landlord_pleno' | 'broker')}
+                      className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-2xl text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all appearance-none cursor-pointer"
+                    >
+                      {user?.role === 'director' && (
+                        <option value="director" className="bg-[#0a0f1d] text-white font-bold">Diretor Geral (Acesso Pleno)</option>
+                      )}
+                      <option value="landlord" className="bg-[#0a0f1d] text-white">Locador Master (Acesso Restrito)</option>
+                      <option value="landlord_pleno" className="bg-[#0a0f1d] text-white">Locador Pleno (Somente Visualização)</option>
+                      <option value="broker" className="bg-[#0a0f1d] text-white">Corretor (Acesso Restrito)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Papel / Perfil de Acesso</Label>
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Status da Conta</Label>
                 <div className="relative">
                   <select
-                    value={editedRole}
-                    onChange={(e) => setEditedRole(e.target.value as 'director' | 'landlord' | 'landlord_pleno' | 'broker')}
+                    value={editedActive ? 'active' : 'inactive'}
+                    onChange={(e) => setEditedActive(e.target.value === 'active')}
                     className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-2xl text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all appearance-none cursor-pointer"
                   >
-                    <option value="director" className="bg-[#0a0f1d] text-white font-bold">Diretor Geral (Acesso Pleno)</option>
-                    <option value="landlord" className="bg-[#0a0f1d] text-white">Locador Master (Acesso Restrito)</option>
-                    <option value="landlord_pleno" className="bg-[#0a0f1d] text-white">Locador Pleno (Somente Visualização)</option>
-                    <option value="broker" className="bg-[#0a0f1d] text-white">Corretor (Acesso Restrito)</option>
+                    <option value="active" className="bg-[#0a0f1d] text-emerald-400">Ativo</option>
+                    <option value="inactive" className="bg-[#0a0f1d] text-rose-400">Inativo</option>
                   </select>
                 </div>
               </div>
@@ -316,45 +349,6 @@ export function UsersView({ users, onUpdateUser, onDeleteUser }: UsersViewProps)
                 {isSaving ? 'Salvando...' : 'Salvar Alterações'}
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {userToDelete && (
-        <Dialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
-          <DialogContent className="sm:max-w-md bg-[#0a0f1d] border border-white/10 text-white rounded-3xl overflow-hidden p-0 shadow-2xl">
-            <div className="bg-gradient-to-r from-rose-700 to-rose-900 text-white p-6 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16 animate-pulse"></div>
-              <DialogHeader className="relative z-10">
-                <DialogTitle className="serif italic text-2xl text-white">Confirmar Exclusão</DialogTitle>
-                <DialogDescription className="text-rose-100/90 mt-1 text-xs font-semibold">
-                  Esta ação revogará todo o acesso do colaborador ao sistema.
-                </DialogDescription>
-              </DialogHeader>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              <p className="text-sm text-slate-300">
-                Você tem certeza que deseja excluir o usuário <span className="font-bold text-white">{userToDelete.displayName || userToDelete.email}</span> ({userToDelete.role})?
-              </p>
-              
-              <DialogFooter className="flex gap-2 sm:justify-end">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setUserToDelete(null)}
-                  className="border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-xl"
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleDeleteUserSubmit}
-                  className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold"
-                >
-                  Confirmar Exclusão
-                </Button>
-              </DialogFooter>
-            </div>
           </DialogContent>
         </Dialog>
       )}

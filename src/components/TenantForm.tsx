@@ -13,7 +13,8 @@ import {
   MapPin
 } from 'lucide-react';
 import { Tenant } from '../types';
-import { maskCPF, maskPhone } from '../lib/masks';
+import { maskCPF, maskPhone, validateCPF } from '../lib/masks';
+import { toast } from 'sonner';
 
 interface TenantFormProps {
   initialData?: Partial<Tenant>;
@@ -37,9 +38,55 @@ export function TenantForm({ initialData, onSubmit, isLoading, userRole }: Tenan
     address: initialData?.address || '',
   });
 
+  const [cpfError, setCpfError] = useState(() => {
+    if (initialData?.cpf) {
+      const clean = initialData.cpf.replace(/\D/g, '');
+      if (clean.length > 0) {
+        if (clean.length < 11) return 'O CPF deve ter 11 dígitos';
+        return validateCPF(clean) ? '' : 'CPF inválido (Dígito verificador incorreto)';
+      }
+    }
+    return '';
+  });
+
+  const handleCpfChange = (val: string) => {
+    const masked = maskCPF(val);
+    const clean = val.replace(/\D/g, '');
+    
+    setFormData(prev => ({ ...prev, cpf: masked }));
+
+    if (clean.length === 0) {
+      setCpfError('');
+    } else if (clean.length < 11) {
+      setCpfError('O CPF deve ter 11 dígitos');
+    } else {
+      const isValid = validateCPF(clean);
+      if (!isValid) {
+        setCpfError('CPF inválido (Dígito verificador incorreto)');
+      } else {
+        setCpfError('');
+      }
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (isReadOnly) return;
+
+    const clean = formData.cpf.replace(/\D/g, '');
+    if (clean.length > 0) {
+      if (clean.length < 11) {
+        setCpfError('O CPF deve ter 11 dígitos');
+        toast.error('O CPF está incompleto. Digite todos os 11 dígitos.');
+        return;
+      }
+      if (!validateCPF(clean)) {
+        setCpfError('CPF inválido (Dígito verificador incorreto)');
+        toast.error('O CPF informado é inválido.');
+        return;
+      }
+    }
+
     await onSubmit(formData);
   };
 
@@ -121,11 +168,18 @@ export function TenantForm({ initialData, onSubmit, isLoading, userRole }: Tenan
                 placeholder="000.000.000-00"
                 value={formData.cpf}
                 disabled={isReadOnly}
-                onChange={(e) => setFormData({ ...formData, cpf: maskCPF(e.target.value) })}
+                onChange={(e) => handleCpfChange(e.target.value)}
                 required
-                className="border-white/10 bg-white/5 text-white h-12 pl-10 rounded-xl focus:ring-indigo-500/50"
+                className={`border-white/10 bg-white/5 text-white h-12 pl-10 rounded-xl focus:ring-indigo-500/50 ${
+                  cpfError ? 'border-rose-500/50 focus:ring-rose-500/50' : ''
+                }`}
               />
             </div>
+            {cpfError && (
+              <span className="text-[10px] font-bold text-rose-400 mt-1 block">
+                {cpfError}
+              </span>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="rg" className="text-[9px] font-bold uppercase tracking-widest text-slate-400">RG</Label>
